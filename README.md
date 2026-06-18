@@ -135,13 +135,17 @@ run.sh
  ├─ 2. copy            make_working_copy.py → output/<deck> — <timestamp>.pptx
  ├─ 2b. map (python)   map_slides.py → data/slide-structure.json (learned geometry; no re-discovery)
  ├─ 3. deck-data       agent: web_fetch events + TFE + changelog highlights → enrich data/*.json
- ├─ 4. pptx-orchestrator  agent: edit mapped slides (style-preserving), hide empties, repack
+ ├─ 3b. release edit (python)  edit_release_slides.py → applies the shift/refresh standard AND
+ │                        date-reconciles mislabeled versions on slides 7,8,11,12; hard cases are
+ │                        listed in data/release-edit-report.json for the agent (fallback_slides)
+ ├─ 4. pptx-orchestrator  agent: edit fallback + blog slides (style-preserving), hide empties, repack
  ├─ 4b. verify (python)   verify_deck.py → output/verify-*.txt (deterministic gate: integrity, hide
- │                        audit, style, release-column latest) — ground truth for the reviewer
+ │                        audit, style, release-column latest, date-keyed accuracy) — reviewer's truth
  └─ 5. deck-reviewer   agent: judgment checks (data/highlights/links/scope); record learnings
 ```
-The Python phases are fast and free; the three **agent** phases (research, edit, review) are where
-the time goes — that's the 30–45 minutes.
+The Python phases are fast and free; the **agent** phases (research, edit, review) are where the time
+goes. Moving the release-slide edits into step 3b (deterministic Python) shrinks the slow build agent's
+work to just the ambiguous cases, blogs, and slide-hiding.
 
 ### Skills (`.github/skills/`)
 - **`pptx/`** — vendored from [anthropics/skills] at a pinned commit (see `.skill-manifest.json`).
