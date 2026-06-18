@@ -28,6 +28,14 @@ indistinguishable from the deck's hand-authored slides.
 6. **`data/releases.json`, `data/blogs.json`, `data/events.json`** — the content to place.
 
 ## The standard (mandatory — see `slide-map.yaml` `defaults.release_window`)
+- **Release slides are MOSTLY done for you by a deterministic Python pass.** Before editing any
+  release slide, read **`data/release-edit-report.json`**. The script `scripts/edit_release_slides.py`
+  has already applied the shift/refresh standard AND date-reconciled mislabeled versions on the working
+  copy. **Only edit the slides in its `fallback_slides` array** (cases too ambiguous to automate safely,
+  e.g. a new-month shift across multi-entry columns). **Do NOT re-touch slides in `handled_slides`** —
+  they are already correct (you may still update their col3 `highlight` bullet text from data if the
+  editor changed only the version). The standard below is what the editor implements and what you apply
+  by hand for fallback slides.
 - **Release slides (7, 8, 11, 12) = 3 columns, latest-first, ROLLING (shift or refresh).** Visual
   order is oldest-left → newest-right; **`col3` (rightmost) is ALWAYS the latest release.** Each column
   is a **(header, entry-block) pair**. A column's entry-block may contain **one OR MORE** version
@@ -58,9 +66,12 @@ indistinguishable from the deck's hand-authored slides.
 2. For each slide in `slide-map.yaml`, use the roles in **`data/slide-structure.json`** to find the
    exact runs, then **replace only the text inside existing `<a:t>` runs** with the mapped data. Do NOT
    change `<a:rPr>`/`<a:pPr>`/colors/fonts/layout.
-   - **Releases (7, 8, 11, 12):** apply the rolling 3-column standard above using `data/releases.json`
-     (Vault = base semver; TFE from `terraform_enterprise` — if its `status` is `stale_source`, leave
-     slide 8 unchanged). Update each entry's release-tag hyperlink `target` in the slide `.rels` to match.
+   - **Releases (7, 8, 11, 12):** the deterministic editor already handled `handled_slides` from
+     `data/release-edit-report.json` — **skip those**. For each slide in `fallback_slides`, apply the
+     rolling 3-column standard above using `data/releases.json` (Vault = base semver; TFE from
+     `terraform_enterprise` — if its `status` is `stale_source`, leave slide 8 unchanged). Update each
+     entry's release-tag hyperlink `target` in the slide `.rels` to match. The authoritative key for a
+     version is its release **date** — if text and the data-by-date disagree, the data wins.
    - **Blogs (9, 13):** update each `blog_entry`'s `<Month Day> – ` + title; update the `See here`
      hyperlink **target URL in `ppt/slides/_rels/slideN.xml.rels`** to the post URL. Topic chips unchanged.
    - **Webinars (10, 14):** fill `slot1..slotN` from `events.json.webinars` (latest-first) + hyperlink targets.

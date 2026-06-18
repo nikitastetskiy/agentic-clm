@@ -7,7 +7,8 @@
 #   1. fetch          — deterministic Python: releases + blogs + events-prep
 #   2. copy           — timestamped working copy (original is never touched)
 #   3. data (agent)   — deck-data: web_fetch events/TFE + changelog highlights
-#   4. build (agent)  — pptx-orchestrator: edit slides, hide empty ones, repack
+#   3b. release edit   — deterministic Python: apply shift/refresh + date-reconcile to slides 7,8,11,12
+#   4. build (agent)  — pptx-orchestrator: edit fallback/blog slides, hide empty ones, repack
 #   5. review (agent) — deck-reviewer: verify style/data, record learnings
 #
 # Env (see .env.example):
@@ -150,6 +151,25 @@ else
   warn "SKIP_DATA=1 — skipping agent enrichment"
 fi
 
+# --- Phase 3b: deterministic release-slide edits ---------------------------------------
+# Apply the rolling shift/refresh standard to release slides (7,8,11,12) in PYTHON, not the AI
+# agent — far faster/cheaper and exact. Also reconciles mislabeled versions by their release DATE
+# (the authoritative key), e.g. fixing a "1.15.4" entry dated 2026-05-27 that is really 1.15.5.
+# Writes data/release-edit-report.json; slides too ambiguous to edit safely are marked
+# fallback_slides[] for the build agent. Non-fatal: any failure just defers all release slides.
+if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
+  log "Phase 3b: deterministic release-slide edits"
+  ORIG_DECK="${SOURCE_PPTX:-$(ls -1 "$REPO_ROOT"/*.pptx 2>/dev/null | grep -v '/~\$' | head -1)}"
+  if "$PY" scripts/edit_release_slides.py "$WORKING_COPY" --original "$ORIG_DECK" \
+        > output/edit-release.log 2>&1; then
+    cat output/edit-release.log
+    FB="$("$PY" -c 'import json;print(",".join(map(str,json.load(open("data/release-edit-report.json")).get("fallback_slides",[]))) or "none")' 2>/dev/null || echo "?")"
+    echo "release editor: handled deterministically; fallback slides for agent: $FB"
+  else
+    warn "edit_release_slides.py failed — build agent will handle ALL release slides; see output/edit-release.log"
+  fi
+fi
+
 # --- Phase 4: build (agent) ------------------------------------------------------------
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   run_copilot pptx-orchestrator "$(cat <<EOF
@@ -160,7 +180,14 @@ Follow your agent instructions and the hashicorp-deck-style + pptx skills exactl
 Read corrections/corrections.md first and apply every applicable rule.
 Use data/slide-structure.json (shape roles/geometry) so you do NOT re-discover layout.
 Update only the slides in config/slide-map.yaml using data/releases.json, data/blogs.json,
-data/events.json. For release slides (7,8,11,12) apply the ROLLING shift/refresh standard:
+data/events.json.
+RELEASE SLIDES (7,8,11,12) ARE MOSTLY DONE FOR YOU: a deterministic Python pass already applied
+the rolling shift/refresh standard and wrote data/release-edit-report.json. Read it first. ONLY
+edit the release slides listed in its "fallback_slides" array (those were too ambiguous for the
+safe automation, e.g. a new-month shift across multi-entry columns); for those, apply the standard
+by hand. Do NOT touch the release slides in "handled_slides" — they are already correct (just leave
+them). Still update the col3 "highlight" bullets from data if the editor only changed the version.
+For any fallback release slide apply the ROLLING shift/refresh standard:
 compare products.<product>.latest.month_label to the current col3 header — same month refreshes
 col3 only, a newer month shifts the (header,entry) pairs left; never blank col1/col2.
 Preserve all formatting (edit existing runs only). Hide slides with no fresh data (never delete).

@@ -16,6 +16,9 @@ Checks (all deterministic, no AI):
   3. Style          — runs the hashicorp-deck-style style_check.py on the in-scope slides.
   4. Release cols   — for each release slide, reports each column's header + entry count and asserts the
                       latest (rightmost) column carries products.<product>.latest.version from releases.json.
+  5. Release accuracy — date-keyed: every shown entry "vX.Y.Z (YYYY-MM-DD)" must match releases.json for
+                      that exact DATE (the authoritative key). Catches mislabels the col3-only check missed
+                      (e.g. an entry dated 2026-05-27 typed as 1.15.4 when the API says that date is 1.15.5).
 
 Usage:
     python scripts/verify_deck.py "output/<deck>.pptx" [--original "<original>.pptx"] [--json]
@@ -45,6 +48,10 @@ COL_BOUNDS = [(0.0, 2.0), (2.0, 5.0), (5.0, 12.0)]  # x-buckets for the 3 releas
 HEADER_Y_MAX = 1.5  # y below this on a column = month header; above = release entry
 SLD_ROOT_RE = re.compile(r"<p:sld\b[^>]*>")
 VERSION_RE = re.compile(r"v?(\d+\.\d+\.\d+)")
+DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
+# slide-map product name -> releases.json location of that product's {latest, recent[]}
+PRODUCT_KEY = {"terraform": ("products", "terraform"), "vault": ("products", "vault"),
+               "terraform-enterprise": ("terraform_enterprise", None)}
 
 
 def _unpack(deck: Path) -> Path:
@@ -121,6 +128,43 @@ def release_columns(slide_file: Path) -> dict[int, dict]:
             elif y < HEADER_Y_MAX and cols[col]["header"] is None:
                 cols[col]["header"] = txt
     return cols
+
+
+def slide_dated_entries(slide_file: Path) -> list[tuple[str, str]]:
+    """Every release entry on a slide as (semver, 'YYYY-MM-DD'), for date-keyed accuracy checks.
+
+    A release entry paragraph looks like "v1.15.5 (2026-05-27)" or
+    "Terraform Enterprise v2.0.3 (2026-06-17)" — one version + one date in the same paragraph.
+    """
+    doc = minidom.parse(str(slide_file))
+    out: list[tuple[str, str]] = []
+    for sp in doc.getElementsByTagName("p:sp"):
+        off = sp.getElementsByTagName("a:off")
+        if not off:
+            continue
+        y = _round_in(off[0].getAttribute("y"))
+        if y is None or y < 1.2:
+            continue
+        for p in sp.getElementsByTagName("a:p"):
+            txt = _text(p).strip()
+            mv, md = VERSION_RE.search(txt), DATE_RE.search(txt)
+            if mv and md:
+                out.append((mv.group(1), md.group(1)))
+    return out
+
+
+def release_by_date(releases: dict) -> dict[str, dict[str, str]]:
+    """Build {product_key: {'YYYY-MM-DD': version}} from releases.json latest + recent[]."""
+    by_date: dict[str, dict[str, str]] = {}
+    for product, (top, sub) in PRODUCT_KEY.items():
+        node = releases.get(top, {})
+        node = node.get(sub, {}) if sub else node
+        dates: dict[str, str] = {}
+        for rec in [node.get("latest")] + list(node.get("recent", [])):
+            if rec and rec.get("date") and rec.get("version"):
+                dates.setdefault(rec["date"], rec["version"])
+        by_date[product] = dates
+    return by_date
 
 
 def _load_json(name: str) -> dict:
@@ -238,6 +282,37 @@ def main() -> int:
                     rel["ok"] = False
                     rel["notes"].append(f"slide {n} ({product}): latest col missing {latest_v} (has {col3['entries']})")
         results["release_columns"] = rel
+
+        # --- 5. Release accuracy (date-keyed) -------------------------------------------
+        # Catches the mislabel class (e.g. an entry dated 2026-05-27 typed as 1.15.4 when the API
+        # says that date is 1.15.5). The exact release DATE is the authoritative key; the printed
+        # version must agree with releases.json for that date. This is the guard that the original
+        # col3-only check lacked — it would have caught the v1.15.5 typo on slide 7.
+        acc = {"slides": {}, "ok": True, "notes": []}
+        by_date = release_by_date(releases)
+        for entry in cfg.get("slides", []):
+            if entry.get("type") != "release_updates":
+                continue
+            product = entry.get("product")
+            dates = by_date.get(product, {})
+            if not dates:
+                continue
+            ns = entry["n"]
+            for n in (ns if isinstance(ns, list) else [ns]):
+                f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                if not f.exists():
+                    continue
+                mismatches = []
+                for ver, date in slide_dated_entries(f):
+                    expected = dates.get(date)
+                    if expected and expected != ver:
+                        mismatches.append(f"{date}: shows {ver}, data says {expected}")
+                acc["slides"][str(n)] = mismatches
+                if mismatches:
+                    acc["ok"] = False
+                    for m in mismatches:
+                        acc["notes"].append(f"slide {n} ({product}): {m}")
+        results["release_accuracy"] = acc
     finally:
         shutil.rmtree(unpacked, ignore_errors=True)
 
