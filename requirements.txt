@@ -1,0 +1,9 @@
+# Python dependencies for the auto-pptx pipeline.
+# Pipeline fetchers + helpers:
+PyYAML>=6.0
+# Anthropic pptx skill runtime deps (unpack/pack/clean/validate/thumbnail):
+lxml>=5.0
+defusedxml>=0.7
+Pillow>=10.0
+# Reading/extracting deck text (used by the pptx skill: `python -m markitdown deck.pptx`):
+markitdown[pptx]>=0.0.1a2

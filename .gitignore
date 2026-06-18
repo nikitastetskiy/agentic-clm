@@ -1,0 +1,30 @@
+# Fetched data cache and generated decks
+/data/*
+!/data/.gitkeep
+/output/*
+!/output/.gitkeep
+
+# Secrets
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Working/unpack scratch
+/unpacked/
+/.work/
+*.thumbnails.jpg
+thumbnails*.jpg
+
+# OS
+.DS_Store
+
+# PowerPoint decks & lock files — keep internal decks OUT of git.
+# Bring-your-own: drop your .pptx in the repo root locally, or set SOURCE_PPTX=/path/to/deck.pptx
+*.pptx
+~$*.pptx

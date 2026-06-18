@@ -1,0 +1,63 @@
+# Data sources for the auto-pptx pipeline.
+# Used by scripts/fetch_*.py (deterministic) and by the Copilot agents (web_fetch).
+
+releases:
+  api_base: "https://api.releases.hashicorp.com/v1/releases"
+  # Products available on the public releases API.
+  products:
+    terraform:
+      slug: terraform
+      display: "Terraform"
+      # Strip pre-releases (alpha/beta/rc) and build metadata.
+      stable_only: true
+    vault:
+      slug: vault
+      display: "Vault"
+      stable_only: true
+      # Vault publishes +ent / +ent.hsm / +ent.fips variants; normalize to base semver.
+      normalize_base_semver: true
+      # The releases API points Vault changelogs at the PRIVATE hashicorp/vault-enterprise repo
+      # (404 for the agent). Per-version PUBLIC tags don't all exist either. The main-branch
+      # CHANGELOG.md is always reachable and contains a "## <version>" section for every shipped
+      # release — the agent fetches it once and greps the section for each version's highlight.
+      changelog_url_template: "https://github.com/hashicorp/vault/blob/main/CHANGELOG.md"
+      release_notes_url_template: "https://github.com/hashicorp/vault/releases/tag/v{version}"
+  # Number of recent stable versions to surface per product. The build renders
+  # products.<product>.latest into col3 and preserves the deck's existing (hand-curated, possibly
+  # multi-entry) columns; `recent` is context for the deck-data agent (e.g. optional highlight
+  # pre-fill), so a small value is sufficient.
+  recent_count: 4
+
+# Terraform Enterprise is NOT on the releases API. It is fetched + summarized by the
+# deck-data agent from the official releases docs page.
+terraform_enterprise:
+  releases_page: "https://developer.hashicorp.com/terraform/enterprise/releases"
+  display: "Terraform Enterprise"
+
+blogs:
+  feed: "https://www.hashicorp.com/blog/feed.xml"
+  # Client-side filtering by keyword/url-slug since the global feed has no per-product tags.
+  filters:
+    terraform:
+      display: "Terraform"
+      keywords: ["terraform", "hcp terraform", "terraform enterprise", "tfe", "infrastructure as code", "stacks", "run task", "sentinel"]
+    vault:
+      display: "Vault"
+      keywords: ["vault", "hcp vault", "vault radar", "secrets", "pki", "encryption", "zero trust", "secrets management"]
+  recent_count: 3
+  # Feed is rate-limited (429). Retry with backoff and cache last good result.
+  max_retries: 4
+  retry_backoff_seconds: 3
+
+events:
+  # Behind Vercel bot protection -> fetched by the deck-data agent via web_fetch, not curl.
+  pages:
+    all_events: "https://www.hashicorp.com/en/events"
+  webinars:
+    terraform:
+      display: "Terraform"
+      keywords: ["terraform", "infrastructure", "iac"]
+    vault:
+      display: "Vault"
+      keywords: ["vault", "security", "secrets", "identity", "zero trust"]
+  recent_count: 3

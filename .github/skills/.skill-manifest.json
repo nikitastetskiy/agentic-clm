@@ -1,0 +1,14 @@
+{
+  "$comment": "Tracks vendored third-party skills so skill-updater can detect upstream changes before each run. Edit pinned_sha only via skill-updater.",
+  "skills": {
+    "pptx": {
+      "source": "github:anthropics/skills",
+      "path": "skills/pptx",
+      "ref": "main",
+      "pinned_sha": "1ed29a03dc852d30fa6ef2ca53a67dc2c2c2c563",
+      "vendored_at": "2026-06-18T00:00:00Z",
+      "license": "Proprietary — see .github/skills/pptx/LICENSE.txt",
+      "update_policy": "notify"
+    }
+  }
+}

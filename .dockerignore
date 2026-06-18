@@ -1,0 +1,16 @@
+# Build context excludes
+.git
+.gitignore
+output/*
+data/*
+unpacked/
+.work/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+*.env
+!.env.example
+.DS_Store
+*.thumbnails.jpg

@@ -1,0 +1,18 @@
+services:
+  auto-pptx:
+    build:
+      context: .
+      args:
+        INSTALL_OFFICE: "true"
+    image: auto-pptx:latest
+    env_file:
+      - .env
+    volumes:
+      # Persist produced decks, fetched data, and learned corrections on the host.
+      - ./output:/work/output
+      - ./data:/work/data
+      - ./corrections:/work/corrections
+      # Persist Copilot auth/session state between runs (optional but recommended).
+      - ./.copilot-home:/work/.copilot-home
+    # One-shot pipeline run; the container exits when the deck is produced.
+    restart: "no"
