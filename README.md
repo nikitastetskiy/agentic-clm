@@ -14,6 +14,42 @@ plain Python for the boring, predictable bits.
 
 ---
 
+## Quickstart
+
+```bash
+# 1. Get the code and enter it
+git clone <this-repo-url> auto-pptx && cd auto-pptx
+
+# 2. One-time setup (Python deps + the headless browser used for the events page)
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python -m playwright install chromium
+
+# 3. Authenticate the GitHub Copilot CLI (needed for the AI phases)
+#    Install: https://github.com/github/copilot-cli   then:
+copilot            # sign in once when prompted (or set COPILOT_GITHUB_TOKEN — see .env.example)
+
+# 4. Put your deck in the project root (any single .pptx), then run the whole pipeline
+make run-local
+
+# 5. Open the newest file in ./output/  — your original is untouched.
+```
+
+That one command fetches the latest data, makes a timestamped copy, updates the automatable slides,
+and writes a verification report. A full run takes **~30–40 minutes** (almost all of it the AI
+edit/review phases; the data-gathering is now just seconds). Prefer to run unattended on a schedule?
+See [Running it unattended](#running-it-unattended-docker--scheduled).
+
+Useful variants:
+```bash
+make help                              # list every command
+make fetch                             # just refresh data/*.json (seconds, no Copilot credits)
+SKIP_DATA=1 SKIP_REVIEW=1 make run-local   # run only part of the pipeline (see run.sh for flags)
+SOURCE_PPTX="/path/to/Deck.pptx" make run-local   # use a deck that lives outside the repo
+```
+
+---
+
 ## In plain English: what does it actually do?
 
 Once a month (or whenever you like) you would normally open the deck and manually:
@@ -48,9 +84,9 @@ as you made it**. This tool only touches the slides listed above.
    ```bash
    make run-local
    ```
-   This takes roughly **30–45 minutes** — most of that is the assistant carefully researching the
-   web (politely, with retries, because some HashiCorp pages rate-limit bots) and rebuilding the
-   slides without breaking their formatting. It is meant to be a "kick it off and come back later"
+   This takes roughly **30–40 minutes** — almost all of it the assistant carefully rebuilding the
+   slides and reviewing them without breaking formatting. (Data gathering used to dominate the run;
+   it's now deterministic Python that finishes in seconds.) It's a "kick it off and come back later"
    job, not an instant one.
 3. **Open the result.** Look in the `output/` folder for the newest file, e.g.
    `CSE EMEA Customer Cadence Deck JUNE 2026 — 2026-06-18-1703.pptx`. Your original is untouched.
