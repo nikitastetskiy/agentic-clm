@@ -58,14 +58,19 @@ The build's rolling window only writes a fresh entry into the latest (`col3`) co
   stale/unavailable, set `latest` to `null`.
 
 ### 3. Events (`data/events.json`)
-Follow `data/events.request.json` exactly:
-- `web_fetch` each page in `pages`. The events page may require following its links; if a page is
-  blocked or empty, try the per-product / featured sub-pages you can reach from it.
-- Keep only **upcoming** events (date ≥ `today`).
-- Bucket webinars by the product keywords; collect featured/in-person events separately.
-- Write `data/events.json` using `output_schema` (webinars.terraform, webinars.vault, featured[]).
-- Limit each list to `recent_count`. Descriptions: 1 short sentence (featured: 1–2 sentences).
-- If you genuinely cannot retrieve any events, leave the lists empty and set
+Events are now fetched **deterministically by Python** (`scripts/fetch_events.py` renders the
+bot-protected events page with Playwright). **First read `data/events.json`:**
+- **If `status` == `"ok"`** (the normal case): the facts — `date`, `title`, `url`, `products`,
+  buckets — are already correct and **must NOT be changed, refetched, reordered, added to, or
+  removed**. Your ONLY task is to fill the empty prose fields **from the title/type you already
+  have** (no web_fetch needed, though you MAY web_fetch a hashicorp.com event `url` to improve a
+  description): for each webinar slot set `description` to ONE short factual sentence; for each
+  `featured` event set `description` (1–2 sentences) and `location` (the city/venue, if derivable
+  from the title, e.g. "London", "Delhi NCR", "Washington DC"). Never invent dates/URLs.
+- **If `status` != `"ok"`** (Playwright unavailable/blocked): fall back to `data/events.request.json`
+  — `web_fetch` each page in `pages`, keep only **upcoming** events (date ≥ `today`), bucket webinars
+  by the product keywords, collect featured/in-person events separately, and write `data/events.json`
+  using `output_schema`. If you genuinely cannot retrieve any events, leave the lists empty and set
   `"status": "unavailable"` — do NOT invent events. The build phase will hide empty slides.
 
 ## Rules

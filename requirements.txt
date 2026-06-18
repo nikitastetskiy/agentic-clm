@@ -7,3 +7,5 @@ defusedxml>=0.7
 Pillow>=10.0
 # Reading/extracting deck text (used by the pptx skill: `python -m markitdown deck.pptx`):
 markitdown[pptx]>=0.0.1a2
+# Rendering the bot-protected events page (passes the Vercel JS checkpoint a plain client can't):
+playwright>=1.40

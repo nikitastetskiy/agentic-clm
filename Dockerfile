@@ -29,6 +29,10 @@ RUN python3 -m venv "$VIRTUAL_ENV"
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --upgrade pip && pip install -r /tmp/requirements.txt
 
+# Playwright browser + OS libraries (renders the bot-protected events page). ~400MB; the events
+# fetcher degrades gracefully to the agent fallback if this is ever absent.
+RUN playwright install --with-deps chromium
+
 WORKDIR /work
 # Copy the project (the build context). The original deck is included so a run can produce a copy.
 COPY . /work
