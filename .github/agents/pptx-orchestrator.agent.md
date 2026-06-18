@@ -56,10 +56,15 @@ indistinguishable from the deck's hand-authored slides.
 - **Slides 11 (Vault Ent) and 12 (HCP Vault)** both use `products.vault.latest`, but apply the rule
   **independently** against their own current columns (slide 12 may lag). **Goal: neither stays a month
   behind** — if `col3` is behind `latest.month_label`, shift to add it. They need NOT be byte-identical.
-- **Webinars** keep their exact slot count (slide 10 = `slot1..slot3`, slide 14 = `slot1..slot4`):
-  fill with the latest upcoming events newest-first; clear surplus slots; hide the slide if none.
-- **Featured (18–22):** one event per slide, latest upcoming first; hide any slide with no event.
-- **Blogs (9, 13):** refresh `blog_entry` runs newest-first; `static_topics` shapes never change.
+- **Blogs (9, 13) and events (10, 14, 18–22) are ALSO done for you by deterministic Python.**
+  `scripts/edit_blog_slides.py` and `scripts/edit_event_slides.py` already refreshed those slides on
+  the working copy and wrote `data/blog-edit-report.json` / `data/event-edit-report.json`. **Do NOT
+  touch slides 9, 13, 10, 14, 18, 19, 20, 21, 22.** Only if a report shows a slide was skipped/failed
+  do you fix that one slide by hand per the rules below:
+  - **Webinars** keep their exact slot count (slide 10 = `slot1..slot3`, slide 14 = `slot1..slot4`):
+    fill in reading order with upcoming events **soonest-first**; clear surplus slots; hide if none.
+  - **Featured (18–22):** one event per slide, **soonest upcoming first**; hide any slide with no event.
+  - **Blogs (9, 13):** refresh `blog_entry` runs newest-first; `static_topics` shapes never change.
 
 ## Workflow
 1. **Unpack**: `python .github/skills/pptx/scripts/office/unpack.py "<working_copy.pptx>" .work/unpacked/`
@@ -72,11 +77,12 @@ indistinguishable from the deck's hand-authored slides.
      `terraform_enterprise` — if its `status` is `stale_source`, leave slide 8 unchanged). Update each
      entry's release-tag hyperlink `target` in the slide `.rels` to match. The authoritative key for a
      version is its release **date** — if text and the data-by-date disagree, the data wins.
-   - **Blogs (9, 13):** update each `blog_entry`'s `<Month Day> – ` + title; update the `See here`
-     hyperlink **target URL in `ppt/slides/_rels/slideN.xml.rels`** to the post URL. Topic chips unchanged.
-   - **Webinars (10, 14):** fill `slot1..slotN` from `events.json.webinars` (latest-first) + hyperlink targets.
-   - **Featured events (18–22):** one event per slide — `title`, `date_register`
-     (update the register hyperlink target), and `description`, from `events.json.featured`.
+   - **Blogs (9, 13), webinars (10, 14), featured (18–22):** ALREADY edited by the deterministic
+     editors (`scripts/edit_blog_slides.py`, `scripts/edit_event_slides.py`). **Skip them** unless their
+     report (`data/blog-edit-report.json` / `data/event-edit-report.json`) shows a slide was skipped —
+     then fix only that slide: blog = `<Month Day> – ` + title + repoint `See here` rel; webinar slot =
+     date/`WEBINAR`/`See here` + title + 1-line description; featured = `title` + `date_register`
+     (repoint Register rel) + `description`, from `events.json`. Always mint a FRESH rel for hyperlinks.
 3. **Hide, never delete**: if a mapped slide has no fresh data (webinars/featured with no events, or an
    `unavailable`/`stale_source` data status), hide it:
    `python scripts/hide_slides.py .work/unpacked/ <position>`. Never remove a slide.
