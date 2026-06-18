@@ -134,10 +134,11 @@ This lets you keep the actual deck **out of the repository** while still sharing
 ```
 run.sh
  ├─ 0. skill-updater   check the vendored pptx skill against upstream (advisory)
- ├─ 1. fetch (python)  fetch_releases.py · fetch_blogs.py · fetch_events.py (Playwright)  → data/*.json
+ ├─ 1. fetch (python)  fetch_releases.py · fetch_changelogs.py (highlights) · fetch_tfe_releases.py
+ │                        (TFE + freshness guard) · fetch_blogs.py · fetch_events.py (Playwright) → data/*.json
  ├─ 2. copy            make_working_copy.py → output/<deck> — <timestamp>.pptx
  ├─ 2b. map (python)   map_slides.py → data/slide-structure.json (learned geometry; no re-discovery)
- ├─ 3. deck-data       agent: TFE notes + changelog highlights + event descriptions → enrich data/*.json
+ ├─ 3. deck-data       agent: event descriptions + light highlight polish (NO changelog/TFE web_fetch)
  ├─ 3b. release edit (python)  edit_release_slides.py → applies the shift/refresh standard AND
  │                        date-reconciles mislabeled versions on slides 7,8,11,12; hard cases are
  │                        listed in data/release-edit-report.json for the agent (fallback_slides)
@@ -164,8 +165,10 @@ slow build agent's work to just the rare ambiguous cases — most runs need no s
   fails if a foreign colour/font is introduced.
 
 ### Agents (`.github/agents/`)
-- **`deck-data`** — fills in prose Python can't: TFE release notes, one-line changelog highlights,
-  and short event descriptions/locations. Writes only `data/*.json`; never invents facts.
+- **`deck-data`** — fills the prose Python can't and lightly polishes the pre-fetched release
+  highlights from a local changelog excerpt (no web access). Release highlights and Terraform
+  Enterprise releases are now fetched **deterministically** in step 1, so this agent mostly writes
+  short event descriptions/locations. Writes only `data/*.json`; never invents facts.
 - **`pptx-orchestrator`** — edits only the slides in `config/slide-map.yaml`, replacing text inside
   existing runs (never touching formatting), updating link targets, and hiding empty slides.
 - **`deck-reviewer`** — verifies style preservation, data accuracy, links, and hide-don't-delete;

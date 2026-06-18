@@ -109,10 +109,11 @@ def edit_webinar_slide(slide_file: Path, rels_file: Path, webinars: list[dict]) 
     hidden = len(ordered) == 0
     if hidden:
         dom.documentElement.setAttribute("show", "0")
+    pruned = px.prune_orphan_hyperlinks(dom, rels_dom)
     slide_file.write_text(dom.toxml(), encoding="utf-8")
     rels_file.write_text(rels_dom.toxml(), encoding="utf-8")
     return {"slots": len(slots), "filled": filled, "cleared": cleared, "hidden": hidden,
-            "available": len(ordered)}
+            "available": len(ordered), "pruned_rels": pruned}
 
 
 def edit_featured_slide(slide_file: Path, rels_file: Path, event: dict | None) -> dict:
@@ -149,9 +150,11 @@ def edit_featured_slide(slide_file: Path, rels_file: Path, event: dict | None) -
             for p in paras[1:]:
                 px.remove_node(p)
 
+    pruned = px.prune_orphan_hyperlinks(dom, rels_dom)
     slide_file.write_text(dom.toxml(), encoding="utf-8")
     rels_file.write_text(rels_dom.toxml(), encoding="utf-8")
-    return {"hidden": False, "title": event["title"], "date": event["display_date"]}
+    return {"hidden": False, "title": event["title"], "date": event["display_date"],
+            "pruned_rels": pruned}
 
 
 def slide_paths(root: Path, n: int) -> tuple[Path, Path]:

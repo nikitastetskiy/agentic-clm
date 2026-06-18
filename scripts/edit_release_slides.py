@@ -44,6 +44,7 @@ from xml.dom import minidom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, REPO_ROOT, load_config, log  # noqa: E402
+from lib.pptx_edit import prune_orphan_hyperlinks  # noqa: E402
 
 UNPACK = REPO_ROOT / ".github/skills/pptx/scripts/office/unpack.py"
 PACK = REPO_ROOT / ".github/skills/pptx/scripts/office/pack.py"
@@ -393,6 +394,9 @@ def edit_unpacked(unpacked: Path, slide_map: dict, rel_index: dict) -> dict:
             reconcile(cols, ridx, rels_dom, rid_target, product, srep)
             ensure_latest(cols, ridx, rels_dom, rid_target, product, srep)
             if srep["changed"]:
+                pruned = prune_orphan_hyperlinks(dom, rels_dom)
+                if pruned:
+                    srep["pruned_rels"] = pruned
                 slide_file.write_text(dom.toxml(), encoding="utf-8")
                 rels_file.write_text(rels_dom.toxml(), encoding="utf-8")
             report["slides"][str(n)] = srep

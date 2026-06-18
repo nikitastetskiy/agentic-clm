@@ -116,6 +116,31 @@ def relink_run(run, rels_dom, target: str) -> bool:
     return True
 
 
+def prune_orphan_hyperlinks(slide_dom, rels_dom) -> list[str]:
+    """Remove External-hyperlink rels no longer referenced by any run in the slide.
+
+    Repointing a run via `add_rel`/`relink_run` mints a fresh rId and leaves the run's PREVIOUS
+    hyperlink rel dangling in the .rels (e.g. a refreshed release entry left rId11 -> an old
+    prerelease tag on slide 7). Such orphans are harmless but untidy; this sweeps them after edits.
+
+    SAFE BY CONSTRUCTION: only relationships of the hyperlink Type are ever removed, and only when no
+    element in the slide references their Id — so implicit/internal rels (slideLayout, image/media,
+    notesSlide, …) are never touched. Returns the list of pruned rIds.
+    """
+    referenced: set[str] = set()
+    for el in slide_dom.getElementsByTagName("*"):
+        for attr in ("r:id", "r:embed", "r:link"):
+            val = el.getAttribute(attr)
+            if val:
+                referenced.add(val)
+    pruned: list[str] = []
+    for rel in list(rels_dom.getElementsByTagName("Relationship")):
+        if rel.getAttribute("Type") == HYPERLINK_TYPE and rel.getAttribute("Id") not in referenced:
+            rel.parentNode.removeChild(rel)
+            pruned.append(rel.getAttribute("Id"))
+    return pruned
+
+
 # --------------------------------------------------------------------------- paragraphs -----------
 def paragraphs(sp) -> list:
     """Direct text paragraphs of a shape's txBody (skips paragraphs nested in child shapes)."""

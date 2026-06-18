@@ -4,9 +4,9 @@
 #
 # Phases:
 #   0. skill-updater  — ensure the vendored pptx skill matches its pin (advisory)
-#   1. fetch          — deterministic Python: releases + blogs + events (Playwright-rendered)
+#   1. fetch          — deterministic Python: releases + changelog highlights + TFE + blogs + events
 #   2. copy           — timestamped working copy (original is never touched)
-#   3. data (agent)   — deck-data: web_fetch events/TFE + changelog highlights
+#   3. data (agent)   — deck-data: events prose + light highlight polish (no web_fetch of changelogs/TFE)
 #   3b. release edit   — deterministic Python: apply shift/refresh + date-reconcile to slides 7,8,11,12
 #   4. build (agent)  — pptx-orchestrator: edit fallback/blog slides, hide empty ones, repack
 #   5. review (agent) — deck-reviewer: verify style/data, record learnings
@@ -96,9 +96,14 @@ fi
 
 # --- Phase 1: deterministic fetchers (run in parallel; they write independent files) ---
 if [[ "${SKIP_FETCH:-0}" != "1" ]]; then
-  log "Phase 1: fetch (releases, blogs, events-prep) [parallel]"
+  log "Phase 1: fetch (releases+changelogs+TFE, blogs, events-prep) [parallel]"
   mkdir -p output
-  "$PY" scripts/fetch_releases.py > output/fetch-releases.log 2>&1 & pid_rel=$!
+  # The releases chain runs in series (all three write data/releases.json): the API fetch first,
+  # then the deterministic changelog-highlight extractor and the TFE releases-page parser. This
+  # moves the slow web_fetch/summarize work out of the deck-data agent (deck-data ~8min -> ~2-3min).
+  ( "$PY" scripts/fetch_releases.py \
+      && "$PY" scripts/fetch_changelogs.py \
+      && "$PY" scripts/fetch_tfe_releases.py ) > output/fetch-releases.log 2>&1 & pid_rel=$!
   "$PY" scripts/fetch_blogs.py    > output/fetch-blogs.log    2>&1 & pid_blog=$!
   "$PY" scripts/fetch_events.py   > output/fetch-events.log   2>&1 & pid_evt=$!
   rc_rel=0; rc_blog=0; rc_evt=0
@@ -140,9 +145,15 @@ if [[ "${SKIP_DATA:-0}" != "1" ]]; then
 Run the deck-data enrichment phase for the auto-pptx pipeline in $REPO_ROOT.
 Follow your agent instructions exactly. Read config/sources.yaml and data/events.request.json.
 Tasks:
-  1) Fill data/releases.json highlights: prioritize products.<product>.latest.highlight (the build's
-     new col3), keep recent[0] consistent, via web_fetching each changelog_url (fetch each URL once).
-  2) Populate data/releases.json -> terraform_enterprise.recent + .latest from its releases_page.
+  1) Release highlights in data/releases.json are now PRE-FILLED deterministically by
+     scripts/fetch_changelogs.py (each entry's "highlight" + the latest's "changelog_excerpt").
+     Do NOT web_fetch changelogs. Only IMPROVE wording where a "highlight" reads awkwardly or is
+     missing, using the local "changelog_excerpt" — keep it one factual present-tense sentence and
+     keep products.<product>.latest and recent[0] consistent. Never invent; leave "" if no excerpt.
+  2) terraform_enterprise is now PRE-FILLED deterministically by scripts/fetch_tfe_releases.py.
+     If its "status" is "ok", optionally polish each release "highlight" from its release_notes_url;
+     if "status" is "stale_source" or "unavailable", leave it as-is (do NOT refetch — the guard has
+     already decided slide 8 stays unchanged).
   3) Produce data/events.json per data/events.request.json (upcoming events only, never fabricate).
      NOTE: events are now fetched deterministically by scripts/fetch_events.py (Playwright). If
      data/events.json status=="ok", DO NOT change its facts (dates/titles/urls/buckets) — only fill
