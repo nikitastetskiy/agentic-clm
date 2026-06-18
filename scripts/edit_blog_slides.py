@@ -125,11 +125,13 @@ def edit_slide(slide_file: Path, rels_file: Path, posts: list[dict]) -> dict:
             clear_entry(entries[j])
             deduped.append(j)
     changed = any(r.get("ok") for r in refreshed) or bool(deduped)
+    pruned: list[str] = []
     if changed:
+        pruned = px.prune_orphan_hyperlinks(dom, rels_dom)
         slide_file.write_text(dom.toxml(), encoding="utf-8")
         rels_file.write_text(rels_dom.toxml(), encoding="utf-8")
     return {"entries_found": len(entries), "posts_available": len(posts),
-            "refreshed": refreshed, "deduped": deduped, "changed": changed}
+            "refreshed": refreshed, "deduped": deduped, "pruned_rels": pruned, "changed": changed}
 
 
 def main() -> int:

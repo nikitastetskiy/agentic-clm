@@ -28,8 +28,9 @@ releases:
   # pre-fill), so a small value is sufficient.
   recent_count: 4
 
-# Terraform Enterprise is NOT on the releases API. It is fetched + summarized by the
-# deck-data agent from the official releases docs page.
+# Terraform Enterprise is NOT on the releases API. It is fetched DETERMINISTICALLY by
+# scripts/fetch_tfe_releases.py (parses the releases page's __NEXT_DATA__) with a freshness guard
+# that compares against the deck's current slide-8 dates. The deck-data agent no longer fetches it.
 terraform_enterprise:
   releases_page: "https://developer.hashicorp.com/terraform/enterprise/releases"
   display: "Terraform Enterprise"

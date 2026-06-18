@@ -308,7 +308,9 @@ def main() -> int:
                 product = entry.get("product")
                 latest_v = prod_latest.get(product)
                 col3 = cols[2]
-                col3_has_latest = bool(latest_v) and latest_v in col3["entries"]
+                # No latest in data (e.g. TFE marked stale_source/unavailable) -> the slide is
+                # correctly left unchanged; there is nothing to place, so treat it as satisfied.
+                col3_has_latest = (latest_v in col3["entries"]) if latest_v else True
                 summary = {
                     "headers": [cols[i]["header"] for i in range(3)],
                     "entry_counts": [len(cols[i]["entries"]) for i in range(3)],

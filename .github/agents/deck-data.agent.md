@@ -1,11 +1,12 @@
 ---
 name: deck-data
 description: >-
-  Data-enrichment agent for the HashiCorp cadence deck pipeline. Gathers the pieces that need web
-  access or summarization that the deterministic Python fetchers cannot produce: upcoming events
-  (the events page is bot-protected), Terraform Enterprise releases (not on the releases API), and
-  one-line changelog highlights for each release. Reads/augments the JSON files in data/. Use as the
-  FIRST automated phase, before pptx-orchestrator.
+  Data-enrichment agent for the HashiCorp cadence deck pipeline. After the deterministic Python
+  fetchers run, this agent fills the few pieces that still need judgement: event prose (descriptions
+  and locations) and an optional light wording polish of the pre-fetched release highlights. The slow
+  web work — changelog highlights and Terraform Enterprise releases — is now done deterministically,
+  so the agent does NOT web_fetch changelogs or the TFE page. Reads/augments the JSON files in data/.
+  Use as the FIRST automated phase, before pptx-orchestrator.
 ---
 
 # deck-data — enrichment phase
@@ -16,7 +17,9 @@ deck.
 
 ## Inputs
 - `config/sources.yaml` — source URLs, product keywords, counts.
-- `data/releases.json` — already has Terraform & Vault versions (highlights are `null`).
+- `data/releases.json` — Terraform & Vault versions with **highlights pre-filled** by
+  `scripts/fetch_changelogs.py` (newest entry also carries a `changelog_excerpt`), and
+  `terraform_enterprise` pre-filled by `scripts/fetch_tfe_releases.py` (with a `status` field).
 - `data/blogs.json` — already complete (no action needed).
 - `data/events.request.json` — describes the events to gather and the exact output schema.
 - Today's date is in `data/events.request.json` → `today`.
@@ -24,38 +27,25 @@ deck.
 ## Tasks
 
 ### 1. Release highlights (`data/releases.json`)
-The build's rolling window only writes a fresh entry into the latest (`col3`) column, so the entry that
-**must** have a highlight is **`products.<product>.latest`** (the newest release). Fill it first:
-- For each product, take `latest` (it mirrors `recent[0]`). `web_fetch` its `changelog_url`. Several
-  versions may share one consolidated CHANGELOG (e.g. Vault points all versions at
-  `…/vault/blob/main/CHANGELOG.md`): **fetch each distinct URL once**, then locate the `## <version>`
-  section. If the blob page is large/truncated, fetch the
-  `raw.githubusercontent.com/<owner>/<repo>/<ref>/CHANGELOG.md` form.
-- Pick ONE notable, customer-relevant change from that version's section. Write a single concise
-  present-tense sentence (≤ ~18 words, no marketing fluff) into `latest.highlight` **and** into the
-  matching entry in `recent` (keep them consistent).
-- Then, cheaply, fill `highlight` for any other `recent` entry whose `## <version>` section is already
-  present in a CHANGELOG you fetched (no extra requests). Don't fetch new URLs just for older entries —
-  the build preserves their columns from the deck and won't re-summarize them.
-- If a version's section genuinely can't be found/reached, set its `highlight` to `""` and add
-  `"highlight_status": "unavailable"`. Never invent a highlight.
+Highlights are now **pre-filled deterministically** by `scripts/fetch_changelogs.py`: every entry's
+`highlight` is set from its changelog's `## <version>` section, and the newest entry of each product
+carries a cleaned `changelog_excerpt`. **Do NOT `web_fetch` changelogs.** Your only job here is a
+light wording polish:
+- If a `highlight` reads awkwardly, is empty, or exceeds ~18 words, rewrite it into ONE concise,
+  present-tense, customer-relevant sentence **using the local `changelog_excerpt`** (no web access).
+- Keep `products.<product>.latest.highlight` and the matching `recent[0]` entry **consistent**.
+- If an entry has `"highlight_status": "unavailable"` and no excerpt, leave `highlight` `""` — never
+  invent one.
 
 ### 2. Terraform Enterprise (`data/releases.json` → `terraform_enterprise`)
-- `web_fetch` the `releases_page` URL.
-- Extract the most recent N (= `releases.recent_count`, default 4) TFE releases: version, date
-  (YYYY-MM-DD), and a one-line highlight each.
-- **Freshness guard (learned):** TFE has used two schemes — older calendar versions (`vYYYYMM-N`)
-  and newer semver (`v2.x`, `v1.2.x`). The deck may already show newer semver entries. If the data
-  you fetch is OLDER than what the deck already shows (e.g. 2025 calendar versions vs the deck's
-  2026 semver), it is stale: set `terraform_enterprise.recent` to `[]` and add
-  `"status": "stale_source"` so the build phase leaves slide 8 unchanged. Never downgrade the slide.
-- **Efficiency (learned):** do NOT hunt release dates via git-commit history or paginated APIs — it
-  is slow and burns quota. Take dates only from the releases page itself. If the page yields only
-  calendar versions (`vYYYYMM-N`), conclude "stale" immediately (per the guard above) and move on
-  without further digging.
-- Otherwise populate `terraform_enterprise.recent` with `[{version, date, highlight}]` (newest first)
-  and set `terraform_enterprise.latest` to the newest one (the build uses it as slide 8's `col3`). If
-  stale/unavailable, set `latest` to `null`.
+TFE is now **fetched deterministically** by `scripts/fetch_tfe_releases.py` (it parses the releases
+page's embedded `__NEXT_DATA__` and applies the freshness guard). **First read the `status` field:**
+- **`"stale_source"` or `"unavailable"`** (the common case — the live page is an older versioning
+  scheme than the deck): the guard has already decided slide 8 stays unchanged. **Do nothing** — do
+  NOT refetch the page or dig through git history.
+- **`"ok"`**: `recent`/`latest` already hold the correct versions + dates. You MAY optionally polish
+  each release `highlight` from its `release_notes_url` (one short factual sentence), but never change
+  versions/dates and never invent a highlight.
 
 ### 3. Events (`data/events.json`)
 Events are now fetched **deterministically by Python** (`scripts/fetch_events.py` renders the
