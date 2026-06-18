@@ -1,0 +1,166 @@
+# slide-map.yaml — declarative mapping of automatable slides to data sources.
+#
+# The pptx-orchestrator agent reads this together with data/slide-structure.json (the deterministic
+# geometry map produced by scripts/map_slides.py) so it never has to re-discover slide layout. It
+# only edits the text inside existing <a:t> runs (and hyperlink targets in the slide .rels), never
+# the run/shape formatting. Indices are 1-based slide numbers as they appear in the deck.
+#
+# THE STANDARD (mandatory — the current PPTX defines it; keep counts, columns, slots, and order):
+#   * Release slides (7, 8, 11, 12): exactly 3 columns. Visual order is oldest-left -> newest-right;
+#     the RIGHTMOST column is ALWAYS the latest release. Each column is a (header, entry-block) PAIR.
+#     A column's entry-block may hold ONE OR MORE version entries — the deck is HAND-CURATED (an
+#     original "May" column can list 5 patches; a "March/April" column 3). Never collapse a multi-entry
+#     column to one. The newest release comes from products.<p>.latest in data/releases.json (do NOT
+#     paste the recent[] array wholesale into a column):
+#       - If latest.month == current col3 month  -> REFRESH col3 so its newest entry is `latest`
+#         (replace col3's top version, or add `latest` as the new top entry if col3 lists older patches
+#         of that same month); keep col3's header and leave col1/col2 BYTE-IDENTICAL.
+#       - If latest.month is NEWER than col3      -> SHIFT the (header, entry-block) pairs one column
+#         left (col1<-col2, col2<-col3, old col1 drops off) and write `latest` into col3 with its month
+#         header (which may read a range like "May - June").
+#     NEVER blank or rebuild all three columns from the API: the releases API caps at 20 items, which
+#     for Vault are all the same month's backports, so col1/col2 history cannot be re-derived and must
+#     be PRESERVED verbatim. Never add/remove a column. A slide already showing the latest month needs
+#     only col3 refreshed (or nothing).
+#   * Webinar slides keep their EXACT slot count (slide 10 = 3, slide 14 = 4); fill with the latest
+#     upcoming events, newest first. If fewer events than slots, clear the surplus slots; if none,
+#     hide the slide.
+#   * Featured-event slides (18-22): one event per slide, filled with the latest upcoming featured
+#     events; hide any slide with no event (never delete).
+#   * Blog slides (9, 13): the left list shows the most recent posts, newest first; the right
+#     "Explore Topics!" taxonomy is STATIC.
+
+defaults:
+  # Global rules every slide edit must respect (also enforced by hashicorp-deck-style skill).
+  preserve_formatting: true          # never touch <a:rPr>, colors, fonts, sizes, layout
+  edit_runs_only: true               # replace text content of existing runs
+  hide_dont_delete: true             # slides excluded from output get show="0", never removed
+  date_format: "MMM D"               # e.g. "Jun 2" — match each slide's existing style
+  release_window:
+    columns: 3
+    entries_per_column: variable     # hand-curated: a column may list 1+ version entries — never collapse
+    order: oldest_left_to_newest_right
+    anchor: latest_right             # rightmost column is always the newest release
+    rolling: true                    # newest enters right, columns shift left, oldest drops off
+    column_header: month_name        # e.g. "June" (or an existing range like "May - June")
+    driver: "products.<product>.latest in data/releases.json (recent[] is context, not column data)"
+    update_rule: shift_or_refresh    # newer month -> shift pairs left; same month -> refresh col3 only
+    preserve_history: true           # never blank col1/col2; the API can't re-derive their months
+    rewrite_all_columns: false       # superseded by shift_or_refresh — do NOT rebuild every column
+
+slides:
+  - n: 7
+    name: "HCP Terraform Upgrades"
+    source: releases
+    product: terraform
+    type: release_updates
+    layout: three_column_rolling
+    columns: 3
+    slot_hints:
+      - "3 columns in data/slide-structure.json (roles col1_*/col2_*/col3_*_latest). Driver: products.terraform.latest."
+      - "If latest.month == col3 header month -> refresh col3 entry in place; else shift (header,entry) pairs left and put latest in col3."
+      - "Column entry (colN_entry) = 'vX.Y.Z (YYYY-MM-DD)' + one-line highlight from changelog_url. Header = that column's month_label."
+      - "Preserve col1/col2 history; never blank them. If a 'pre-release' entry currently occupies col3, a newer STABLE release replaces it."
+
+  - n: 8
+    name: "Terraform Enterprise Upgrades"
+    source: terraform_enterprise        # NOT on releases API — agent fetches releases_page
+    product: terraform-enterprise
+    type: release_updates
+    layout: three_column_rolling
+    columns: 3
+    slot_hints:
+      - "3 columns, col3=latest. Driver: terraform_enterprise.latest (agent-summarized from releases_page)."
+      - "Same shift/refresh rule as slide 7. Entry: 'Terraform Enterprise vX.Y.Z (YYYY-MM-DD)' + highlight."
+      - "If terraform_enterprise.status == 'stale_source' (data older than the deck), leave UNCHANGED."
+
+  - n: 11
+    name: "Vault Enterprise Release Updates"
+    source: releases
+    product: vault
+    type: release_updates
+    layout: three_column_rolling
+    columns: 3
+    variant: enterprise
+    slot_hints:
+      - "Version normalized to base semver (strip +ent/+ent.hsm/+ent.fips). e.g. v2.0.3."
+      - "3 columns, col3=latest. Driver: products.vault.latest. Same shift/refresh rule as slide 7."
+      - "Entry: 'vX.Y.Z (YYYY-MM-DD)' + one-line highlight from the vault main CHANGELOG.md section."
+
+  - n: 12
+    name: "HCP Vault Release Updates"
+    source: releases
+    product: vault
+    type: release_updates
+    layout: three_column_rolling
+    columns: 3
+    variant: hcp
+    slot_hints:
+      - "HCP Vault tracks the SAME Vault core release data as slide 11 (products.vault.latest)."
+      - "Apply the shift/refresh rule INDEPENDENTLY using this slide's own current columns (it may lag slide 11)."
+      - "Goal: this slide must also show the latest month. If col3 is behind slide 11's month, SHIFT to add it."
+      - "It need NOT be byte-identical to slide 11 (the source deck differs in col1/col2) — just never a month behind."
+
+  - n: 9
+    name: "Terraform Recent Blogs"
+    source: blogs
+    product: terraform
+    type: recent_blogs
+    list_order: newest_first
+    slot_hints:
+      - "Editable entries have role 'blog_entry' in data/slide-structure.json; refresh newest-first."
+      - "Each entry: '<Month Day> – ' + 'See here' (hyperlink) + blog title."
+      - "Update the hyperlink target in slide9.xml.rels for each refreshed 'See here' run."
+      - "Shapes with role 'static_topics' (Speed & agility, AI, etc.) are STATIC — never change."
+
+  - n: 13
+    name: "Vault Recent Blogs"
+    source: blogs
+    product: vault
+    type: recent_blogs
+    list_order: newest_first
+    slot_hints:
+      - "Editable entries have role 'blog_entry'; refresh newest-first. Topics block is static."
+      - "Each entry: '<Month Day> – ' + 'See here' (hyperlink) + blog title."
+      - "Update hyperlink targets in slide13.xml.rels."
+
+  - n: 10
+    name: "Terraform Upcoming Webinars"
+    source: events
+    product: terraform
+    type: webinars
+    slots: 3                              # fixed slot count (slot1..slot3 in slide-structure.json)
+    fill: latest_first
+    slot_hints:
+      - "Exactly 3 slots. Fill with the latest UPCOMING Terraform webinars (date >= run date), newest first."
+      - "Each slot: date + 'WEBINAR' + 'See here' (hyperlink) + title + short description."
+      - "If fewer than 3 upcoming events, clear surplus slots; if none, hide the slide. Update .rels."
+
+  - n: 14
+    name: "Vault Upcoming Webinars"
+    source: events
+    product: vault
+    type: webinars
+    slots: 4                              # fixed slot count (slot1..slot4 in slide-structure.json)
+    fill: latest_first
+    slot_hints:
+      - "Exactly 4 slots. Fill with the latest UPCOMING Vault webinars, newest first."
+      - "Each slot: date + 'WEBINAR' + 'See here' (hyperlink) + title + short description."
+      - "If fewer than 4 upcoming events, clear surplus slots; if none, hide the slide. Update .rels."
+
+  - n: [18, 19, 20, 21, 22]
+    name: "Featured / In-Person Events"
+    source: events
+    product: featured
+    type: in_person_event
+    one_event_per_slide: true
+    fill: latest_first
+    slot_hints:
+      - "One event per slide. Roles in slide-structure.json: title, date_register, description, promo_banner."
+      - "Title = event name; 'date_register' = 'Event | <date> | Register Here' (hyperlink in .rels)."
+      - "'description' = 1-2 sentence event description; 'promo_banner' (TOP PRIORITY) is static if present."
+      - "Fill slides with the latest upcoming featured events; HIDE any slide with no event (show=\"0\")."
+      - "Slide 22 is a French-language (Paris) event — keep language/locale consistent if reused."
+
+# Slides NOT listed here are out of scope: never edited. If a listed slide has no fresh data,
+# hide it (show="0") rather than leaving stale content — per the hide_dont_delete rule.

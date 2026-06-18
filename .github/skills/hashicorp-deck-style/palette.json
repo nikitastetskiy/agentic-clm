@@ -1,0 +1,41 @@
+{
+  "$comment": "Authoritative brand palette + fonts extracted from CSE EMEA Customer Cadence Deck. Used to preserve style and to flag foreign colors/fonts introduced during editing.",
+  "fonts": {
+    "headers": ["Poppins", "Inter Black", "Inter SemiBold"],
+    "body": ["Inter", "Inter Light"],
+    "fallback": ["Arial", "Calibri", "Aptos"],
+    "theme_refs": ["+mj-lt", "+mn-lt", "+mn-ea", "+mn-cs"]
+  },
+  "colors": {
+    "terraform": {
+      "primary": "8B85FF",
+      "brand": "7B42BC",
+      "variants": ["7582FF", "6C81FF", "7D83FF", "C08DFF"]
+    },
+    "vault": {
+      "primary": "F9B373",
+      "variants": ["F9B571", "FBAA79", "FFD814"]
+    },
+    "accents": {
+      "coral": "FF8791",
+      "coral_alt": ["FE9388", "FA889C"],
+      "tag_pink": "FFC2C8",
+      "tag_peach": "FDDEC5",
+      "tag_lavender": "E5D0FF",
+      "tag_blue": "CDD5FF",
+      "lavender": "C08DFF"
+    },
+    "neutrals": {
+      "black": "000000",
+      "near_black": "1A1A1A",
+      "white": "FFFFFF",
+      "alert_red": "C00000"
+    }
+  },
+  "allowed_hex": [
+    "8B85FF","7B42BC","7582FF","7482FF","6C81FF","7D83FF","C08DFF","C58DF8",
+    "F9B373","F9B571","FBAA79","FBA87B","FFD814",
+    "FF8791","FE9388","FA889C","E689BF","FFC2C8","FDDEC5","E5D0FF","CDD5FF",
+    "000000","1A1A1A","FFFFFF","C00000","E8E8E8"
+  ]
+}
