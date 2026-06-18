@@ -374,6 +374,11 @@ def main() -> int:
                         misses.append(f"missing entry {i+1} for '{post['title'][:40]}'")
                     elif post["title"] not in texts[i]:
                         misses.append(f"entry {i+1}: deck has '{texts[i][:45]}' expected '{post['title'][:40]}'")
+                # No post may appear twice (a refreshed top-N entry duplicating a curated tail entry).
+                norm = [" ".join(t.split()).lower() for t in texts]
+                for i, t in enumerate(norm):
+                    if t and t in norm[:i]:
+                        misses.append(f"duplicate blog entry: '{texts[i][:45]}'")
                 blogcov["slides"][str(n)] = misses
                 if misses:
                     blogcov["ok"] = False

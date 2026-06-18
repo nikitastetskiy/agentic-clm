@@ -79,21 +79,57 @@ def refresh_entry(sp, rels_dom, post: dict) -> dict:
     return {"ok": True, "date": fmt_date(post["date"]), "title": post["title"], "rid": new_rid}
 
 
+def norm_url(u: str) -> str:
+    """Normalize a blog URL for duplicate detection (locale + scheme + trailing-slash insensitive)."""
+    u = (u or "").lower().split("://", 1)[-1]
+    if u.startswith("www."):
+        u = u[4:]
+    return u.replace("/en/", "/").rstrip("/")
+
+
+def entry_url(sp, rid_target: dict) -> str | None:
+    for run in sp.getElementsByTagName("a:r"):
+        hl = px.run_hyperlink(run)
+        if hl is not None and px.run_text(run).strip().lower() in SEE_TOKENS:
+            return rid_target.get(hl.getAttribute("r:id"))
+    return None
+
+
+def clear_entry(sp) -> None:
+    """Blank a blog entry's visible text (used to drop a tail entry that duplicates a refreshed post)."""
+    for at in sp.getElementsByTagName("a:t"):
+        if at.firstChild:
+            at.firstChild.data = ""
+
+
 def edit_slide(slide_file: Path, rels_file: Path, posts: list[dict]) -> dict:
     dom = minidom.parse(str(slide_file))
-    rels_dom, _ = px.load_rels(rels_file)
+    rels_dom, rid_target = px.load_rels(rels_file)
     entries = [sp for sp in dom.getElementsByTagName("p:sp") if is_blog_entry(sp)]
     n = min(len(posts), len(entries))
     refreshed = []
+    refreshed_urls, refreshed_titles = set(), set()
     for i in range(n):
         res = refresh_entry(entries[i], rels_dom, posts[i])
         refreshed.append(res)
-    changed = any(r.get("ok") for r in refreshed)
+        if res.get("ok"):
+            refreshed_urls.add(norm_url(posts[i]["url"]))
+            refreshed_titles.add(posts[i]["title"].strip().lower())
+    # De-dup: a curated tail entry can be the SAME post as a refreshed top-N entry (the feed window
+    # overlaps the deck's history) — blank it so the post never shows twice.
+    deduped = []
+    for j in range(n, len(entries)):
+        url = entry_url(entries[j], rid_target)
+        text = px.shape_text(entries[j]).lower()
+        if (url and norm_url(url) in refreshed_urls) or any(t and t in text for t in refreshed_titles):
+            clear_entry(entries[j])
+            deduped.append(j)
+    changed = any(r.get("ok") for r in refreshed) or bool(deduped)
     if changed:
         slide_file.write_text(dom.toxml(), encoding="utf-8")
         rels_file.write_text(rels_dom.toxml(), encoding="utf-8")
     return {"entries_found": len(entries), "posts_available": len(posts),
-            "refreshed": refreshed, "changed": changed}
+            "refreshed": refreshed, "deduped": deduped, "changed": changed}
 
 
 def main() -> int:
@@ -144,7 +180,8 @@ def main() -> int:
     for n, s in report["slides"].items():
         ok = sum(1 for r in s["refreshed"] if r.get("ok"))
         log(f"slide {n} ({s['product']}): refreshed {ok}/{s['entries_found']} entries "
-            f"(posts available: {s['posts_available']})")
+            f"(posts available: {s['posts_available']})"
+            + (f"; de-duped tail entries {s['deduped']}" if s.get("deduped") else ""))
         for r in s["refreshed"]:
             if r.get("ok"):
                 log(f"    - {r['date']} :: {r['title'][:60]}")
