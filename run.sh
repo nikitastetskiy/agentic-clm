@@ -4,7 +4,7 @@
 #
 # Phases:
 #   0. skill-updater  — ensure the vendored pptx skill matches its pin (advisory)
-#   1. fetch          — deterministic Python: releases + blogs + events-prep
+#   1. fetch          — deterministic Python: releases + blogs + events (Playwright-rendered)
 #   2. copy           — timestamped working copy (original is never touched)
 #   3. data (agent)   — deck-data: web_fetch events/TFE + changelog highlights
 #   3b. release edit   — deterministic Python: apply shift/refresh + date-reconcile to slides 7,8,11,12
@@ -144,6 +144,10 @@ Tasks:
      new col3), keep recent[0] consistent, via web_fetching each changelog_url (fetch each URL once).
   2) Populate data/releases.json -> terraform_enterprise.recent + .latest from its releases_page.
   3) Produce data/events.json per data/events.request.json (upcoming events only, never fabricate).
+     NOTE: events are now fetched deterministically by scripts/fetch_events.py (Playwright). If
+     data/events.json status=="ok", DO NOT change its facts (dates/titles/urls/buckets) — only fill
+     the empty "description" (and featured "location") fields from each event's title/type. Only fall
+     back to web_fetch + the request file if status != "ok".
 Only write JSON files under data/. Do not touch any .pptx.
 EOF
 )"

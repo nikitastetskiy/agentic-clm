@@ -76,12 +76,15 @@ That's the whole loop: **run → review → (optionally) correct → run again**
 - **GitHub Copilot CLI** (and a Copilot subscription). A fine-grained token with the
   **"Copilot Requests"** permission for unattended/Docker runs.
 - **Python 3.11+** and the packages in `requirements.txt`.
+- *(For the upcoming-events slides)* a one-time Playwright Chromium install (the events page is
+  behind a bot-check that only a real browser passes). Without it, events fall back to the agent.
 - *(Optional, for the visual review step)* LibreOffice + poppler — already included if you use Docker.
 
 First-time setup:
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+python -m playwright install chromium   # enables the events fetcher
 ```
 
 ---
@@ -131,10 +134,10 @@ This lets you keep the actual deck **out of the repository** while still sharing
 ```
 run.sh
  ├─ 0. skill-updater   check the vendored pptx skill against upstream (advisory)
- ├─ 1. fetch (python)  fetch_releases.py · fetch_blogs.py · fetch_events.py  → data/*.json
+ ├─ 1. fetch (python)  fetch_releases.py · fetch_blogs.py · fetch_events.py (Playwright)  → data/*.json
  ├─ 2. copy            make_working_copy.py → output/<deck> — <timestamp>.pptx
  ├─ 2b. map (python)   map_slides.py → data/slide-structure.json (learned geometry; no re-discovery)
- ├─ 3. deck-data       agent: web_fetch events + TFE + changelog highlights → enrich data/*.json
+ ├─ 3. deck-data       agent: TFE notes + changelog highlights + event descriptions → enrich data/*.json
  ├─ 3b. release edit (python)  edit_release_slides.py → applies the shift/refresh standard AND
  │                        date-reconciles mislabeled versions on slides 7,8,11,12; hard cases are
  │                        listed in data/release-edit-report.json for the agent (fallback_slides)
@@ -157,8 +160,8 @@ work to just the ambiguous cases, blogs, and slide-hiding.
   fails if a foreign colour/font is introduced.
 
 ### Agents (`.github/agents/`)
-- **`deck-data`** — gathers what Python can't: events (bot-protected page), TFE releases (not on the
-  API), and one-line changelog highlights. Writes only `data/*.json`; never invents anything.
+- **`deck-data`** — fills in prose Python can't: TFE release notes, one-line changelog highlights,
+  and short event descriptions/locations. Writes only `data/*.json`; never invents facts.
 - **`pptx-orchestrator`** — edits only the slides in `config/slide-map.yaml`, replacing text inside
   existing runs (never touching formatting), updating link targets, and hiding empty slides.
 - **`deck-reviewer`** — verifies style preservation, data accuracy, links, and hide-don't-delete;
