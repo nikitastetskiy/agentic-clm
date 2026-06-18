@@ -141,14 +141,18 @@ run.sh
  ├─ 3b. release edit (python)  edit_release_slides.py → applies the shift/refresh standard AND
  │                        date-reconciles mislabeled versions on slides 7,8,11,12; hard cases are
  │                        listed in data/release-edit-report.json for the agent (fallback_slides)
- ├─ 4. pptx-orchestrator  agent: edit fallback + blog slides (style-preserving), hide empties, repack
+ ├─ 3c. blog edit (python)     edit_blog_slides.py → refreshes the newest posts on slides 9,13
+ ├─ 3d. event edit (python)    edit_event_slides.py → fills webinars (10,14) + featured events
+ │                        (18–22), clears surplus slots, hides slides with no event
+ ├─ 4. pptx-orchestrator  agent: only the leftover/ambiguous release cases + anything the editors
+ │                        skipped (style-preserving), hide empties, repack
  ├─ 4b. verify (python)   verify_deck.py → output/verify-*.txt (deterministic gate: integrity, hide
- │                        audit, style, release-column latest, date-keyed accuracy) — reviewer's truth
+ │                        audit, style, release latest, date-keyed accuracy, blog + event coverage)
  └─ 5. deck-reviewer   agent: judgment checks (data/highlights/links/scope); record learnings
 ```
 The Python phases are fast and free; the **agent** phases (research, edit, review) are where the time
-goes. Moving the release-slide edits into step 3b (deterministic Python) shrinks the slow build agent's
-work to just the ambiguous cases, blogs, and slide-hiding.
+goes. Moving the release, blog, and event edits into steps 3b–3d (deterministic Python) shrinks the
+slow build agent's work to just the rare ambiguous cases — most runs need no slide edits from it.
 
 ### Skills (`.github/skills/`)
 - **`pptx/`** — vendored from [anthropics/skills] at a pinned commit (see `.skill-manifest.json`).

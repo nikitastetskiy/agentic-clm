@@ -22,11 +22,11 @@
 #     for Vault are all the same month's backports, so col1/col2 history cannot be re-derived and must
 #     be PRESERVED verbatim. Never add/remove a column. A slide already showing the latest month needs
 #     only col3 refreshed (or nothing).
-#   * Webinar slides keep their EXACT slot count (slide 10 = 3, slide 14 = 4); fill with the latest
-#     upcoming events, newest first. If fewer events than slots, clear the surplus slots; if none,
-#     hide the slide.
-#   * Featured-event slides (18-22): one event per slide, filled with the latest upcoming featured
-#     events; hide any slide with no event (never delete).
+#   * Webinar slides keep their EXACT slot count (slide 10 = 3, slide 14 = 4); fill in reading order
+#     (top-to-bottom, left-to-right) with the upcoming events, SOONEST upcoming first. If fewer events
+#     than slots, clear the surplus slots; if none, hide the slide.
+#   * Featured-event slides (18-22): one event per slide, filled with the SOONEST upcoming featured
+#     events (one per slide, in date order); hide any slide with no event (never delete).
 #   * Blog slides (9, 13): the left list shows the most recent posts, newest first; the right
 #     "Explore Topics!" taxonomy is STATIC.
 
@@ -130,9 +130,9 @@ slides:
     product: terraform
     type: webinars
     slots: 3                              # fixed slot count (slot1..slot3 in slide-structure.json)
-    fill: latest_first
+    fill: soonest_first                  # nearest upcoming date first (deterministic editors)
     slot_hints:
-      - "Exactly 3 slots. Fill with the latest UPCOMING Terraform webinars (date >= run date), newest first."
+      - "Exactly 3 slots. Fill with the latest UPCOMING Terraform webinars (date >= run date), SOONEST upcoming first."
       - "Each slot: date + 'WEBINAR' + 'See here' (hyperlink) + title + short description."
       - "If fewer than 3 upcoming events, clear surplus slots; if none, hide the slide. Update .rels."
 
@@ -142,9 +142,9 @@ slides:
     product: vault
     type: webinars
     slots: 4                              # fixed slot count (slot1..slot4 in slide-structure.json)
-    fill: latest_first
+    fill: soonest_first                  # nearest upcoming date first (deterministic editors)
     slot_hints:
-      - "Exactly 4 slots. Fill with the latest UPCOMING Vault webinars, newest first."
+      - "Exactly 4 slots. Fill with the UPCOMING Vault webinars, SOONEST upcoming first."
       - "Each slot: date + 'WEBINAR' + 'See here' (hyperlink) + title + short description."
       - "If fewer than 4 upcoming events, clear surplus slots; if none, hide the slide. Update .rels."
 
@@ -154,13 +154,13 @@ slides:
     product: featured
     type: in_person_event
     one_event_per_slide: true
-    fill: latest_first
+    fill: soonest_first                  # nearest upcoming date first (deterministic editors)
     slot_hints:
       - "One event per slide. Roles in slide-structure.json: title, date_register, description, promo_banner."
       - "Title = event name; 'date_register' = 'Event | <date> | Register Here' (hyperlink in .rels)."
       - "'description' = 1-2 sentence event description; 'promo_banner' (TOP PRIORITY) is static if present."
-      - "Fill slides with the latest upcoming featured events; HIDE any slide with no event (show=\"0\")."
-      - "Slide 22 is a French-language (Paris) event — keep language/locale consistent if reused."
+      - "Fill slides in date order with the SOONEST upcoming featured events; HIDE any slide with no event (show=\"0\")."
+      - "Handled deterministically by scripts/edit_event_slides.py — the agent only acts if its report skipped a slide."
 
 # Slides NOT listed here are out of scope: never edited. If a listed slide has no fresh data,
 # hide it (show="0") rather than leaving stale content — per the hide_dont_delete rule.

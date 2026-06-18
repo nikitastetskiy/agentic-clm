@@ -167,6 +167,44 @@ def release_by_date(releases: dict) -> dict[str, dict[str, str]]:
     return by_date
 
 
+def _shape_name(sp) -> str:
+    nv = sp.getElementsByTagName("p:cNvPr")
+    return nv[0].getAttribute("name") if nv else ""
+
+
+def _shape_y(sp) -> float | None:
+    off = sp.getElementsByTagName("a:off")
+    return _round_in(off[0].getAttribute("y")) if off else None
+
+
+def shape_text_by_name(slide_file: Path, name: str) -> str | None:
+    doc = minidom.parse(str(slide_file))
+    for sp in doc.getElementsByTagName("p:sp"):
+        if _shape_name(sp) == name:
+            return _text(sp).strip()
+    return None
+
+
+def blog_entry_texts(slide_file: Path) -> list[str]:
+    """Recent-blog entry shapes (a 'See here' hyperlink below the header), in document order."""
+    doc = minidom.parse(str(slide_file))
+    out: list[str] = []
+    for sp in doc.getElementsByTagName("p:sp"):
+        y = _shape_y(sp)
+        if y is None or y < 1.3:
+            continue
+        if sp.getElementsByTagName("a:hlinkClick") and "See here" in _text(sp).replace("\xa0", " "):
+            out.append(_text(sp).strip())
+    return out
+
+
+def webinar_slot_texts(slide_file: Path) -> list[str]:
+    """Non-empty webinar slot shapes ('Google Shape;397;p78') on a webinar slide."""
+    doc = minidom.parse(str(slide_file))
+    return [t for sp in doc.getElementsByTagName("p:sp") if _shape_name(sp) == "Google Shape;397;p78"
+            for t in [_text(sp).strip()] if t]
+
+
 def _load_json(name: str) -> dict:
     p = DATA_DIR / name
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
@@ -191,6 +229,7 @@ def main() -> int:
     cfg = load_config("slide-map.yaml")
     releases = _load_json("releases.json")
     events = _load_json("events.json")
+    blogs = _load_json("blogs.json")
 
     results: dict[str, dict] = {}
     unpacked = _unpack(deck)
@@ -313,6 +352,86 @@ def main() -> int:
                     for m in mismatches:
                         acc["notes"].append(f"slide {n} ({product}): {m}")
         results["release_accuracy"] = acc
+
+        # --- 6. Blog coverage -----------------------------------------------------------
+        # The top-N recent-blog entries on slides 9/13 must carry the N newest titles from
+        # blogs.json (in order). Catches a stale or mis-ordered blog refresh.
+        blogcov = {"slides": {}, "ok": True, "notes": []}
+        for entry in cfg.get("slides", []):
+            if entry.get("type") != "recent_blogs":
+                continue
+            product = entry.get("product")
+            recent = (blogs.get("products", {}).get(product, {}) or {}).get("recent", [])
+            ns = entry["n"]
+            for n in (ns if isinstance(ns, list) else [ns]):
+                f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                if not f.exists() or not recent:
+                    continue
+                texts = blog_entry_texts(f)
+                misses = []
+                for i, post in enumerate(recent):
+                    if i >= len(texts):
+                        misses.append(f"missing entry {i+1} for '{post['title'][:40]}'")
+                    elif post["title"] not in texts[i]:
+                        misses.append(f"entry {i+1}: deck has '{texts[i][:45]}' expected '{post['title'][:40]}'")
+                blogcov["slides"][str(n)] = misses
+                if misses:
+                    blogcov["ok"] = False
+                    for m in misses:
+                        blogcov["notes"].append(f"slide {n} ({product}): {m}")
+        results["blog_coverage"] = blogcov
+
+        # --- 7. Event coverage ----------------------------------------------------------
+        # Webinar slides (10,14): #filled slots == min(slots, available webinars), every filled slot
+        # carries a known webinar title, and a product with zero webinars hides the slide.
+        # Featured slides (18-22): the soonest featured events appear (title match), one per slide,
+        # and any slide past the supply is hidden (show="0", never deleted).
+        evcov = {"slides": {}, "ok": True, "notes": []}
+        webinars = events.get("webinars", {})
+        featured = sorted(events.get("featured", []), key=lambda e: e.get("date", ""))
+        for entry in cfg.get("slides", []):
+            etype = entry.get("type")
+            if etype == "webinars":
+                n = entry["n"]
+                f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                if not f.exists():
+                    continue
+                avail = webinars.get(entry.get("product"), [])
+                titles = {w["title"] for w in avail}
+                slots = webinar_slot_texts(f)
+                notes = []
+                if not avail:
+                    if not is_hidden(f):
+                        notes.append("no webinars but slide is VISIBLE (should be hidden)")
+                else:
+                    for t in slots:
+                        if not any(wt in t for wt in titles):
+                            notes.append(f"slot text not in data: '{t[:45]}'")
+                evcov["slides"][str(n)] = notes
+                if notes:
+                    evcov["ok"] = False
+                    for m in notes:
+                        evcov["notes"].append(f"slide {n} (webinars): {m}")
+            elif etype == "in_person_event":
+                ns = entry["n"]
+                ns = ns if isinstance(ns, list) else [ns]
+                for i, n in enumerate(ns):
+                    f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                    if not f.exists():
+                        continue
+                    notes = []
+                    if i < len(featured):
+                        title = shape_text_by_name(f, "Title 1") or ""
+                        if featured[i]["title"] not in title:
+                            notes.append(f"title '{title[:45]}' != expected '{featured[i]['title'][:40]}'")
+                    elif not is_hidden(f):
+                        notes.append("no event for this slide but it is VISIBLE (should be hidden)")
+                    evcov["slides"][str(n)] = notes
+                    if notes:
+                        evcov["ok"] = False
+                        for m in notes:
+                            evcov["notes"].append(f"slide {n} (featured): {m}")
+        results["event_coverage"] = evcov
     finally:
         shutil.rmtree(unpacked, ignore_errors=True)
 

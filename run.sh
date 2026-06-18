@@ -174,6 +174,36 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   fi
 fi
 
+# --- Phase 3c: deterministic blog-slide edits ------------------------------------------
+# Refresh the top-N recent blog entries on slides 9 (Terraform) & 13 (Vault) from data/blogs.json
+# in PYTHON: rewrite the date + title runs and repoint each "See here" hyperlink via a FRESH rel
+# (shared rIds are never mutated). Older entries stay as history. Writes data/blog-edit-report.json.
+# Non-fatal: a failure just leaves the blog slides for the build agent.
+if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
+  log "Phase 3c: deterministic blog-slide edits"
+  if "$PY" scripts/edit_blog_slides.py "$WORKING_COPY" --original "$ORIG_DECK" \
+        > output/edit-blogs.log 2>&1; then
+    cat output/edit-blogs.log
+  else
+    warn "edit_blog_slides.py failed — build agent will handle blog slides; see output/edit-blogs.log"
+  fi
+fi
+
+# --- Phase 3d: deterministic event-slide edits -----------------------------------------
+# Fill the webinar slots (10,14) and featured/in-person slides (18-22) from data/events.json in
+# PYTHON: dates/titles/See-here+Register hyperlinks (fresh rels), descriptions collapsed to the one
+# events.json sentence, surplus slots cleared, and slides with no event HIDDEN (show="0", never
+# deleted). Runs AFTER deck-data filled the prose. Writes data/event-edit-report.json. Non-fatal.
+if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
+  log "Phase 3d: deterministic event-slide edits"
+  if "$PY" scripts/edit_event_slides.py "$WORKING_COPY" --original "$ORIG_DECK" \
+        > output/edit-events.log 2>&1; then
+    cat output/edit-events.log
+  else
+    warn "edit_event_slides.py failed — build agent will handle event slides; see output/edit-events.log"
+  fi
+fi
+
 # --- Phase 4: build (agent) ------------------------------------------------------------
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   run_copilot pptx-orchestrator "$(cat <<EOF
@@ -191,6 +221,12 @@ edit the release slides listed in its "fallback_slides" array (those were too am
 safe automation, e.g. a new-month shift across multi-entry columns); for those, apply the standard
 by hand. Do NOT touch the release slides in "handled_slides" — they are already correct (just leave
 them). Still update the col3 "highlight" bullets from data if the editor only changed the version.
+BLOG SLIDES (9,13) AND EVENT SLIDES (10,14,18-22) ARE ALSO ALREADY DONE deterministically by
+scripts/edit_blog_slides.py and scripts/edit_event_slides.py (see data/blog-edit-report.json and
+data/event-edit-report.json). DO NOT touch slides 9, 13, 10, 14, 18, 19, 20, 21, 22 — their text,
+hyperlinks, and hide state are correct; re-editing them risks regressions. If a report shows a slide
+was skipped/failed (its entry is missing or "changed": false where data existed), only then fix that
+specific slide by hand following config/slide-map.yaml.
 For any fallback release slide apply the ROLLING shift/refresh standard:
 compare products.<product>.latest.month_label to the current col3 header — same month refreshes
 col3 only, a newer month shifts the (header,entry) pairs left; never blank col1/col2.
