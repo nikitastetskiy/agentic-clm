@@ -144,6 +144,7 @@ slides:
     slot_hints:
       - "Exactly 3 slots. Fill with the latest UPCOMING Terraform webinars (date >= run date), SOONEST upcoming first."
       - "Each slot: date + TYPE + 'See here' (hyperlink) + title + short description."
+      - "Each slot has a circular language flag (top-right); the editor repoints it to match the filled webinar's detected language (en/de/it/fr/es/nl) — assets/flags/<lang>.png."
       - "NEVER leave a slot empty: backfill spare slots from cross-product/cert webinars then featured events not on 18-22, relabeling the type. Hide only if ZERO events exist. Update .rels."
 
   - n: 14
@@ -156,6 +157,7 @@ slides:
     slot_hints:
       - "Exactly 4 slots. Fill with the UPCOMING Vault webinars, SOONEST upcoming first."
       - "Each slot: date + TYPE + 'See here' (hyperlink) + title + short description."
+      - "Each slot has a circular language flag (top-right); the editor repoints it to match the filled webinar's detected language (en/de/it/fr/es/nl) — assets/flags/<lang>.png."
       - "NEVER leave a slot empty: backfill spare slots from cross-product/cert webinars then featured events not on 18-22, relabeling the type. Hide only if ZERO events exist. Update .rels."
 
   - n: [18, 19, 20, 21, 22]
@@ -170,7 +172,7 @@ slides:
       - "Title = event name; 'date_register' = 'Event | <date> | Register Here' (hyperlink in .rels)."
       - "'description' renders as 2-3 bullets from events.json description_points (falls back to the single 'description'); 'promo_banner' (TOP PRIORITY) is static if present."
       - "Long titles are switched to shrink-to-fit (normAutofit) by the editor so they don't overflow the Register link."
-      - "The event PHOTO is replaced with the captured leadspace hero (gradient bg) from data/event-images.json: prefer the event's OWN per-page capture (city-specific IBM leadspace, status==ok, matched by url); else fall back to an on-brand HashiCorp SERIES hero from data/event-images.json 'fallbacks' whose 'match' matches the event title (e.g. the Agentic Runtime Security Exchange landing-page hero for the Hands-On Lab). The editor adds the screenshot as fresh media, repoints the picture's blip, and resets the old crop so the full-width gradient shows. Unrelated events with no capture (e.g. AWS Summits) keep their existing photo."
+      - "The event PHOTO is replaced with the captured leadspace hero (gradient bg) from data/event-images.json: prefer the event's OWN per-page capture (city-specific IBM leadspace, status==ok, matched by url); else fall back to an on-brand HashiCorp SERIES hero from data/event-images.json 'fallbacks' whose 'match' matches the event title (e.g. the Agentic Runtime Security Exchange landing-page hero for the Hands-On Lab). The editor adds the screenshot as fresh media, repoints the picture's blip, and applies a COVER crop (a:srcRect) so the hero fills the frame WITHOUT distortion — cropping top/bottom to keep the full-width gradient (or left/right when the hero is wider). Unrelated events with no capture (e.g. AWS Summits) keep their existing photo."
       - "Fill slides in date order with the SOONEST upcoming featured events; HIDE any slide with no event (show=\"0\")."
       - "Handled deterministically by scripts/edit_event_slides.py — the agent only acts if its report skipped a slide."
 
