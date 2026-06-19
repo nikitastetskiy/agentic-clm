@@ -59,6 +59,14 @@ def _entry(src: dict, kind: str) -> dict:
             "url": src.get("url", ""), "description": (src.get("description") or "").strip()}
 
 
+def _event_identity(e: dict) -> tuple:
+    """Stable per-event identity for de-duplication — title+date, NOT url. Several distinct events
+    can share a generic landing-page url (e.g. AWS Summit DC / Mexico City / Zurich all link to
+    aws.amazon.com/events/summits/), so keying on url would wrongly collapse them into one and shrink
+    the backfill pool below what's needed to fill every slot."""
+    return (str(e.get("title", "")).strip().lower(), str(e.get("date", "")))
+
+
 # --------------------------------------------------------------------------- slot helpers ---------
 def reading_order(slots: list) -> list:
     """Top-to-bottom, left-to-right. Round y to a row band so a near-equal row sorts by x."""
@@ -345,27 +353,27 @@ def allocate_webinars(webinar_slides: list[tuple], webinars: dict, featured: lis
         for w in sorted(webinars.get(product, []), key=lambda x: x.get("date", "")):
             if len(chosen) >= slots:
                 break
-            if w["url"] in used:
+            if _event_identity(w) in used:
                 continue
             chosen.append(_entry(w, "WEBINAR"))
-            used.add(w["url"])
+            used.add(_event_identity(w))
         plan[n] = chosen
     # Shared backfill pool — every remaining webinar (any bucket) + non-reserved featured.
     pool = []
     for bucket in webinars.values():
         for w in bucket:
-            if w["url"] not in used:
+            if _event_identity(w) not in used:
                 pool.append(_entry(w, "WEBINAR"))
     for f in featured:
-        if f["url"] not in used and f["url"] not in reserved_featured_urls:
+        if _event_identity(f) not in used and f["url"] not in reserved_featured_urls:
             ent = _entry(f, f.get("type", "EVENT"))
             ent["backfill"] = True
             pool.append(ent)
     seen, dedup = set(), []
     for e in sorted(pool, key=lambda x: x["date"]):
-        if e["url"] in seen:
+        if _event_identity(e) in seen:
             continue
-        seen.add(e["url"])
+        seen.add(_event_identity(e))
         dedup.append(e)
     # Pass 2 — distribute the pool across empty slots in slide order.
     pi = 0
@@ -373,11 +381,11 @@ def allocate_webinars(webinar_slides: list[tuple], webinars: dict, featured: lis
         while len(plan[n]) < slots and pi < len(dedup):
             e = dedup[pi]
             pi += 1
-            if e["url"] in used:
+            if _event_identity(e) in used:
                 continue
             e.setdefault("backfill", True)
             plan[n].append(e)
-            used.add(e["url"])
+            used.add(_event_identity(e))
         plan[n].sort(key=lambda x: x["date"])  # soonest-first reading order, like the hand-authored deck
     return plan
 
