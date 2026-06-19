@@ -5,6 +5,7 @@
 # Phases:
 #   0. skill-updater  — ensure the vendored pptx skill matches its pin (advisory)
 #   1. fetch          — deterministic Python: releases + changelog highlights + TFE + blogs + events
+#   1b. event images   — deterministic Python (Playwright): event leadspace screenshots (best-effort)
 #   2. copy           — timestamped working copy (original is never touched)
 #   3. data (agent)   — deck-data: events prose + light highlight polish (no web_fetch of changelogs/TFE)
 #   3b. release edit   — deterministic Python: apply shift/refresh + date-reconcile to slides 7,8,11,12
@@ -15,6 +16,7 @@
 #   COPILOT_MODEL          model override (optional)
 #   SKILL_UPDATE_POLICY    check | update   (default: check)
 #   SKIP_FETCH/SKIP_DATA/SKIP_BUILD/SKIP_REVIEW = 1 to skip a phase
+#   SKIP_EVENT_IMAGES      1 to skip the Playwright event-leadspace capture (Phase 1b)
 #   SOURCE_PPTX            explicit source deck (default: the single .pptx in repo root)
 #
 set -euo pipefail
@@ -121,6 +123,20 @@ else
   warn "SKIP_FETCH=1 — using existing data/*.json"
 fi
 
+# --- Phase 1b: event leadspace screenshots (Playwright; best-effort) -------------------
+# Captures the HashiCorp event hero (gradient leadspace) at the mandated 680px width for the
+# featured slides. Only IBM "Agentic Runtime Security Exchange" pages expose this leadspace; other
+# pages (AWS Summits, etc.) are recorded as errors and keep their existing slide photo. Non-fatal:
+# a failure here just means the event-slide editor leaves the existing photos untouched.
+if [[ "${SKIP_FETCH:-0}" != "1" && "${SKIP_EVENT_IMAGES:-0}" != "1" ]]; then
+  log "Phase 1b: event leadspace screenshots (Playwright, best-effort)"
+  if "$PY" scripts/fetch_event_images.py > output/fetch-event-images.log 2>&1; then
+    tail -n 3 output/fetch-event-images.log
+  else
+    warn "event-image capture returned non-zero (non-fatal — existing photos kept); see output/fetch-event-images.log"
+  fi
+fi
+
 # --- Phase 2: working copy -------------------------------------------------------------
 log "Phase 2: working copy"
 COPY_ARGS=()
@@ -157,8 +173,9 @@ Tasks:
   3) Produce data/events.json per data/events.request.json (upcoming events only, never fabricate).
      NOTE: events are now fetched deterministically by scripts/fetch_events.py (Playwright). If
      data/events.json status=="ok", DO NOT change its facts (dates/titles/urls/buckets) — only fill
-     the empty "description" (and featured "location") fields from each event's title/type. Only fall
-     back to web_fetch + the request file if status != "ok".
+     the empty prose: each webinar "description" (one short sentence), and for each featured event the
+     "location" plus "description_points" (a list of 2-3 short factual bullets the slide renders as
+     its description). Only fall back to web_fetch + the request file if status != "ok".
 Only write JSON files under data/. Do not touch any .pptx.
 EOF
 )"
@@ -283,4 +300,9 @@ else
 fi
 
 log "Done. Output deck: $WORKING_COPY"
-echo "Review + build notes (if any) are in output/."
+
+# --- Final: human-readable run summary -------------------------------------------------
+# Print a table of what each automatable slide group changed, the verify gate result, and an
+# explicit "please review" notice with the path to the finished deck. Never fails the run.
+"$PY" scripts/summarize_run.py "$WORKING_COPY" || \
+  echo "Output deck: $WORKING_COPY  (review + build notes are in output/)"

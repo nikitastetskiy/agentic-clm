@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """Deterministic editor for the recent-blogs slides (9 = Terraform, 13 = Vault).
 
-Replaces the AI build agent's blog work. Each blog slide has several "blog entry" text boxes laid
-out newest-first; the rolling standard (same as releases) is to **refresh the top N entries** with
-the N newest posts from `data/blogs.json` and leave the older entries untouched as history.
+Replaces the AI build agent's blog work. Each blog slide has 8 "blog entry" text boxes laid out
+newest-first. The rolling standard is **insert-and-shift**: genuinely-new posts from
+`data/blogs.json` (those not already on the slide) are inserted at the TOP, every existing entry
+shifts DOWN one position, and the oldest entries fall off the bottom — so all 8 boxes always stay
+filled and no curated post is overwritten or duplicated. When there are no new posts the slide is
+left byte-stable.
 
 A blog-entry shape's runs are: a DATE run (e.g. "      June 2 – "), a "See here" run carrying the
-post hyperlink, then one or more TITLE runs. For each refreshed entry this editor:
-  * rewrites the date run as `<leading-ws>` + `<Month D>` + `<separator>` (whitespace/sep preserved),
+post hyperlink, then one or more TITLE runs. Writing an entry:
+  * rewrites the date run as `<leading-ws>` + `<Month D>` + `<separator>` (the TARGET box's own
+    whitespace/separator are preserved — only the date text changes),
   * repoints the "See here" hyperlink to the post URL via a FRESH relationship (shared-rId safe),
   * writes the full post title into the first title run and removes the surplus title runs.
 
-Everything else (formatting, the static topic chips, older entries) is left byte-stable. Writes
+Everything else (formatting, the static topic chips) is left byte-stable. Writes
 `data/blog-edit-report.json`. Operates in place on a working copy; refuses to touch the original.
 """
 from __future__ import annotations
@@ -50,33 +54,9 @@ def is_blog_entry(sp) -> bool:
     return False
 
 
-def refresh_entry(sp, rels_dom, post: dict) -> dict:
-    runs = sp.getElementsByTagName("a:r")
-    if not runs:
-        return {"ok": False, "why": "no runs"}
-
-    # 1) date run (first run): preserve leading whitespace + separator, swap the date text.
-    old = px.run_text(runs[0])
-    m = DATE_SPLIT_RE.match(old)
-    prefix, sep = (m.group(1), m.group(2)) if m else ("      ", " \u2013 ")
-    px.set_run_text(runs[0], f"{prefix}{fmt_date(post['date'])}{sep}")
-
-    # 2) the "See here" hyperlink run(s): repoint to the post URL via one fresh rel.
-    see_idx = [i for i, r in enumerate(runs)
-               if px.run_hyperlink(r) is not None and px.run_text(r).strip().lower() in SEE_TOKENS]
-    if not see_idx:
-        return {"ok": False, "why": "no See-here link run"}
-    new_rid = px.add_rel(rels_dom, post["url"])
-    for i in see_idx:
-        px.run_hyperlink(runs[i]).setAttribute("r:id", new_rid)
-
-    # 3) title runs (everything after the last See-here run): first carries the whole title; drop rest.
-    title_runs = runs[max(see_idx) + 1:]
-    if title_runs:
-        px.set_run_text(title_runs[0], post["title"])
-        for r in title_runs[1:]:
-            px.remove_node(r)
-    return {"ok": True, "date": fmt_date(post["date"]), "title": post["title"], "rid": new_rid}
+def _see_indices(runs) -> list[int]:
+    return [i for i, r in enumerate(runs)
+            if px.run_hyperlink(r) is not None and px.run_text(r).strip().lower() in SEE_TOKENS]
 
 
 def norm_url(u: str) -> str:
@@ -95,43 +75,73 @@ def entry_url(sp, rid_target: dict) -> str | None:
     return None
 
 
-def clear_entry(sp) -> None:
-    """Blank a blog entry's visible text (used to drop a tail entry that duplicates a refreshed post)."""
-    for at in sp.getElementsByTagName("a:t"):
-        if at.firstChild:
-            at.firstChild.data = ""
+def read_entry(sp, rid_target: dict) -> dict:
+    """Extract an existing blog entry's displayed content so it can be SHIFTED to another box intact."""
+    runs = sp.getElementsByTagName("a:r")
+    date_disp = ""
+    if runs:
+        old = px.run_text(runs[0])
+        m = DATE_SPLIT_RE.match(old)
+        date_disp = (old[len(m.group(1)):len(old) - len(m.group(2))] if m else old).strip()
+    see = _see_indices(runs)
+    title = "".join(px.run_text(r) for r in runs[max(see) + 1:]).strip() if see else ""
+    return {"date_display": date_disp, "title": title, "url": entry_url(sp, rid_target)}
+
+
+def write_entry(sp, rels_dom, item: dict) -> dict:
+    """Write a uniform entry dict (date_display / title / url) into a blog-entry box, preserving the
+    box's own date whitespace+separator. Repoints the hyperlink only when the item carries a url."""
+    runs = sp.getElementsByTagName("a:r")
+    if not runs:
+        return {"ok": False, "why": "no runs"}
+    old = px.run_text(runs[0])
+    m = DATE_SPLIT_RE.match(old)
+    prefix, sep = (m.group(1), m.group(2)) if m else ("      ", " \u2013 ")
+    px.set_run_text(runs[0], f"{prefix}{item['date_display']}{sep}")
+    see = _see_indices(runs)
+    if not see:
+        return {"ok": False, "why": "no See-here link run"}
+    if item.get("url"):
+        new_rid = px.add_rel(rels_dom, item["url"])
+        for i in see:
+            px.run_hyperlink(runs[i]).setAttribute("r:id", new_rid)
+    title_runs = runs[max(see) + 1:]
+    if title_runs:
+        px.set_run_text(title_runs[0], item["title"])
+        for r in title_runs[1:]:
+            px.remove_node(r)
+    return {"ok": True, "date": item["date_display"], "title": item["title"]}
 
 
 def edit_slide(slide_file: Path, rels_file: Path, posts: list[dict]) -> dict:
+    """Insert-and-shift: new posts -> top, existing entries shift down, oldest fall off, all 8 boxes
+    stay filled. No-op (byte-stable) when there are no genuinely-new posts."""
     dom = minidom.parse(str(slide_file))
     rels_dom, rid_target = px.load_rels(rels_file)
     entries = [sp for sp in dom.getElementsByTagName("p:sp") if is_blog_entry(sp)]
-    n = min(len(posts), len(entries))
-    refreshed = []
-    refreshed_urls, refreshed_titles = set(), set()
-    for i in range(n):
-        res = refresh_entry(entries[i], rels_dom, posts[i])
-        refreshed.append(res)
-        if res.get("ok"):
-            refreshed_urls.add(norm_url(posts[i]["url"]))
-            refreshed_titles.add(posts[i]["title"].strip().lower())
-    # De-dup: a curated tail entry can be the SAME post as a refreshed top-N entry (the feed window
-    # overlaps the deck's history) — blank it so the post never shows twice.
-    deduped = []
-    for j in range(n, len(entries)):
-        url = entry_url(entries[j], rid_target)
-        text = px.shape_text(entries[j]).lower()
-        if (url and norm_url(url) in refreshed_urls) or any(t and t in text for t in refreshed_titles):
-            clear_entry(entries[j])
-            deduped.append(j)
-    changed = any(r.get("ok") for r in refreshed) or bool(deduped)
+    existing = [read_entry(sp, rid_target) for sp in entries]
+    existing_urls = {norm_url(e["url"]) for e in existing if e["url"]}
+    existing_titles = {e["title"].strip().lower() for e in existing if e["title"]}
+
+    fresh = []
+    for p in posts:  # blogs.json is newest-first
+        if norm_url(p["url"]) in existing_urls or p["title"].strip().lower() in existing_titles:
+            continue
+        fresh.append({"date_display": fmt_date(p["date"]), "title": p["title"], "url": p["url"]})
+
+    changed = bool(fresh)
+    results: list[dict] = []
     pruned: list[str] = []
     if changed:
+        merged = (fresh + existing)[:len(entries)]
+        for sp, item in zip(entries, merged):
+            results.append(write_entry(sp, rels_dom, item))
         pruned = px.prune_orphan_hyperlinks(dom, rels_dom)
         slide_file.write_text(dom.toxml(), encoding="utf-8")
         rels_file.write_text(rels_dom.toxml(), encoding="utf-8")
     return {"entries_found": len(entries), "posts_available": len(posts),
-            "refreshed": refreshed, "deduped": deduped, "pruned_rels": pruned, "changed": changed}
+            "inserted": [f["title"] for f in fresh], "results": results,
+            "pruned_rels": pruned, "changed": changed}
 
 
 def main() -> int:
@@ -180,13 +190,12 @@ def main() -> int:
 
     Path(args.report).write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     for n, s in report["slides"].items():
-        ok = sum(1 for r in s["refreshed"] if r.get("ok"))
-        log(f"slide {n} ({s['product']}): refreshed {ok}/{s['entries_found']} entries "
-            f"(posts available: {s['posts_available']})"
-            + (f"; de-duped tail entries {s['deduped']}" if s.get("deduped") else ""))
-        for r in s["refreshed"]:
-            if r.get("ok"):
-                log(f"    - {r['date']} :: {r['title'][:60]}")
+        ins = s.get("inserted", [])
+        log(f"slide {n} ({s['product']}): inserted {len(ins)} new post(s) at top, shifted "
+            f"{s['entries_found']} entries (posts available: {s['posts_available']})"
+            + ("" if s["changed"] else "; no new posts -> unchanged"))
+        for t in ins:
+            log(f"    + {t[:60]}")
     log(f"report -> {args.report}" + ("  [DRY-RUN, deck not written]" if args.dry_run else ""))
     return 0
 

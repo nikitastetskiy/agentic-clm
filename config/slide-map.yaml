@@ -21,14 +21,23 @@
 #     NEVER blank or rebuild all three columns from the API: the releases API caps at 20 items, which
 #     for Vault are all the same month's backports, so col1/col2 history cannot be re-derived and must
 #     be PRESERVED verbatim. Never add/remove a column. A slide already showing the latest month needs
-#     only col3 refreshed (or nothing).
+#     only col3 refreshed (or nothing). EVERY displayed month column (not only the latest) must show
+#     EVERY same-line release of that month present in releases.json.month_window (newest-first) — never
+#     skip an in-between patch, in the current month OR a historical one (e.g. show 2.0.3 AND 2.0.2 in
+#     June, and the full 1.15.1..1.15.5 set in May).
 #   * Webinar slides keep their EXACT slot count (slide 10 = 3, slide 14 = 4); fill in reading order
-#     (top-to-bottom, left-to-right) with the upcoming events, SOONEST upcoming first. If fewer events
-#     than slots, clear the surplus slots; if none, hide the slide.
+#     (top-to-bottom, left-to-right) with the upcoming events, SOONEST upcoming first. NEVER leave a
+#     slot blank: if the product has fewer upcoming webinars than slots, BACKFILL the remaining slots
+#     from the shared pool (cross-product / certification / regional webinars in webinars.other, then
+#     featured events NOT already shown on slides 18-22), soonest-first, relabeling the slot's type
+#     segment to the event's type ("| CONFERENCE |", etc.). This mirrors the hand-authored deck, which
+#     filled every slot. Only hide the slide if there are ZERO events to place anywhere.
 #   * Featured-event slides (18-22): one event per slide, filled with the SOONEST upcoming featured
 #     events (one per slide, in date order); hide any slide with no event (never delete).
-#   * Blog slides (9, 13): the left list shows the most recent posts, newest first; the right
-#     "Explore Topics!" taxonomy is STATIC.
+#   * Blog slides (9, 13): 8 entry boxes, newest-first. INSERT-AND-SHIFT: genuinely-new posts (in
+#     blogs.json but not already on the slide) go to the TOP, every existing entry shifts DOWN one,
+#     the oldest fall off the bottom — all 8 boxes stay filled, nothing is overwritten or duplicated,
+#     and no box is ever blanked. The right "Explore Topics!" taxonomy is STATIC.
 
 defaults:
   # Global rules every slide edit must respect (also enforced by hashicorp-deck-style skill).
@@ -108,9 +117,10 @@ slides:
     type: recent_blogs
     list_order: newest_first
     slot_hints:
-      - "Editable entries have role 'blog_entry' in data/slide-structure.json; refresh newest-first."
+      - "Editable entries have role 'blog_entry' in data/slide-structure.json; 8 boxes, newest-first."
+      - "INSERT-AND-SHIFT: new posts (not already shown) go to the TOP, existing entries shift down, oldest fall off; all 8 stay filled, none blanked or duplicated."
       - "Each entry: '<Month Day> – ' + 'See here' (hyperlink) + blog title."
-      - "Update the hyperlink target in slide9.xml.rels for each refreshed 'See here' run."
+      - "Update the hyperlink target in slide9.xml.rels for each rewritten 'See here' run."
       - "Shapes with role 'static_topics' (Speed & agility, AI, etc.) are STATIC — never change."
 
   - n: 13
@@ -120,7 +130,7 @@ slides:
     type: recent_blogs
     list_order: newest_first
     slot_hints:
-      - "Editable entries have role 'blog_entry'; refresh newest-first. Topics block is static."
+      - "Editable entries have role 'blog_entry'; 8 boxes. INSERT-AND-SHIFT newest-first (new posts to top, existing shift down, oldest fall off; all 8 filled, none blanked). Topics block is static."
       - "Each entry: '<Month Day> – ' + 'See here' (hyperlink) + blog title."
       - "Update hyperlink targets in slide13.xml.rels."
 
@@ -133,8 +143,8 @@ slides:
     fill: soonest_first                  # nearest upcoming date first (deterministic editors)
     slot_hints:
       - "Exactly 3 slots. Fill with the latest UPCOMING Terraform webinars (date >= run date), SOONEST upcoming first."
-      - "Each slot: date + 'WEBINAR' + 'See here' (hyperlink) + title + short description."
-      - "If fewer than 3 upcoming events, clear surplus slots; if none, hide the slide. Update .rels."
+      - "Each slot: date + TYPE + 'See here' (hyperlink) + title + short description."
+      - "NEVER leave a slot empty: backfill spare slots from cross-product/cert webinars then featured events not on 18-22, relabeling the type. Hide only if ZERO events exist. Update .rels."
 
   - n: 14
     name: "Vault Upcoming Webinars"
@@ -145,8 +155,8 @@ slides:
     fill: soonest_first                  # nearest upcoming date first (deterministic editors)
     slot_hints:
       - "Exactly 4 slots. Fill with the UPCOMING Vault webinars, SOONEST upcoming first."
-      - "Each slot: date + 'WEBINAR' + 'See here' (hyperlink) + title + short description."
-      - "If fewer than 4 upcoming events, clear surplus slots; if none, hide the slide. Update .rels."
+      - "Each slot: date + TYPE + 'See here' (hyperlink) + title + short description."
+      - "NEVER leave a slot empty: backfill spare slots from cross-product/cert webinars then featured events not on 18-22, relabeling the type. Hide only if ZERO events exist. Update .rels."
 
   - n: [18, 19, 20, 21, 22]
     name: "Featured / In-Person Events"
@@ -158,7 +168,9 @@ slides:
     slot_hints:
       - "One event per slide. Roles in slide-structure.json: title, date_register, description, promo_banner."
       - "Title = event name; 'date_register' = 'Event | <date> | Register Here' (hyperlink in .rels)."
-      - "'description' = 1-2 sentence event description; 'promo_banner' (TOP PRIORITY) is static if present."
+      - "'description' renders as 2-3 bullets from events.json description_points (falls back to the single 'description'); 'promo_banner' (TOP PRIORITY) is static if present."
+      - "Long titles are switched to shrink-to-fit (normAutofit) by the editor so they don't overflow the Register link."
+      - "The event PHOTO is replaced with the captured leadspace hero (gradient bg) from data/event-images.json: prefer the event's OWN per-page capture (city-specific IBM leadspace, status==ok, matched by url); else fall back to an on-brand HashiCorp SERIES hero from data/event-images.json 'fallbacks' whose 'match' matches the event title (e.g. the Agentic Runtime Security Exchange landing-page hero for the Hands-On Lab). The editor adds the screenshot as fresh media, repoints the picture's blip, and resets the old crop so the full-width gradient shows. Unrelated events with no capture (e.g. AWS Summits) keep their existing photo."
       - "Fill slides in date order with the SOONEST upcoming featured events; HIDE any slide with no event (show=\"0\")."
       - "Handled deterministically by scripts/edit_event_slides.py — the agent only acts if its report skipped a slide."
 

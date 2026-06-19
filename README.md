@@ -44,6 +44,7 @@ Useful variants:
 ```bash
 make help                              # list every command
 make fetch                             # just refresh data/*.json (seconds, no Copilot credits)
+make summary                           # re-print the change table for the newest deck in output/
 SKIP_DATA=1 SKIP_REVIEW=1 make run-local   # run only part of the pipeline (see run.sh for flags)
 SOURCE_PPTX="/path/to/Deck.pptx" make run-local   # use a deck that lives outside the repo
 ```
@@ -69,7 +70,7 @@ the result, check it, and tweak anything you don't like. If you correct somethin
 | 8 | **Terraform Enterprise** releases | HashiCorp releases page |
 | 9, 13 | Terraform / Vault recent **blogs** | HashiCorp blog feed |
 | 10, 14 | Terraform / Vault upcoming **webinars** | HashiCorp events page |
-| 18–22 | Featured / in-person **events** | HashiCorp events page |
+| 18–22 | Featured / in-person **events** (title, date, 2–3 bullet description, photo) | HashiCorp events page |
 
 Everything else — customer-specific slides, success plans, intro/branding slides — is **left exactly
 as you made it**. This tool only touches the slides listed above.
@@ -90,8 +91,12 @@ as you made it**. This tool only touches the slides listed above.
    job, not an instant one.
 3. **Open the result.** Look in the `output/` folder for the newest file, e.g.
    `CSE EMEA Customer Cadence Deck JUNE 2026 — 2026-06-18-1703.pptx`. Your original is untouched.
-4. **Review it.** A plain-text report (`output/verify-*.txt`) and a written review
-   (`output/review-*.md`) tell you what changed and confirm the style and slide-hiding are correct.
+   The run ends by printing a **summary table of everything it changed** (which slides, what action)
+   plus a clear *"please review before sharing"* notice with the exact path to your new deck — so you
+   always know what to double-check. Re-print it anytime with `make summary`.
+4. **Review it.** The printed summary, a plain-text report (`output/verify-*.txt`) and a written
+   review (`output/review-*.md`) tell you what changed and confirm the style and slide-hiding are
+   correct.
 5. **Correct anything you don't like — once.** Record the fix so it becomes a permanent rule:
    ```bash
    python scripts/capture_correction.py "Vault webinar descriptions: keep to one line" \
@@ -113,7 +118,9 @@ That's the whole loop: **run → review → (optionally) correct → run again**
   **"Copilot Requests"** permission for unattended/Docker runs.
 - **Python 3.11+** and the packages in `requirements.txt`.
 - *(For the upcoming-events slides)* a one-time Playwright Chromium install (the events page is
-  behind a bot-check that only a real browser passes). Without it, events fall back to the agent.
+  behind a bot-check that only a real browser passes). The same browser is reused to screenshot each
+  event's leadspace hero (the gradient banner) for the featured-event photos. Without it, events fall
+  back to the agent and existing slide photos are kept.
 - *(Optional, for the visual review step)* LibreOffice + poppler — already included if you use Docker.
 
 First-time setup:
@@ -172,6 +179,9 @@ run.sh
  ├─ 0. skill-updater   check the vendored pptx skill against upstream (advisory)
  ├─ 1. fetch (python)  fetch_releases.py · fetch_changelogs.py (highlights) · fetch_tfe_releases.py
  │                        (TFE + freshness guard) · fetch_blogs.py · fetch_events.py (Playwright) → data/*.json
+ ├─ 1b. event images (python) fetch_event_images.py (Playwright) → screenshots the live event
+ │                        leadspace hero (gradient bg) at 680px width, plus an on-brand HashiCorp
+ │                        series-hero fallback for events with no per-page hero → data/event-images/
  ├─ 2. copy            make_working_copy.py → output/<deck> — <timestamp>.pptx
  ├─ 2b. map (python)   map_slides.py → data/slide-structure.json (learned geometry; no re-discovery)
  ├─ 3. deck-data       agent: event descriptions + light highlight polish (NO changelog/TFE web_fetch)
@@ -180,12 +190,15 @@ run.sh
  │                        listed in data/release-edit-report.json for the agent (fallback_slides)
  ├─ 3c. blog edit (python)     edit_blog_slides.py → refreshes the newest posts on slides 9,13
  ├─ 3d. event edit (python)    edit_event_slides.py → fills webinars (10,14) + featured events
- │                        (18–22), clears surplus slots, hides slides with no event
+ │                        (18–22) with 2–3 description bullets + shrink-to-fit titles, swaps each
+ │                        event photo for its captured leadspace screenshot, clears surplus slots,
+ │                        hides slides with no event
  ├─ 4. pptx-orchestrator  agent: only the leftover/ambiguous release cases + anything the editors
  │                        skipped (style-preserving), hide empties, repack
  ├─ 4b. verify (python)   verify_deck.py → output/verify-*.txt (deterministic gate: integrity, hide
  │                        audit, style, release latest, date-keyed accuracy, blog + event coverage)
- └─ 5. deck-reviewer   agent: judgment checks (data/highlights/links/scope); record learnings
+ ├─ 5. deck-reviewer   agent: judgment checks (data/highlights/links/scope); record learnings
+ └─ 6. summarize (python) summarize_run.py → prints the action table + "please review" notice
 ```
 The Python phases are fast and free; the **agent** phases (research, edit, review) are where the time
 goes. Moving the release, blog, and event edits into steps 3b–3d (deterministic Python) shrinks the
@@ -209,6 +222,13 @@ slow build agent's work to just the rare ambiguous cases — most runs need no s
   existing runs (never touching formatting), updating link targets, and hiding empty slides.
 - **`deck-reviewer`** — verifies style preservation, data accuracy, links, and hide-don't-delete;
   writes `output/review-<stamp>.md` and records durable rules into the corrections log.
+
+### Guardrails (`.github/copilot-instructions.md`)
+Every Copilot session in this repo (the CLI window, the coding agent, or the pipeline's own
+sub-agents) reads this file first. It pins the scope so the assistant **only** edits the automatable
+slides, never touches the source deck, hides-rather-than-deletes, preserves the deck's style, and
+never fabricates data. If you drive the deck interactively in the Copilot window instead of via
+`run.sh`, these are the rules it follows.
 
 ### The learning loop (`corrections/`)
 The orchestrator **reads `corrections/corrections.md` before every run** and applies each rule. The

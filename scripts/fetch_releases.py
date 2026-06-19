@@ -39,6 +39,11 @@ def is_stable(version: str, is_prerelease: bool) -> bool:
     return not any(tag in pre for tag in ("alpha", "beta", "rc", "dev", "-pre"))
 
 
+def major_minor(version: str) -> str:
+    """'2.0.3' -> '2.0' (the release LINE; used to scope same-line history)."""
+    return ".".join(base_semver(version).split(".")[:2])
+
+
 def fetch_product(
     api_base: str,
     slug: str,
@@ -89,8 +94,10 @@ def fetch_product(
                 "highlight": None,  # agent fills this in (summarized from changelog_url)
             }
         )
-        if len(out) >= recent_count:
-            break
+    # NB: we intentionally collect EVERY unique stable base in the API window (no early break).
+    # main() slices the first ``recent_count`` for display and derives the same-line ``month_window``
+    # from the full list — so a same-month patch (e.g. vault 2.0.2 the week before 2.0.3) is not lost
+    # behind the LTS backports that crowd the top of the feed.
     return out
 
 
@@ -104,7 +111,7 @@ def main() -> int:
     for key, pcfg in rel_cfg["products"].items():
         slug = pcfg["slug"]
         log(f"fetching releases: {slug}")
-        recent = fetch_product(
+        full = fetch_product(
             api_base,
             slug,
             normalize=bool(pcfg.get("normalize_base_semver", False)),
@@ -112,6 +119,15 @@ def main() -> int:
             changelog_url_template=pcfg.get("changelog_url_template"),
             release_notes_url_template=pcfg.get("release_notes_url_template"),
         )
+        recent = full[:recent_count]
+        latest = full[0] if full else None
+        # month_window: every stable release in the API window on the SAME release line (major.minor)
+        # as the latest. This is the authoritative set the deck's newest-month column must show in
+        # full — it stops a same-month patch being silently dropped (e.g. vault 2.0.2 vs 2.0.3) and
+        # gives verify_deck the ground truth for its "no skipped release" gate. LTS backports on other
+        # lines (1.21.x, 1.20.x) are excluded so they never trigger a false gap.
+        line = major_minor(latest["version"]) if latest else None
+        month_window = [r for r in full if line and major_minor(r["version"]) == line]
         products[key] = {
             "display": pcfg.get("display", key.title()),
             "slug": slug,
@@ -120,10 +136,12 @@ def main() -> int:
             # col3 in place; if newer, the (header, entry) column pairs shift left and the oldest
             # drops off — existing col1/col2 history is preserved (it can't be re-derived: the API
             # caps at 20 items, which for Vault are all the same month's backports).
-            "latest": recent[0] if recent else None,
+            "latest": latest,
             "recent": recent,
+            "month_window": month_window,
         }
-        log(f"  {slug}: {[r['version'] for r in recent]}")
+        log(f"  {slug}: recent={[r['version'] for r in recent]} "
+            f"month_window={[r['version'] for r in month_window]}")
 
     # Record the TFE source so the agent knows to fetch + summarize it.
     tfe = cfg.get("terraform_enterprise", {})

@@ -120,7 +120,7 @@ def parse_card(card: dict, today: str) -> dict | None:
 
 def _slot(e: dict) -> dict:
     return {"date": e["date"], "display_date": e["display_date"], "title": e["title"],
-            "url": e["url"], "description": ""}
+            "url": e["url"], "description": "", "products": e["products"], "type": e["type"]}
 
 
 def _featured(e: dict) -> dict:
@@ -139,7 +139,11 @@ def build_events(cards: list[dict], today: str, webinar_cfg: dict) -> dict:
         (e for e in (parse_card(c, today) for c in cards) if e),
         key=lambda e: e["date"],
     )
-    webinars = {"terraform": [], "vault": []}
+    # "other" keeps the FULL webinar pool — untagged/certification/cross-product/regional sessions
+    # that don't map to a primary product bucket. The event editor uses it (plus featured) to BACKFILL
+    # any leftover empty webinar slots, exactly as the human-authored deck does (it never left a slot
+    # blank). Without this pool those webinars were silently dropped and the slot went empty.
+    webinars = {"terraform": [], "vault": [], "other": []}
     featured = []
     for e in events:
         if e["type"] == "WEBINAR":
@@ -153,6 +157,9 @@ def build_events(cards: list[dict], today: str, webinar_cfg: dict) -> dict:
                 for prod, meta in webinar_cfg.items():
                     if prod in webinars and any(k in low for k in meta.get("keywords", [])):
                         webinars[prod].append(_slot(e))
+                        placed = True
+            if not placed:  # still unplaced -> keep in the cross-product pool for backfill
+                webinars["other"].append(_slot(e))
         else:
             featured.append(_featured(e))
     return {
@@ -161,6 +168,7 @@ def build_events(cards: list[dict], today: str, webinar_cfg: dict) -> dict:
         "today": today,
         "counts": {"terraform_webinars": len(webinars["terraform"]),
                    "vault_webinars": len(webinars["vault"]),
+                   "other_webinars": len(webinars["other"]),
                    "featured": len(featured)},
         "webinars": webinars,
         "featured": featured,
@@ -187,13 +195,15 @@ def write_request(pages: dict, ecfg: dict, today: str, note: str) -> None:
                 "vault": [{"date": "YYYY-MM-DD", "display_date": "MMM D, YYYY", "title": "...", "url": "...", "description": "1 short sentence"}],
             },
             "featured": [
-                {"date": "YYYY-MM-DD", "display_date": "Month D", "title": "...", "location": "City", "url": "...", "description": "1-2 sentences", "language": "en"}
+                {"date": "YYYY-MM-DD", "display_date": "Month D", "title": "...", "location": "City", "url": "...",
+                 "description": "1-2 sentences", "description_points": ["point 1", "point 2", "point 3"], "language": "en"}
             ],
         },
     })
     if not (DATA_DIR / "events.json").exists():
         write_output("events.json", {"status": "pending_agent_fetch",
-                                     "webinars": {"terraform": [], "vault": []}, "featured": []})
+                                     "webinars": {"terraform": [], "vault": [], "other": []},
+                                     "featured": []})
 
 
 def main() -> int:
