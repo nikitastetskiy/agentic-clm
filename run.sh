@@ -8,14 +8,17 @@
 #   1b. event images   — deterministic Python (Playwright): event leadspace screenshots (best-effort)
 #   2. copy           — timestamped working copy (original is never touched)
 #   3. data (agent)   — deck-data: events prose + light highlight polish (no web_fetch of changelogs/TFE)
-#   3b. release edit   — deterministic Python: apply shift/refresh + date-reconcile to slides 7,8,11,12
-#   4. build (agent)  — pptx-orchestrator: edit fallback/blog slides, hide empty ones, repack
-#   5. review (agent) — deck-reviewer: verify style/data, record learnings
+#   3b-d. det. edits   — deterministic Python: release (7,8,11,12) + blog (9,13) + event (10,14,18-22) slides
+#   3e. gate          — deterministic verify_deck; if it PASSES, the build+review AGENTS are skipped
+#   4. build (agent)  — pptx-orchestrator: ONLY when the gate failed (or FORCE_AGENTS=1) — fix the gaps
+#   4b. re-verify      — deterministic verify_deck again, after the build agent edited the deck
+#   5. review (agent) — deck-reviewer: ONLY when the build agent ran (or FORCE_AGENTS=1)
 #
 # Env (see .env.example):
 #   COPILOT_MODEL          model override (optional)
 #   SKILL_UPDATE_POLICY    check | update   (default: check)
 #   SKIP_FETCH/SKIP_DATA/SKIP_BUILD/SKIP_REVIEW = 1 to skip a phase
+#   FORCE_AGENTS           1 to always run the build+review agents even when the deterministic gate passes
 #   SKIP_EVENT_IMAGES      1 to skip the Playwright event-leadspace capture (Phase 1b)
 #   SOURCE_PPTX            explicit source deck (default: the single .pptx in repo root)
 #
@@ -232,8 +235,30 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   fi
 fi
 
-# --- Phase 4: build (agent) ------------------------------------------------------------
+# --- Phase 3e: deterministic gate (decides whether the AI build/review are even needed) -
+# If the deterministic editors already produced a deck that PASSES verify_deck, the build agent
+# (which only fixes deterministic gaps) and the AI reviewer add no value — skip them to save
+# ~30-40 min + credits. A FAIL falls back to the agents. Set FORCE_AGENTS=1 to always run them.
+GATE="unknown"
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
+  log "Phase 3e: deterministic gate"
+  ORIG_DECK="${SOURCE_PPTX:-$(ls -1 "$REPO_ROOT"/*.pptx 2>/dev/null | grep -v '/~\$' | head -1)}"
+  VERIFY_LOG="output/verify-$(date +%Y%m%d-%H%M).txt"
+  if "$PY" scripts/verify_deck.py "$WORKING_COPY" --original "$ORIG_DECK" | tee "$VERIFY_LOG"; then
+    GATE="pass"; echo "deterministic gate: PASS ($VERIFY_LOG)"
+  else
+    GATE="fail"; warn "deterministic gate: FAIL — the build agent will fix the gaps (see $VERIFY_LOG)"
+  fi
+fi
+
+# --- Phase 4: build (agent) — only when the gate did NOT already pass -------------------
+BUILD_RAN=0
+if [[ "${SKIP_BUILD:-0}" == "1" ]]; then
+  warn "SKIP_BUILD=1 — skipping build"
+elif [[ "$GATE" == "pass" && "${FORCE_AGENTS:-0}" != "1" ]]; then
+  log "Phase 4: build agent SKIPPED — deterministic gate already PASSED (set FORCE_AGENTS=1 to force)"
+else
+  BUILD_RAN=1
   run_copilot pptx-orchestrator "$(cat <<EOF
 Run the build phase for the auto-pptx pipeline in $REPO_ROOT.
 The working copy to edit IN PLACE is:
@@ -262,27 +287,28 @@ Preserve all formatting (edit existing runs only). Hide slides with no fresh dat
 Run the style_check guard, then clean + pack back to the same working copy path.
 EOF
 )"
-else
-  warn "SKIP_BUILD=1 — skipping build"
 fi
 
-# --- Phase 4b: deterministic verify (cheap, exact gate before the AI reviewer) ---------
-# Machine-checks integrity (slide count), hide state (the RIGHT way: <p:sld show="0">), style,
-# and that each release slide's latest column carries products.<p>.latest. Writes a report the
-# AI reviewer reads, so it never has to eyeball XML. Advisory: a FAIL is surfaced but non-fatal.
-if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
-  log "Phase 4b: deterministic verify"
+# --- Phase 4b: deterministic re-verify — only after the build agent edited the deck ----
+# (The Phase 3e gate already verified the deterministic-only deck; re-check only when the agent
+# touched it.) Machine-checks integrity, hide state (<p:sld show="0">), style, columns, coverage.
+if [[ "$BUILD_RAN" == "1" ]]; then
+  log "Phase 4b: deterministic re-verify (after build agent)"
   ORIG_DECK="${SOURCE_PPTX:-$(ls -1 "$REPO_ROOT"/*.pptx 2>/dev/null | grep -v '/~\$' | head -1)}"
   VERIFY_LOG="output/verify-$(date +%Y%m%d-%H%M).txt"
   if "$PY" scripts/verify_deck.py "$WORKING_COPY" --original "$ORIG_DECK" | tee "$VERIFY_LOG"; then
-    echo "verify: PASS ($VERIFY_LOG)"
+    GATE="pass"; echo "verify: PASS ($VERIFY_LOG)"
   else
-    warn "verify_deck reported a FAIL — see $VERIFY_LOG (reviewer will assess)"
+    GATE="fail"; warn "verify_deck reported a FAIL — see $VERIFY_LOG (reviewer will assess)"
   fi
 fi
 
-# --- Phase 5: review (agent) -----------------------------------------------------------
-if [[ "${SKIP_REVIEW:-0}" != "1" ]]; then
+# --- Phase 5: review (agent) — only when the build agent ran (or forced) ----------------
+if [[ "${SKIP_REVIEW:-0}" == "1" ]]; then
+  warn "SKIP_REVIEW=1 — skipping review"
+elif [[ "$BUILD_RAN" != "1" && "$GATE" == "pass" && "${FORCE_AGENTS:-0}" != "1" ]]; then
+  log "Phase 5: review agent SKIPPED — deterministic gate passed, no agent build needed (set FORCE_AGENTS=1 to force)"
+else
   run_copilot deck-reviewer "$(cat <<EOF
 Review the updated deck produced by the build phase:
   $WORKING_COPY
@@ -295,8 +321,6 @@ Write output/review-<timestamp>.md and record any durable learnings via scripts/
 Do NOT modify the deck (report only) unless told to fix.
 EOF
 )"
-else
-  warn "SKIP_REVIEW=1 — skipping review"
 fi
 
 log "Done. Output deck: $WORKING_COPY"

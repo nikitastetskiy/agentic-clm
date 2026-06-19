@@ -48,6 +48,11 @@ regressions. Don't reach for `web_fetch` when a deterministic fetcher already pr
 ## Running & finishing
 - To run the pipeline, use `make run-local` / `run.sh` (or the documented `SKIP_*` flags). Don't
   invent a parallel workflow.
+- **The deterministic gate decides whether the agents run.** After the Python editors, `run.sh`
+  runs `verify_deck.py` (Phase 3e); if it PASSES, the build (`pptx-orchestrator`) and review
+  (`deck-reviewer`) agents are skipped automatically — that's expected, not an error. They only run
+  when the gate finds a real gap, or when `FORCE_AGENTS=1` is set. Don't force the agents to run when
+  the gate is green.
 - **A full run takes ~30–40 min** (it calls three agents). When asked to run it from a chat window,
   start it with the shell tool's **async/background** mode (logging to `output/run-*.log`) and then
   **stop** — the CLI notifies you automatically when it finishes. **Never `sleep`/`tail`-poll to

@@ -36,8 +36,9 @@ make run-local
 ```
 
 That one command fetches the latest data, makes a timestamped copy, updates the automatable slides,
-and writes a verification report. A full run takes **~30–40 minutes** (almost all of it the AI
-edit/review phases; the data-gathering is now just seconds). Prefer to run unattended on a schedule?
+and writes a verification report. When the deterministic edits already pass the verification gate, a
+run takes **~5–10 minutes**; if the AI build/review agents are needed to resolve a gap (or you set
+`FORCE_AGENTS=1`), it's **~30–40 minutes**. Prefer to run unattended on a schedule?
 See [Running it unattended](#running-it-unattended-docker--scheduled).
 
 Useful variants:
@@ -121,10 +122,11 @@ as you made it**. This tool only touches the slides listed above.
    ```bash
    make run-local
    ```
-   This takes roughly **30–40 minutes** — almost all of it the assistant carefully rebuilding the
-   slides and reviewing them without breaking formatting. (Data gathering used to dominate the run;
-   it's now deterministic Python that finishes in seconds.) It's a "kick it off and come back later"
-   job, not an instant one.
+   This usually takes **~5–10 minutes**: the data gathering and slide edits are deterministic Python
+   that finishes fast, and the AI agents only run if the deterministic deck doesn't already pass the
+   verification gate (then it's **~30–40 minutes**). Either way it's a "kick it off and come back"
+   job — see the [fresh Copilot window](#run-it-from-a-fresh-copilot-window-the-friendly-way) tip to
+   launch it in the background.
 3. **Open the result.** Look in the `output/` folder for the newest file, e.g.
    `CSE EMEA Customer Cadence Deck JUNE 2026 — 2026-06-18-1703.pptx`. Your original is untouched.
    The run ends by printing a **summary table of everything it changed** (which slides, what action)
@@ -182,6 +184,7 @@ Each run is one-shot and repeatable (always a fresh timestamped copy), so you ca
 You can also run just part of the pipeline:
 ```bash
 SKIP_DATA=1 SKIP_REVIEW=1 bash run.sh      # fetch + copy + build only
+FORCE_AGENTS=1 bash run.sh                 # always run the build + review agents (skip the gate shortcut)
 ```
 
 ---
@@ -229,16 +232,21 @@ run.sh
  │                        (18–22) with 2–3 description bullets + shrink-to-fit titles, swaps each
  │                        event photo for its captured leadspace screenshot, clears surplus slots,
  │                        hides slides with no event
- ├─ 4. pptx-orchestrator  agent: only the leftover/ambiguous release cases + anything the editors
- │                        skipped (style-preserving), hide empties, repack
- ├─ 4b. verify (python)   verify_deck.py → output/verify-*.txt (deterministic gate: integrity, hide
- │                        audit, style, release latest, date-keyed accuracy, blog + event coverage)
- ├─ 5. deck-reviewer   agent: judgment checks (data/highlights/links/scope); record learnings
+ ├─ 3e. gate (python)    verify_deck.py → output/verify-*.txt (integrity, hide audit, style, release
+ │                        latest, date-keyed accuracy, blog + event coverage, no-empty-box). **If it
+ │                        PASSES here, steps 4 + 5 (the AI build + review agents) are SKIPPED.**
+ ├─ 4. pptx-orchestrator  agent: ONLY when the gate failed (or FORCE_AGENTS=1) — fixes the leftover/
+ │                        ambiguous cases the editors skipped (style-preserving), hides empties, repacks
+ ├─ 4b. re-verify (python) verify_deck.py again, only after the build agent edited the deck
+ ├─ 5. deck-reviewer   agent: ONLY when the build agent ran (or FORCE_AGENTS=1) — judgment checks
+ │                        (data/highlights/links/scope); record learnings
  └─ 6. summarize (python) summarize_run.py → prints the action table + "please review" notice
 ```
-The Python phases are fast and free; the **agent** phases (research, edit, review) are where the time
-goes. Moving the release, blog, and event edits into steps 3b–3d (deterministic Python) shrinks the
-slow build agent's work to just the rare ambiguous cases — most runs need no slide edits from it.
+The Python phases are fast and free; the **agent** phases are where the time goes. The release, blog,
+and event edits now run as deterministic Python (steps 3b–3d), and step **3e gates the AI**: if the
+deterministic deck already passes `verify_deck`, the build and review agents are skipped entirely —
+so a clean run is roughly *deck-data + deterministic + verify ≈ 5–10 min* instead of ~30–40. The
+agents only kick in when the gate finds a real gap. Set `FORCE_AGENTS=1` to always run them.
 
 ### Skills (`.github/skills/`)
 - **`pptx/`** — vendored from [anthropics/skills] at a pinned commit (see `.skill-manifest.json`).
