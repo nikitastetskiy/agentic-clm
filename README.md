@@ -49,6 +49,41 @@ SKIP_DATA=1 SKIP_REVIEW=1 make run-local   # run only part of the pipeline (see 
 SOURCE_PPTX="/path/to/Deck.pptx" make run-local   # use a deck that lives outside the repo
 ```
 
+### Run it from a fresh Copilot window (the friendly way)
+
+Prefer a chat window over `make`? A fresh `copilot` session in this repo
+**auto-loads** the scope guardrails (`.github/copilot-instructions.md`) and the
+three custom agents — so the easiest way to run everything is to just *ask
+Copilot to run it*:
+
+```bash
+cd auto-pptx
+source .venv/bin/activate     # Playwright (events + photos) lives in the venv
+copilot
+```
+Then, inside the window:
+```text
+/env             # confirm it loaded the instructions + the 3 agents
+/allow-all       # let it run the pipeline's shell + file edits without prompting
+> Run the full cadence deck pipeline in the background (bash run.sh),
+  tail the log for progress, and show me the summary when it's done.
+```
+That reproduces a complete run — `run.sh` calls the `deck-data`,
+`pptx-orchestrator`, and `deck-reviewer` agents internally with their tuned
+prompts. Because a full run takes ~30–40 min, the assistant launches it
+**detached** (logging to `output/run-*.log`) so the window stays responsive: it
+returns control immediately, reports progress by tailing the log, and is
+**notified on completion** instead of sitting in a blocking wait. The finished,
+timestamped copy lands in `./output/` (your original is untouched), and the run
+ends by printing the action-summary table and a "please review before sharing"
+notice.
+
+Power-user variant: run the fast deterministic phases yourself
+(`make fetch && make event-images`), then drive a single agent with `/agent`
+(or `copilot --agent pptx-orchestrator --allow-all -p "…"`) for a one-off edit.
+Either way, **launch from the repo root with `.venv` active** so the agents,
+guardrails, and headless browser are all available.
+
 ---
 
 ## In plain English: what does it actually do?
@@ -228,7 +263,8 @@ Every Copilot session in this repo (the CLI window, the coding agent, or the pip
 sub-agents) reads this file first. It pins the scope so the assistant **only** edits the automatable
 slides, never touches the source deck, hides-rather-than-deletes, preserves the deck's style, and
 never fabricates data. If you drive the deck interactively in the Copilot window instead of via
-`run.sh`, these are the rules it follows.
+`run.sh` (see [Run it from a fresh Copilot window](#run-it-from-a-fresh-copilot-window-the-friendly-way)),
+these are the rules it follows.
 
 ### The learning loop (`corrections/`)
 The orchestrator **reads `corrections/corrections.md` before every run** and applies each rule. The

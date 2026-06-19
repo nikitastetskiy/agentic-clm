@@ -48,6 +48,11 @@ regressions. Don't reach for `web_fetch` when a deterministic fetcher already pr
 ## Running & finishing
 - To run the pipeline, use `make run-local` / `run.sh` (or the documented `SKIP_*` flags). Don't
   invent a parallel workflow.
+- **A full run takes ~30–40 min** (it calls three agents). When asked to run it from a chat window,
+  launch it **detached in the background** (e.g. `mkdir -p output && bash run.sh >
+  "output/run-$(date +%Y%m%d-%H%M%S).log" 2>&1 &`) so the window stays responsive. Rely on the
+  completion notification instead of a blocking poll; tail `output/run-*.log` (and the per-phase
+  `output/*.log`) to report progress, and print the summary once it finishes.
 - Every run ends with `scripts/summarize_run.py`, which prints the table of changes and a "please
   review before sharing" notice. Keep that behaviour; the output is for a human to verify.
 - Validate changes (`bash -n run.sh`, run the relevant script, or `make summary`) before declaring
