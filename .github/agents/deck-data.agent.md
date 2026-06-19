@@ -55,8 +55,11 @@ bot-protected events page with Playwright). **First read `data/events.json`:**
   removed**. Your ONLY task is to fill the empty prose fields **from the title/type you already
   have** (no web_fetch needed, though you MAY web_fetch a hashicorp.com event `url` to improve a
   description): for each webinar slot set `description` to ONE short factual sentence; for each
-  `featured` event set `description` (1–2 sentences) and `location` (the city/venue, if derivable
-  from the title, e.g. "London", "Delhi NCR", "Washington DC"). Never invent dates/URLs.
+  `featured` event set `location` (the city/venue, if derivable from the title, e.g. "London",
+  "Delhi NCR", "Washington DC"), a one-line `description`, AND `description_points`: a list of **2–3
+  short, factual bullet points** (each ≤ ~12 words, present tense, no trailing period needed) that
+  the build renders as the slide's description bullets — e.g. who it's for, what attendees will see,
+  what they leave with. Keep them specific to THIS event; never invent dates/URLs/speakers.
 - **If `status` != `"ok"`** (Playwright unavailable/blocked): fall back to `data/events.request.json`
   — `web_fetch` each page in `pages`, keep only **upcoming** events (date ≥ `today`), bucket webinars
   by the product keywords, collect featured/in-person events separately, and write `data/events.json`

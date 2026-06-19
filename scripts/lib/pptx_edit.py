@@ -21,6 +21,7 @@ UNPACK = REPO_ROOT / ".github/skills/pptx/scripts/office/unpack.py"
 PACK = REPO_ROOT / ".github/skills/pptx/scripts/office/pack.py"
 EMU_PER_IN = 914400
 HYPERLINK_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"
+IMAGE_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
 
 
 # --------------------------------------------------------------------------- pack/unpack ----------
@@ -100,6 +101,24 @@ def add_rel(rels_dom, target: str) -> str:
     rel.setAttribute("Type", HYPERLINK_TYPE)
     rel.setAttribute("Target", target)
     rel.setAttribute("TargetMode", "External")
+    container.appendChild(rel)
+    return new_id
+
+
+def add_image_rel(rels_dom, target: str) -> str:
+    """Append a NEW internal image relationship (Type=image, no TargetMode) and return its rId.
+
+    Used to repoint a picture's <a:blip r:embed> at a freshly added media file without mutating any
+    existing (possibly shared) image rel — the same shared-rId safety rule as hyperlinks.
+    """
+    container = rels_dom.getElementsByTagName("Relationships")[0]
+    nums = [int(r.getAttribute("Id")[3:]) for r in rels_dom.getElementsByTagName("Relationship")
+            if r.getAttribute("Id").startswith("rId") and r.getAttribute("Id")[3:].isdigit()]
+    new_id = f"rId{(max(nums) + 1) if nums else 1}"
+    rel = rels_dom.createElement("Relationship")
+    rel.setAttribute("Id", new_id)
+    rel.setAttribute("Type", IMAGE_TYPE)
+    rel.setAttribute("Target", target)
     container.appendChild(rel)
     return new_id
 

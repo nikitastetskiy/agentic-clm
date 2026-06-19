@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 PY ?= python3
 
-.PHONY: help fetch run run-local build-image docker-run skills-check skills-update clean
+.PHONY: help fetch event-images run run-local build-image docker-run skills-check skills-update summary clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-16s\033[0m %s\n",$$1,$$2}'
@@ -11,6 +11,9 @@ fetch: ## Run the deterministic Python fetchers only (releases, blogs, events-pr
 	$(PY) scripts/fetch_releases.py
 	$(PY) scripts/fetch_blogs.py
 	$(PY) scripts/fetch_events.py
+
+event-images: ## Capture event leadspace screenshots (Playwright; needs .venv with playwright)
+	$(PY) scripts/fetch_event_images.py
 
 skills-check: ## Check whether the vendored pptx skill is up to date
 	$(PY) .github/skills/skill-updater/scripts/check_updates.py --check
@@ -26,6 +29,9 @@ build-image: ## Build the Docker image
 
 docker-run: ## Run the pipeline in Docker (uses .env)
 	docker compose run --rm auto-pptx
+
+summary: ## Re-print the action summary for the newest deck in output/
+	$(PY) scripts/summarize_run.py
 
 clean: ## Remove generated data and working scratch (keeps output decks)
 	rm -rf .work data/*.json data/*.tmp

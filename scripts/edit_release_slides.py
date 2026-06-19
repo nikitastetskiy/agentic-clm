@@ -90,6 +90,7 @@ def load_release_index() -> dict:
             "by_date": by_date,
             "versions": {e.get("version") for e in entries if e.get("version")},
             "entries": entries,
+            "month_window": list(prod.get("month_window", [])),
         }
     te = data.get("terraform_enterprise")
     if te:
@@ -269,6 +270,177 @@ def set_highlight(entry: Entry, highlight: str) -> bool:
     return True
 
 
+# --------------------------------------------------------------------------- entry cloning -------
+
+PRERELEASE_RE = re.compile(r"\d+\.\d+\.\d+[-.+]?(alpha|beta|rc|pre|dev)", re.I)
+
+
+def _is_prerelease(text: str) -> bool:
+    return bool(PRERELEASE_RE.search(text or ""))
+
+
+def _clone_entry(template: Entry, version: str, date: str, highlight: str,
+                 product: str, rels_dom):
+    """Clone a template entry's version paragraph (+ its first highlight paragraph) for a NEW release.
+
+    Returns (version_para, highlight_para_or_None) with the version text/date set, the hyperlink
+    repointed to v<version> via a FRESH rel, and the highlight written — ready to splice into the
+    column. Returns None when the template's version run is not a single clean ``v<ver> (<date>)``
+    <a:t> (a split-run entry is too ambiguous to clone safely)."""
+    vpara = template.version_para.cloneNode(True)
+    at = next((t for t in vpara.getElementsByTagName("a:t")
+               if t.firstChild and VERSION_RE.search(t.firstChild.data)), None)
+    if at is None:
+        return None
+    set_at(at, f"v{version} ({date})")
+    for hl in vpara.getElementsByTagName("a:hlinkClick"):
+        if hl.getAttribute("r:id"):
+            hl.setAttribute("r:id", add_rel(rels_dom, tag_url(product, version)))
+            break
+    hpara = None
+    if highlight and template.highlight_paras:
+        hpara = template.highlight_paras[0].cloneNode(True)
+        runs = hpara.getElementsByTagName("a:r")
+        if runs:
+            hat = next((t for t in runs[0].getElementsByTagName("a:t")), None)
+            if hat is not None and hat.firstChild is not None:
+                hat.firstChild.data = highlight
+                for extra in runs[1:]:
+                    extra.parentNode.removeChild(extra)
+    return vpara, hpara
+
+
+def _insert_after(anchor, nodes: list):
+    """Insert ``nodes`` (in order) immediately after ``anchor`` in its parent; return the last one."""
+    parent = anchor.parentNode
+    ref = anchor.nextSibling
+    for nd in nodes:
+        parent.insertBefore(nd, ref)
+    return nodes[-1] if nodes else anchor
+
+
+def _snapshot(col: Column) -> list[list]:
+    """Deep-clone each entry's paragraph nodes -> list of groups ``[version_para, *highlight_paras]``.
+    Used to MOVE an entire column's content (style + links intact) to another column on the same slide
+    (the rels file is shared per-slide, so cloned r:id references stay valid)."""
+    groups = []
+    for e in col.entries:
+        groups.append([e.version_para.cloneNode(True)]
+                      + [h.cloneNode(True) for h in e.highlight_paras])
+    return groups
+
+
+def _set_column_entries(col: Column, groups: list[list]) -> bool:
+    """Replace a column's entry paragraphs with ``groups`` (lists of <a:p> nodes), in place, keeping
+    the column's <a:bodyPr>/<a:lstStyle> and any trailing nodes. Needs >=1 existing entry to locate
+    the txBody + insertion anchor (release columns always have one)."""
+    existing = []
+    for e in col.entries:
+        existing.append(e.version_para)
+        existing.extend(e.highlight_paras)
+    if not existing:
+        return False
+    tb = existing[0].parentNode
+    ref = existing[-1].nextSibling
+    for nd in existing:
+        tb.removeChild(nd)
+    for grp in groups:
+        for nd in grp:
+            tb.insertBefore(nd, ref)
+    return True
+
+
+def shift_new_month(cols: list[Column], latest: dict, month_window: list[dict],
+                    product: str, rels_dom, report: dict) -> bool:
+    """Generalized new-month shift for ANY per-column entry counts: drop the oldest column, slide the
+    middle two left (moving their exact paragraphs, so style/highlights/links are preserved), and build
+    the newest column from the month's releases (all of them, newest-first — never just the latest)."""
+    if not all(c.header_at for c in cols) or not all(c.entries for c in cols):
+        return False
+    lv, ld, lmonth = latest["version"], latest.get("date", ""), latest.get("month_label")
+    template = cols[2].entries[0]
+    month_rels = sorted(
+        [r for r in month_window if r.get("month_label") == lmonth and r.get("version")],
+        key=lambda r: r.get("date", ""), reverse=True)
+    if not month_rels:
+        month_rels = [{"version": lv, "date": ld, "highlight": latest.get("highlight", "")}]
+    new_groups = []
+    for r in month_rels:
+        cloned = _clone_entry(template, r["version"], r.get("date", ""),
+                              r.get("highlight") or "", product, rels_dom)
+        if cloned is None:
+            return False
+        vpara, hpara = cloned
+        new_groups.append([vpara] + ([hpara] if hpara is not None else []))
+    snap_mid = _snapshot(cols[1])
+    snap_new = _snapshot(cols[2])
+    new_headers = [cols[1].header_text, cols[2].header_text, lmonth]
+    if not (_set_column_entries(cols[0], snap_mid)
+            and _set_column_entries(cols[1], snap_new)
+            and _set_column_entries(cols[2], new_groups)):
+        return False
+    for col, htext in zip(cols, new_headers):
+        if col.header_at and htext:
+            set_at(col.header_at, htext)
+    report["shifted"] = {"version": lv, "headers": new_headers,
+                         "month": [r["version"] for r in month_rels]}
+    report["changed"] = True
+    return True
+
+
+def ensure_month_complete(cols: list[Column], month_label: str | None, month_window: list[dict],
+                          product: str, rels_dom, report: dict) -> None:
+    """Guarantee the newest-month column shows EVERY same-line release of that month in the data
+    window (newest-first), splicing in any that are missing BELOW the latest. This is what stops a
+    same-month patch (e.g. vault 2.0.2 the week before 2.0.3) being silently skipped as historical."""
+    if not month_label:
+        return
+    month_rels = sorted(
+        [r for r in month_window if r.get("month_label") == month_label and r.get("version")],
+        key=lambda r: r.get("date", ""), reverse=True)
+    if len(month_rels) < 2:
+        return
+    col = next((c for c in cols if c.header_month == month_label
+                or (c.entries and c.entries[0].date
+                    and MONTHS[int(c.entries[0].date[5:7]) - 1] == month_label)), None)
+    if col is None or not col.entries:
+        return
+    shown = {e.version for e in col.entries}
+    template = col.entries[0]
+    anchor = template.highlight_paras[-1] if template.highlight_paras else template.version_para
+    added = []
+    for r in month_rels:
+        if r["version"] in shown:
+            continue
+        cloned = _clone_entry(template, r["version"], r.get("date", ""),
+                              r.get("highlight") or "", product, rels_dom)
+        if cloned is None:
+            continue
+        vpara, hpara = cloned
+        anchor = _insert_after(anchor, [vpara] + ([hpara] if hpara is not None else []))
+        shown.add(r["version"])
+        added.append(r["version"])
+    if added:
+        report.setdefault("added_month", []).extend(added)
+        report["changed"] = True
+
+
+def ensure_window_complete(cols: list[Column], month_window: list[dict],
+                           product: str, rels_dom, report: dict) -> None:
+    """Completeness for EVERY month the slide displays, not only the latest. The deck shows a rolling
+    window of month columns and each must list ALL same-line releases of its month present in the data
+    window (historical context). A month not displayed maps to no column and is skipped, so this never
+    fabricates a column — it only splices a missing in-between patch (e.g. a skipped May 1.15.4) into a
+    column that is already on the slide."""
+    seen: list[str] = []
+    for r in month_window:
+        m = r.get("month_label")
+        if m and m not in seen:
+            seen.append(m)
+    for m in seen:
+        ensure_month_complete(cols, m, month_window, product, rels_dom, report)
+
+
 # --------------------------------------------------------------------------- passes ---------------
 
 def reconcile(cols: list[Column], rel_index: dict, rels_dom, rid_target: dict,
@@ -331,44 +503,41 @@ def ensure_latest(cols: list[Column], rel_index: dict, rels_dom, rid_target: dic
         MONTHS[int(col3.entries[0].date[5:7]) - 1] if col3.entries and col3.entries[0].date else None)
 
     if lmonth and col3_month and lmonth == col3_month and col3.entries:
-        # REFRESH: replace col3's top entry (prerelease/older) with latest
         top = col3.entries[0]
-        set_at(top.version_at, f"v{lv} ({ld})")
-        if not set_highlight(top, lhl):
-            report["fallback"] = True
-            report["notes"].append("refresh: could not set highlight; fallback")
-            return
-        relink_version(top, rels_dom, product, lv)
-        report["refreshed"] = {"version": lv, "col": 3}
+        # REPLACE only when the current top is a *prerelease*, the SAME version (link/label fix), or
+        # the same release date — i.e. there is no distinct stable release to preserve. Otherwise ADD
+        # the latest ABOVE it so an existing stable release (e.g. vault 2.0.2) is never overwritten.
+        if _is_prerelease(top.text) or top.version == lv or (ld and top.date == ld):
+            set_at(top.version_at, f"v{lv} ({ld})")
+            if not set_highlight(top, lhl):
+                report["fallback"] = True
+                report["notes"].append("refresh: could not set highlight; fallback")
+                return
+            relink_version(top, rels_dom, product, lv)
+            report["refreshed"] = {"version": lv, "col": 3}
+        else:
+            cloned = _clone_entry(top, lv, ld, lhl, product, rels_dom)
+            if cloned is None:
+                report["fallback"] = True
+                report["notes"].append("same-month add: version run not cloneable; fallback")
+                return
+            vpara, hpara = cloned
+            ref = top.version_para
+            parent = ref.parentNode
+            parent.insertBefore(vpara, ref)
+            if hpara is not None:
+                parent.insertBefore(hpara, ref)
+            report["added"] = {"version": lv, "col": 3}
         report["changed"] = True
         return
 
-    # NEW MONTH -> shift. Only safe when every column has exactly one entry.
-    if all(len(c.entries) == 1 for c in cols) and all(c.header_at for c in cols):
-        # relabel headers: drop col1's month, slide col2->col1, col3->col2, new month into col3
-        new_headers = [cols[1].header_text, cols[2].header_text, lmonth or col3_month]
-        old = [c.entries[0] for c in cols]
-        # write text: col1 <- old col2, col2 <- old col3, col3 <- latest
-        for dst, src in ((cols[0], old[1]), (cols[1], old[2])):
-            set_at(dst.entries[0].version_at, src.text)
-            if src.highlight_paras and dst.entries[0].highlight_paras:
-                set_highlight(dst.entries[0], _t(src.highlight_paras[0]).strip())
-            if src.version:
-                relink_version(dst.entries[0], rels_dom, product, src.version)
-        # col3 <- latest
-        set_at(cols[2].entries[0].version_at, f"v{lv} ({ld})")
-        set_highlight(cols[2].entries[0], lhl)
-        relink_version(cols[2].entries[0], rels_dom, product, lv)
-        for col, htext in zip(cols, new_headers):
-            if col.header_at and htext:
-                set_at(col.header_at, htext)
-        report["shifted"] = {"version": lv, "headers": new_headers}
-        report["changed"] = True
+    # NEW MONTH -> generalized shift (handles any per-column entry counts, multi-entry months).
+    if shift_new_month(cols, latest, rel_index.get("month_window", []), product, rels_dom, report):
         return
 
     report["fallback"] = True
     report["notes"].append(
-        f"latest {lv} is a new month ({lmonth}) requiring a multi-entry shift; left for agent")
+        f"latest {lv} is a new month ({lmonth}) and could not be shifted automatically; left for agent")
 
 
 # --------------------------------------------------------------------------- driver ---------------
@@ -393,6 +562,15 @@ def edit_unpacked(unpacked: Path, slide_map: dict, rel_index: dict) -> dict:
             cols = parse_slide(dom)
             reconcile(cols, ridx, rels_dom, rid_target, product, srep)
             ensure_latest(cols, ridx, rels_dom, rid_target, product, srep)
+            # Completeness pass over the WHOLE displayed window (every month column, not just the
+            # latest): RE-PARSE the now-current DOM and splice in any same-line release of any shown
+            # month that is still missing, so neither a fresh June patch nor an older May one (the
+            # historical context) is ever dropped. Runs whenever the slide isn't a fallback — even if
+            # ensure_latest made no change — because a historical gap can exist with no new release.
+            # The agent owns fallback slides, so they are skipped.
+            if not srep["fallback"]:
+                ensure_window_complete(parse_slide(dom), ridx.get("month_window", []),
+                                       product, rels_dom, srep)
             if srep["changed"]:
                 pruned = prune_orphan_hyperlinks(dom, rels_dom)
                 if pruned:
@@ -448,6 +626,10 @@ def main() -> int:
             bits.append(f"reconciled={[r['to'] for r in s['reconciled']]}")
         if s["refreshed"]:
             bits.append(f"refreshed={s['refreshed']['version']}")
+        if s.get("added"):
+            bits.append(f"added={s['added']['version']}")
+        if s.get("added_month"):
+            bits.append(f"added_month={s['added_month']}")
         if s["shifted"]:
             bits.append(f"shifted->{s['shifted']['version']}")
         if s["fallback"]:

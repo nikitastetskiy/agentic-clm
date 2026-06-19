@@ -155,12 +155,22 @@ def excerpt(section: str, limit: int = 1600) -> str:
 
 
 def iter_entries(data: dict):
-    """Yield (entry_dict, is_latest) for every release entry across all API products."""
+    """Yield (entry_dict, is_latest) for every release entry across all API products.
+
+    Covers ``latest`` + ``recent`` AND the same-line ``month_window`` (so an in-window same-month
+    patch like vault 2.0.2 — which the deck's newest column must also show — gets a real highlight,
+    not a blank). De-duplicated by object identity (recent/window share the underlying dicts).
+    """
     for prod in data.get("products", {}).values():
         latest = prod.get("latest")
+        seen: set[int] = set()
         if latest:
+            seen.add(id(latest))
             yield latest, True
-        for e in prod.get("recent", []):
+        for e in list(prod.get("recent", [])) + list(prod.get("month_window", [])):
+            if id(e) in seen:
+                continue
+            seen.add(id(e))
             yield e, (latest is not None and e.get("date") == latest.get("date"))
 
 

@@ -19,6 +19,13 @@ Checks (all deterministic, no AI):
   5. Release accuracy — date-keyed: every shown entry "vX.Y.Z (YYYY-MM-DD)" must match releases.json for
                       that exact DATE (the authoritative key). Catches mislabels the col3-only check missed
                       (e.g. an entry dated 2026-05-27 typed as 1.15.4 when the API says that date is 1.15.5).
+  6. Blog coverage   — the newest blogs.json posts appear on slides 9/13, in order, with no duplicates.
+  7. Event coverage  — webinar slots / featured slides carry known events; empty-supply slides are hidden.
+  8. No empty box    — LOOP-HARDENING: a VISIBLE webinar slide has every slot filled and a blog slide keeps
+                      its full original entry count (catches a cleared surplus slot / blanked blog entry).
+  9. Release gap     — LOOP-HARDENING: no same-month same-line release is skipped "as historical", for
+                      EVERY month column the slide displays (full historical window, not just the latest
+                      — e.g. a missing May patch is caught as well as a missing June one).
 
 Usage:
     python scripts/verify_deck.py "output/<deck>.pptx" [--original "<original>.pptx"] [--json]
@@ -205,6 +212,23 @@ def webinar_slot_texts(slide_file: Path) -> list[str]:
             for t in [_text(sp).strip()] if t]
 
 
+def webinar_slot_total(slide_file: Path) -> int:
+    """Count ALL webinar slot shapes (empty + filled) — an emptied slot keeps its shape name."""
+    doc = minidom.parse(str(slide_file))
+    return sum(1 for sp in doc.getElementsByTagName("p:sp")
+               if _shape_name(sp) == "Google Shape;397;p78")
+
+
+def release_month_window(releases: dict, product: str) -> list[dict]:
+    """The same-line release history window for a product (used to detect a skipped same-month patch)."""
+    top, sub = PRODUCT_KEY.get(product, (None, None))
+    if top is None:
+        return []
+    node = releases.get(top, {})
+    node = node.get(sub, {}) if sub else node
+    return node.get("month_window", []) or []
+
+
 def _load_json(name: str) -> dict:
     p = DATA_DIR / name
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
@@ -233,6 +257,7 @@ def main() -> int:
 
     results: dict[str, dict] = {}
     unpacked = _unpack(deck)
+    orig_unpacked = _unpack(original) if (original and original.exists()) else None
     try:
         order = slide_order(unpacked)
         total = len(order)
@@ -356,8 +381,10 @@ def main() -> int:
         results["release_accuracy"] = acc
 
         # --- 6. Blog coverage -----------------------------------------------------------
-        # The top-N recent-blog entries on slides 9/13 must carry the N newest titles from
-        # blogs.json (in order). Catches a stale or mis-ordered blog refresh.
+        # Insert-and-shift semantics: the genuinely-NEW posts (in blogs.json but not already on the
+        # original slide) must appear at the TOP of the slide, newest-first; already-shown posts simply
+        # stay (and may shift off the bottom). No post may appear twice. Catches a stale/mis-ordered
+        # blog refresh without falsely demanding already-present posts sit at fixed top-N positions.
         blogcov = {"slides": {}, "ok": True, "notes": []}
         for entry in cfg.get("slides", []):
             if entry.get("type") != "recent_blogs":
@@ -370,13 +397,20 @@ def main() -> int:
                 if not f.exists() or not recent:
                     continue
                 texts = blog_entry_texts(f)
+                orig_texts = []
+                if orig_unpacked is not None:
+                    of = orig_unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                    if of.exists():
+                        orig_texts = blog_entry_texts(of)
+                orig_blob = " || ".join(orig_texts)
+                fresh = [p for p in recent if p["title"] not in orig_blob]  # newest-first already
                 misses = []
-                for i, post in enumerate(recent):
+                for i, post in enumerate(fresh):
                     if i >= len(texts):
-                        misses.append(f"missing entry {i+1} for '{post['title'][:40]}'")
+                        misses.append(f"new post not placed: '{post['title'][:40]}'")
                     elif post["title"] not in texts[i]:
-                        misses.append(f"entry {i+1}: deck has '{texts[i][:45]}' expected '{post['title'][:40]}'")
-                # No post may appear twice (a refreshed top-N entry duplicating a curated tail entry).
+                        misses.append(f"top entry {i+1}: deck has '{texts[i][:45]}' "
+                                      f"expected new post '{post['title'][:40]}'")
                 norm = [" ".join(t.split()).lower() for t in texts]
                 for i, t in enumerate(norm):
                     if t and t in norm[:i]:
@@ -396,6 +430,11 @@ def main() -> int:
         evcov = {"slides": {}, "ok": True, "notes": []}
         webinars = events.get("webinars", {})
         featured = sorted(events.get("featured", []), key=lambda e: e.get("date", ""))
+        # Slots may be BACKFILLED with cross-product/other webinars or featured events (exactly as the
+        # hand-authored deck did), so a filled slot is valid if its title matches ANY known event, not
+        # just the slide's own product bucket.
+        all_event_titles = {w["title"] for bucket in webinars.values() for w in bucket}
+        all_event_titles |= {f["title"] for f in featured}
         for entry in cfg.get("slides", []):
             etype = entry.get("type")
             if etype == "webinars":
@@ -404,15 +443,14 @@ def main() -> int:
                 if not f.exists():
                     continue
                 avail = webinars.get(entry.get("product"), [])
-                titles = {w["title"] for w in avail}
                 slots = webinar_slot_texts(f)
                 notes = []
-                if not avail:
+                if not avail and not all_event_titles:
                     if not is_hidden(f):
-                        notes.append("no webinars but slide is VISIBLE (should be hidden)")
+                        notes.append("no events but slide is VISIBLE (should be hidden)")
                 else:
                     for t in slots:
-                        if not any(wt in t for wt in titles):
+                        if not any(wt and wt in t for wt in all_event_titles):
                             notes.append(f"slot text not in data: '{t[:45]}'")
                 evcov["slides"][str(n)] = notes
                 if notes:
@@ -439,8 +477,97 @@ def main() -> int:
                         for m in notes:
                             evcov["notes"].append(f"slide {n} (featured): {m}")
         results["event_coverage"] = evcov
+
+        # --- 8. No empty in-scope box (LOOP-HARDENING) ----------------------------------
+        # The hand-authored deck NEVER leaves a webinar slot or blog entry blank. A blank box is a
+        # silent defect the old checks accepted (a cleared surplus slot, a blanked duplicate blog
+        # entry). This makes it a hard FAIL: every VISIBLE webinar slide must have all slots filled,
+        # and every blog slide must keep its full original entry count (none blanked).
+        emptybox = {"slides": {}, "ok": True, "notes": []}
+        for entry in cfg.get("slides", []):
+            etype = entry.get("type")
+            if etype == "webinars":
+                n = entry["n"]
+                f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                if not f.exists() or is_hidden(f):
+                    continue
+                empties = webinar_slot_total(f) - len(webinar_slot_texts(f))
+                note = [f"{empties} empty webinar slot(s)"] if empties > 0 else []
+                emptybox["slides"][str(n)] = note
+                if note:
+                    emptybox["ok"] = False
+                    emptybox["notes"].append(f"slide {n} (webinars): {note[0]}")
+            elif etype == "recent_blogs":
+                ns = entry["n"]
+                for n in (ns if isinstance(ns, list) else [ns]):
+                    f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                    if not f.exists():
+                        continue
+                    out_n = len(blog_entry_texts(f))
+                    exp_n = out_n
+                    if orig_unpacked is not None:
+                        of = orig_unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                        if of.exists():
+                            exp_n = len(blog_entry_texts(of))
+                    note = ([f"{exp_n - out_n} blog entry box(es) blanked (have {out_n}, "
+                             f"expected {exp_n})"] if out_n < exp_n else [])
+                    emptybox["slides"][str(n)] = note
+                    if note:
+                        emptybox["ok"] = False
+                        emptybox["notes"].append(f"slide {n} (blogs): {note[0]}")
+        results["no_empty_box"] = emptybox
+
+        # --- 9. Release version gap (LOOP-HARDENING) ------------------------------------
+        # A same-month patch must never be skipped "as historical" — and this holds for EVERY month
+        # column the slide displays (the rolling window's full historical context), not only the
+        # latest. For each release slide and each month present in the product's month_window, every
+        # same-major.minor-line release of a DISPLAYED month must appear in the slide's shown versions.
+        # Months not shown on the slide (scrolled off the window / fallback slide) are skipped, and a
+        # month with <2 releases is owned by the latest-column / release_columns checks. LTS backports
+        # never trigger a false gap because month_window holds only the latest line.
+        gap = {"slides": {}, "ok": True, "notes": []}
+        for entry in cfg.get("slides", []):
+            if entry.get("type") != "release_updates":
+                continue
+            product = entry.get("product")
+            mw = release_month_window(releases, product)
+            if not mw:
+                continue
+            months: dict[str, list[str]] = {}
+            for r in mw:
+                m, v = r.get("month_label"), r.get("version")
+                if m and v and v not in months.setdefault(m, []):
+                    months[m].append(v)
+            ns = entry["n"]
+            for n in (ns if isinstance(ns, list) else [ns]):
+                f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                if not f.exists():
+                    continue
+                shown = {ver for ver, _d in slide_dated_entries(f)}
+                missing_all: list[str] = []
+                for m, versions in months.items():
+                    if len(versions) < 2:
+                        continue
+                    present = [v for v in versions if v in shown]
+                    # Only audit months the slide actually DISPLAYS (a month entirely absent has
+                    # scrolled off the rolling window, or the latest month lives on a fallback slide
+                    # owned by the release_columns check). A partial month is the real gap.
+                    if not present:
+                        continue
+                    miss = [v for v in versions if v not in shown]
+                    if miss:
+                        missing_all.extend(miss)
+                        gap["notes"].append(
+                            f"slide {n} ({product}): {m} release(s) skipped: {miss} "
+                            f"(shown for that month: {sorted(set(present))})")
+                gap["slides"][str(n)] = missing_all
+                if missing_all:
+                    gap["ok"] = False
+        results["release_gap"] = gap
     finally:
         shutil.rmtree(unpacked, ignore_errors=True)
+        if orig_unpacked is not None:
+            shutil.rmtree(orig_unpacked, ignore_errors=True)
 
     overall = all(r.get("ok", True) for r in results.values())
     results["overall"] = {"ok": overall}
