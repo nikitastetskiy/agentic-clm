@@ -130,6 +130,9 @@ def webinar_rows(report: dict | None) -> list[tuple[str, str, str]]:
             action = f"{len(filled)} {plural(len(filled), 'slot')} filled"
             if backfilled:
                 action += f" ({backfilled} backfilled)"
+            flags = s.get("flags") or []
+            if flags:
+                action += f", {len(flags)} flag{'s' if len(flags) != 1 else ''} relabeled"
         rows.append((str(n), label, action))
     return rows
 
