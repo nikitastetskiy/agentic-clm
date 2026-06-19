@@ -65,15 +65,16 @@ Then, inside the window:
 ```text
 /env             # confirm it loaded the instructions + the 3 agents
 /allow-all       # let it run the pipeline's shell + file edits without prompting
-> Run the full cadence deck pipeline in the background (bash run.sh),
-  tail the log for progress, and show me the summary when it's done.
+> Run the full cadence deck pipeline in the background (bash run.sh) and
+  just tell me when it's finished, with the summary.
 ```
 That reproduces a complete run — `run.sh` calls the `deck-data`,
 `pptx-orchestrator`, and `deck-reviewer` agents internally with their tuned
-prompts. Because a full run takes ~30–40 min, the assistant launches it
-**detached** (logging to `output/run-*.log`) so the window stays responsive: it
-returns control immediately, reports progress by tailing the log, and is
-**notified on completion** instead of sitting in a blocking wait. The finished,
+prompts. Because a full run takes ~30–40 min, the assistant launches it in the
+**background** (logging to `output/run-*.log`) so the window stays responsive: it
+returns control immediately and is **notified on completion** — it does *not*
+sit in a `sleep`/`tail` poll loop. Want live progress? Run
+`tail -f output/run-*.log` in another terminal yourself. The finished,
 timestamped copy lands in `./output/` (your original is untouched), and the run
 ends by printing the action-summary table and a "please review before sharing"
 notice.
