@@ -126,13 +126,13 @@ else
   warn "SKIP_FETCH=1 — using existing data/*.json"
 fi
 
-# --- Phase 1b: event leadspace screenshots (Playwright; best-effort) -------------------
-# Captures the HashiCorp event hero (gradient leadspace) at the mandated 680px width for the
-# featured slides. Only IBM "Agentic Runtime Security Exchange" pages expose this leadspace; other
-# pages (AWS Summits, etc.) are recorded as errors and keep their existing slide photo. Non-fatal:
-# a failure here just means the event-slide editor leaves the existing photos untouched.
+# --- Phase 1b: event photo visuals (Playwright; best-effort) ----------------------------
+# Captures event visuals for the featured slides. Per-event captures are quality-screened so
+# registration-page fragments (buttons/forms/large blank white areas) do not become deck photos; each
+# slide prefers its OWN per-city leadspace hero, with a clean HashiCorp series hero only as a fallback
+# for events whose page has no leadspace.
 if [[ "${SKIP_FETCH:-0}" != "1" && "${SKIP_EVENT_IMAGES:-0}" != "1" ]]; then
-  log "Phase 1b: event leadspace screenshots (Playwright, best-effort)"
+  log "Phase 1b: event photo visuals (Playwright, best-effort)"
   if "$PY" scripts/fetch_event_images.py > output/fetch-event-images.log 2>&1; then
     tail -n 3 output/fetch-event-images.log
   else
@@ -177,8 +177,9 @@ Tasks:
      NOTE: events are now fetched deterministically by scripts/fetch_events.py (Playwright). If
      data/events.json status=="ok", DO NOT change its facts (dates/titles/urls/buckets) — only fill
      the empty prose: each webinar "description" (one short sentence), and for each featured event the
-     "location" plus "description_points" (a list of 2-3 short factual bullets the slide renders as
-     its description). Only fall back to web_fetch + the request file if status != "ok".
+     "location" plus "description_points" (a list of 2-3 rich full-sentence bullets, ~15-30 words each,
+     matching the inviting style of the original event slides; ~300-500 chars total) the slide renders
+     as its description. Only fall back to web_fetch + the request file if status != "ok".
 Only write JSON files under data/. Do not touch any .pptx.
 EOF
 )"
@@ -223,8 +224,9 @@ fi
 # --- Phase 3d: deterministic event-slide edits -----------------------------------------
 # Fill the webinar slots (10,14) and featured/in-person slides (18-22) from data/events.json in
 # PYTHON: dates/titles/See-here+Register hyperlinks (fresh rels), descriptions collapsed to the one
-# events.json sentence, surplus slots cleared, and slides with no event HIDDEN (show="0", never
-# deleted). Runs AFTER deck-data filled the prose. Writes data/event-edit-report.json. Non-fatal.
+# events.json sentence, featured-event photos set to a consistent series visual where applicable, and
+# slides with no event HIDDEN (show="0", never deleted). Runs AFTER deck-data filled the prose. Writes
+# data/event-edit-report.json. Non-fatal.
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   log "Phase 3d: deterministic event-slide edits"
   if "$PY" scripts/edit_event_slides.py "$WORKING_COPY" --original "$ORIG_DECK" \
@@ -237,7 +239,8 @@ fi
 
 # --- Phase 3e: deterministic gate (decides whether the AI build/review are even needed) -
 # If the deterministic editors already produced a deck that PASSES verify_deck, the build agent
-# (which only fixes deterministic gaps) and the AI reviewer add no value — skip them to save
+# (which only fixes deterministic gaps, including photo-pattern failures) and the AI reviewer add no
+# value — skip them to save
 # ~30-40 min + credits. A FAIL falls back to the agents. Set FORCE_AGENTS=1 to always run them.
 GATE="unknown"
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
@@ -278,8 +281,8 @@ BLOG SLIDES (9,13) AND EVENT SLIDES (10,14,18-22) ARE ALSO ALREADY DONE determin
 scripts/edit_blog_slides.py and scripts/edit_event_slides.py (see data/blog-edit-report.json and
 data/event-edit-report.json). DO NOT touch slides 9, 13, 10, 14, 18, 19, 20, 21, 22 — their text,
 hyperlinks, and hide state are correct; re-editing them risks regressions. If a report shows a slide
-was skipped/failed (its entry is missing or "changed": false where data existed), only then fix that
-specific slide by hand following config/slide-map.yaml.
+was skipped/failed (its entry is missing or "changed": false where data existed), or verify_deck flags
+event/photo consistency, only then fix that specific slide by hand following config/slide-map.yaml.
 For any fallback release slide apply the ROLLING shift/refresh standard:
 compare products.<product>.latest.month_label to the current col3 header — same month refreshes
 col3 only, a newer month shifts the (header,entry) pairs left; never blank col1/col2.
@@ -315,8 +318,9 @@ Review the updated deck produced by the build phase:
 Follow your agent instructions. First READ the deterministic report at the latest output/verify-*.txt
 (integrity, hide audit done the correct way, style, release-column latest checks) and treat its
 machine-checked findings as ground truth — do not re-derive them by hand. Then add the judgment-based
-checks: data accuracy vs data/*.json, faithful highlight summaries, correct hyperlink targets, and
-scope. Verify hiding via <p:sld show="0"> on each slide ROOT (NOT presentation.xml).
+checks: data accuracy vs data/*.json, faithful highlight summaries, correct hyperlink targets, featured
+event photo consistency across slides 18-22 (no registration-page fragments/buttons/forms/blank-white
+captures), and scope. Verify hiding via <p:sld show="0"> on each slide ROOT (NOT presentation.xml).
 Write output/review-<timestamp>.md and record any durable learnings via scripts/capture_correction.py.
 Do NOT modify the deck (report only) unless told to fix.
 EOF

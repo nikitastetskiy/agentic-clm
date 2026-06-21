@@ -196,7 +196,9 @@ def write_request(pages: dict, ecfg: dict, today: str, note: str) -> None:
             },
             "featured": [
                 {"date": "YYYY-MM-DD", "display_date": "Month D", "title": "...", "location": "City", "url": "...",
-                 "description": "1-2 sentences", "description_points": ["point 1", "point 2", "point 3"], "language": "en"}
+                 "description": "1-2 sentences",
+                 "description_points": ["full sentence ~15-30 words", "full sentence ~15-30 words", "full sentence ~15-30 words"],
+                 "language": "en"}
             ],
         },
     })

@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-"""Capture a 680px-wide screenshot of each featured event's leadspace hero (the HashiCorp gradient
-banner), so the build can replace the stale white IBM-registration thumbnails on slides 18-22.
+"""Capture 680px-wide event visuals for the featured-event slides.
 
 For every featured event in `data/events.json` that has a URL, this renders the page with Playwright,
 locates the leadspace element (`.bx--leadspace--gradient`, the gradient overlay the event pages use),
-and screenshots THAT element at a fixed **680px width** (the width carries the gradient background;
-height is whatever the element renders to — approximate by design, no resize/crop). PNGs go to
-`data/event-images/` and a manifest keyed by event URL is written to `data/event-images.json`.
+blanks the registration clutter (Register button, breadcrumb, "questions / send an e-mail" block) so
+the hero reads as a clean title + brand gradient, and screenshots THAT element at a fixed **680px
+width**. PNGs go to `data/event-images/` and a manifest keyed by event URL is written to
+`data/event-images.json`.
 
-Best-effort and non-fatal: if Playwright/its browser is missing or a page won't render, the event is
-recorded with `status != "ok"` and the build simply keeps the slide's existing picture.
+Best-effort and non-fatal: if Playwright/its browser is missing, a page won't render, or a capture is
+mostly registration-page whitespace, the event is recorded with `status != "ok"` and the build either
+uses a matching clean series hero or keeps the slide's existing picture.
 
-For series whose individual event pages have no leadspace hero (e.g. the Hands-On Lab), an on-brand
-HashiCorp series hero is captured from the series landing page (see `SERIES_FALLBACKS`) and written to
-`fallbacks` in the manifest. The editor applies it ONLY when an event's own per-page capture failed and
-its title matches the series — so the per-city IBM leadspace always wins where it exists.
+For event series, an on-brand HashiCorp series hero is also captured from the series landing page (see
+`SERIES_FALLBACKS`) and written to `fallbacks` in the manifest. The editor prefers each event's OWN
+decluttered per-city capture and uses the series hero only as a FALLBACK for events whose page has no
+leadspace (e.g. a hands-on lab), so every slide shows a clean city hero instead of a registration-page
+fragment.
 
 Usage:
     python scripts/fetch_event_images.py [--width 680] [--include-webinars]
@@ -39,10 +41,39 @@ IMAGES_DIR = DATA_DIR / "event-images"
 SELECTORS = [".bx--leadspace--gradient", ".bx--leadspace__overlay", ".bx--leadspace"]
 DEFAULT_WIDTH = 680
 
-# On-brand HashiCorp fallback heroes for event SERIES whose individual event pages have no leadspace
-# hero (e.g. the Hands-On Lab). Captured from the series landing page and applied by the editor ONLY
-# when an event's own per-page capture failed AND its title matches `match` — so the per-city IBM
-# leadspace always wins where it exists; this is purely the safety net for the rest of the series.
+# The IBM registration leadspace bundles a "Register" button, a breadcrumb, and a
+# "questions / send an e-mail to …" block into the gradient hero. Those read as a form, not a
+# deck visual. This script blanks them with `visibility:hidden` (NOT display:none) so the
+# leadspace KEEPS its full height: the hero stays taller than the slide frame, which lets the
+# editor's cover-crop preserve the full-width brand gradient instead of cropping its sides.
+# Pierces shadow DOM because the page is built from slotted web components.
+DECLUTTER_JS = r"""() => {
+  function deepAll(sel, root=document, acc=[]){
+    root.querySelectorAll(sel).forEach(e=>acc.push(e));
+    root.querySelectorAll('*').forEach(el=>{ if(el.shadowRoot) deepAll(sel, el.shadowRoot, acc); });
+    return acc;
+  }
+  const hide = e => { if (e && e.style) e.style.setProperty('visibility','hidden','important'); };
+  // Register button + breadcrumb nav, by component/slot.
+  deepAll('dds-button,cds-button,bx-btn,.bx--btn,button,[slot="action"],slot[name="action"],'
+        + 'a[part="link"],[slot="navigation"],slot[name="navigation"]').forEach(hide);
+  // Divider rule above the questions block.
+  deepAll('hr,[class*="divider"],[class*="rule"]').forEach(hide);
+  // Register label + "questions/e-mail" block, matched on text (small containers only).
+  deepAll('*').forEach(e => {
+    if (e.children.length > 2) return;
+    const t = (e.textContent || '').trim();
+    if (/^Register\b/i.test(t) && t.length < 40) hide(e);
+    if (/(please send an e-?mail|have any questions|@gpj\.com)/i.test(t) && t.length < 240) hide(e);
+  });
+  const ls = deepAll('.bx--leadspace--gradient')[0];
+  if (!ls) return null;
+  const r = ls.getBoundingClientRect();
+  return {w: Math.round(r.width), h: Math.round(r.height)};
+}"""
+
+# On-brand HashiCorp heroes for event SERIES. The editor prefers these across matching featured slides
+# so the deck has one clean presentation motif instead of mixed registration-page screenshots.
 SERIES_FALLBACKS = [
     {
         "id": "agentic-runtime-security",
@@ -57,6 +88,32 @@ def slug(event: dict) -> str:
     base = re.sub(r"[^a-z0-9]+", "-", (event.get("title") or "").lower()).strip("-")[:48]
     h = hashlib.sha1((event.get("url") or event.get("title") or "").encode()).hexdigest()[:8]
     return f"{base or 'event'}-{h}"
+
+
+def assess_capture_quality(path: Path) -> dict:
+    """Reject screenshot regions that are mostly blank/registration form rather than a deck visual.
+
+    The IBM registration pages can expose a `.bx--leadspace--gradient` wrapper that extends into the
+    white form area below the hero. That produces slides with inconsistent photos (blank areas, buttons,
+    contact e-mails). A large white-pixel ratio is a stable signal for this failure mode.
+    """
+    try:
+        from PIL import Image
+        with Image.open(path) as im:
+            im = im.convert("RGB")
+            im.thumbnail((220, 220))
+            pixels = list(im.getdata())
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "unknown", "reason": f"quality check unavailable: {exc!r}"[:160]}
+    if not pixels:
+        return {"status": "rejected", "reason": "empty screenshot"}
+    total = len(pixels)
+    white = sum(1 for r, g, b in pixels if r >= 245 and g >= 245 and b >= 245)
+    white_ratio = round(white / total, 3)
+    if white_ratio >= 0.35:
+        return {"status": "rejected", "white_ratio": white_ratio,
+                "reason": "large blank/registration-white area"}
+    return {"status": "ok", "white_ratio": white_ratio}
 
 
 def collect_events(events: dict, include_webinars: bool) -> list[dict]:
@@ -83,6 +140,11 @@ def capture_one(page, event: dict, width: int) -> dict:
         rec["error"] = f"goto: {exc!r}"[:200]
         return rec
     page.wait_for_timeout(3500)  # let the leadspace hydrate
+    try:
+        page.evaluate(DECLUTTER_JS)  # blank Register button / breadcrumb / e-mail block (keeps height)
+        page.wait_for_timeout(350)
+    except Exception:  # noqa: BLE001
+        pass  # decluttering is best-effort; fall back to the raw leadspace
     el = None
     for sel in SELECTORS:
         try:
@@ -103,15 +165,21 @@ def capture_one(page, event: dict, width: int) -> dict:
         box = el.bounding_box()
         rec.update(status="ok", file=str(out_path.relative_to(DATA_DIR.parent)),
                    height=round(box["height"]) if box else None)
+        quality = assess_capture_quality(out_path)
+        rec["quality"] = quality
+        if quality.get("status") == "rejected":
+            rec.update(status="rejected", error=f"capture rejected: {quality.get('reason')}")
     except Exception as exc:  # noqa: BLE001
         rec["error"] = f"screenshot: {exc!r}"[:200]
     return rec
 
 
 def capture_series_hero(page, fb: dict, width: int) -> dict:
-    """Capture the on-brand HashiCorp series landing-page hero (the gradient sparkle banner) at the
-    mandated `width`. Dismisses the cookie banner and hides fixed/sticky overlays (chat widget, sticky
-    header) so the hero is clean. Used only as a fallback for series events with no per-page hero."""
+    """Capture the on-brand HashiCorp series landing-page hero at the mandated `width`.
+
+    Dismisses the cookie banner and hides fixed/sticky overlays (chat widget, sticky header) so the hero
+    is clean. The editor prefers this as the common motif for matching event-series slides.
+    """
     url = fb["url"]
     rec = {"id": fb["id"], "match": fb["match"], "url": url, "title": "", "status": "error",
            "file": None, "width": width, "height": None, "selector": fb["selector"]}

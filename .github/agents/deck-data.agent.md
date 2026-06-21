@@ -53,13 +53,17 @@ bot-protected events page with Playwright). **First read `data/events.json`:**
 - **If `status` == `"ok"`** (the normal case): the facts — `date`, `title`, `url`, `products`,
   buckets — are already correct and **must NOT be changed, refetched, reordered, added to, or
   removed**. Your ONLY task is to fill the empty prose fields **from the title/type you already
-  have** (no web_fetch needed, though you MAY web_fetch a hashicorp.com event `url` to improve a
-  description): for each webinar slot set `description` to ONE short factual sentence; for each
-  `featured` event set `location` (the city/venue, if derivable from the title, e.g. "London",
-  "Delhi NCR", "Washington DC"), a one-line `description`, AND `description_points`: a list of **2–3
-  short, factual bullet points** (each ≤ ~12 words, present tense, no trailing period needed) that
-  the build renders as the slide's description bullets — e.g. who it's for, what attendees will see,
-  what they leave with. Keep them specific to THIS event; never invent dates/URLs/speakers.
+  have** (no web_fetch needed, though you SHOULD web_fetch a hashicorp.com / IBM event `url` when one
+  is present so the description mirrors the page's own framing): for each webinar slot set
+  `description` to ONE short factual sentence; for each `featured` event set `location` (the
+  city/venue, if derivable from the title, e.g. "London", "Delhi NCR", "Washington DC"), a one-line
+  `description`, AND `description_points`: a list of **2–3 rich, full-sentence bullet points** that
+  match the inviting style of the deck's existing hand-authored event slides. Each point should be a
+  complete sentence of **~15–30 words (~120–200 chars)**, present tense, drawn from the event page's
+  own copy where available — together covering who the event is for, what attendees will explore
+  (sessions/themes/demos), and what they walk away with. Aim for ~300–500 chars total across the
+  points (the slide's description box comfortably holds this). Keep them specific to THIS event;
+  never invent dates/URLs/speakers.
 - **If `status` != `"ok"`** (Playwright unavailable/blocked): fall back to `data/events.request.json`
   — `web_fetch` each page in `pages`, keep only **upcoming** events (date ≥ `today`), bucket webinars
   by the product keywords, collect featured/in-person events separately, and write `data/events.json`
