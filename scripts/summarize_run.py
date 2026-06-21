@@ -224,8 +224,10 @@ def main(argv: list[str]) -> int:
         photos = sum(1 for n in FEATURED_SLIDES
                      if (evt.get("slides", {}).get(str(n)) or {}).get("image_swapped"))
         if photos:
-            out.append(dim(f"  Event photos refreshed:  {photos} "
-                           "(captured from the live HashiCorp event pages)"))
+            series = sum(1 for n in FEATURED_SLIDES
+                         if ((evt.get("slides", {}).get(str(n)) or {}).get("image_source") or {}).get("kind") == "series")
+            suffix = f"; {series} using consistent series hero" if series else ""
+            out.append(dim(f"  Event photos refreshed:  {photos}{suffix}"))
     out.append("")
 
     status, vpath = verify_status()

@@ -26,6 +26,9 @@ Checks (all deterministic, no AI):
   9. Release gap     — LOOP-HARDENING: no same-month same-line release is skipped "as historical", for
                       EVERY month column the slide displays (full historical window, not just the latest
                       — e.g. a missing May patch is caught as well as a missing June one).
+ 10. Photo consistency — LOOP-HARDENING: each featured-event slide uses its OWN per-city leadspace
+                      hero capture (clean title+gradient), or the on-brand series hero as a fallback
+                      when the event page has no leadspace — never mixed registration buttons/blank-white.
 
 Usage:
     python scripts/verify_deck.py "output/<deck>.pptx" [--original "<original>.pptx"] [--json]
@@ -35,6 +38,7 @@ Exit code 0 if every check PASSes, 1 otherwise. Pass --json for a machine-readab
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -219,6 +223,62 @@ def webinar_slot_total(slide_file: Path) -> int:
                if _shape_name(sp) == "Google Shape;397;p78")
 
 
+def _pic_geom(pic) -> tuple[int, int] | None:
+    x = pic.getElementsByTagName("a:xfrm")
+    if not x:
+        return None
+    ext = x[0].getElementsByTagName("a:ext")
+    if not ext:
+        return None
+    try:
+        return (int(ext[0].getAttribute("cx")), int(ext[0].getAttribute("cy")))
+    except ValueError:
+        return None
+
+
+def _hero_pic_embed(slide_file: Path) -> str | None:
+    """Return the r:embed for the featured-event photo using the editor's hero-pic heuristic."""
+    doc = minidom.parse(str(slide_file))
+    pics = []
+    for pic in doc.getElementsByTagName("p:pic"):
+        geom = _pic_geom(pic)
+        if not geom:
+            continue
+        cnv = pic.getElementsByTagName("p:cNvPr")
+        name = cnv[0].getAttribute("name") if cnv else ""
+        pics.append((geom[0] * geom[1], name, pic))
+    if len(pics) < 2:
+        return None
+    pics.sort(key=lambda t: t[0], reverse=True)
+    bg_area = pics[0][0]
+    rest = pics[1:]
+    placeholders = [t for t in rest if "placeholder" in t[1].lower()]
+    candidates = placeholders or [t for t in rest if t[0] > 0.01 * bg_area]
+    if not candidates:
+        return None
+    pic = max(candidates, key=lambda t: t[0])[2]
+    blips = pic.getElementsByTagName("a:blip")
+    return blips[0].getAttribute("r:embed") if blips else None
+
+
+def _slide_rel_target(slide_file: Path, rid: str) -> Path | None:
+    rels_file = slide_file.parent / "_rels" / f"{slide_file.name}.rels"
+    if not rels_file.exists() or not rid:
+        return None
+    rels = minidom.parse(str(rels_file)).getElementsByTagName("Relationship")
+    for rel in rels:
+        if rel.getAttribute("Id") == rid:
+            target = rel.getAttribute("Target")
+            return (slide_file.parent / target).resolve()
+    return None
+
+
+def _sha256(path: Path | None) -> str | None:
+    if not path or not path.exists():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def release_month_window(releases: dict, product: str) -> list[dict]:
     """The same-line release history window for a product (used to detect a skipped same-month patch)."""
     top, sub = PRODUCT_KEY.get(product, (None, None))
@@ -232,6 +292,19 @@ def release_month_window(releases: dict, product: str) -> list[dict]:
 def _load_json(name: str) -> dict:
     p = DATA_DIR / name
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+def _matching_series_fallback(event: dict, fallbacks: list[dict]) -> dict | None:
+    title = event.get("title", "")
+    for fb in fallbacks:
+        if not (fb.get("status") == "ok" and fb.get("file") and fb.get("match")):
+            continue
+        try:
+            if re.search(fb["match"], title, re.I):
+                return fb
+        except re.error:
+            continue
+    return None
 
 
 def _count_slides(deck: Path) -> int:
@@ -254,6 +327,7 @@ def main() -> int:
     releases = _load_json("releases.json")
     events = _load_json("events.json")
     blogs = _load_json("blogs.json")
+    event_images = _load_json("event-images.json")
 
     results: dict[str, dict] = {}
     unpacked = _unpack(deck)
@@ -564,6 +638,50 @@ def main() -> int:
                 if missing_all:
                     gap["ok"] = False
         results["release_gap"] = gap
+
+        # --- 10. Featured photo consistency (LOOP-HARDENING) -----------------------------
+        # Each featured event should show its OWN decluttered per-city capture when one was approved
+        # (status "ok"); a configured series hero is the fallback only when the event has no own capture.
+        # The embedded hero must match whichever the editor would pick (mirrors pick_event_image).
+        photocov = {"slides": {}, "ok": True, "notes": []}
+        fallbacks = list((event_images.get("fallbacks") or {}).values())
+        images = event_images.get("images") or {}
+        for entry in cfg.get("slides", []):
+            if entry.get("type") != "in_person_event":
+                continue
+            ns = entry["n"]
+            ns = ns if isinstance(ns, list) else [ns]
+            for i, n in enumerate(ns):
+                if i >= len(featured):
+                    continue
+                ev = featured[i]
+                own = images.get(ev.get("url", ""))
+                if own and own.get("status") == "ok" and own.get("file"):
+                    expected_file, kind = own["file"], "own"
+                else:
+                    fb = _matching_series_fallback(ev, fallbacks)
+                    if fb is None:
+                        photocov["slides"][str(n)] = []
+                        continue
+                    expected_file, kind = fb["file"], "series"
+                notes = []
+                f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                rid = _hero_pic_embed(f)
+                actual = _slide_rel_target(f, rid) if rid else None
+                actual_hash = _sha256(actual)
+                expected_hash = _sha256((DATA_DIR.parent / expected_file).resolve())
+                if not actual_hash:
+                    notes.append("cannot resolve embedded featured-event photo")
+                elif actual_hash != expected_hash:
+                    notes.append(
+                        f"embedded photo does not match expected {kind} hero "
+                        f"(actual {actual_hash[:10]}, expected {expected_hash[:10] if expected_hash else 'missing'})")
+                photocov["slides"][str(n)] = notes
+                if notes:
+                    photocov["ok"] = False
+                    for m in notes:
+                        photocov["notes"].append(f"slide {n} (featured photo): {m}")
+        results["photo_consistency"] = photocov
     finally:
         shutil.rmtree(unpacked, ignore_errors=True)
         if orig_unpacked is not None:

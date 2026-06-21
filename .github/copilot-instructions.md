@@ -53,6 +53,17 @@ regressions. Don't reach for `web_fetch` when a deterministic fetcher already pr
   (`deck-reviewer`) agents are skipped automatically — that's expected, not an error. They only run
   when the gate finds a real gap, or when `FORCE_AGENTS=1` is set. Don't force the agents to run when
   the gate is green.
+- **Never finish on a verify FAIL — loop until it passes.** A `verify_deck` `OVERALL: FAIL` is never an
+  acceptable end state. When the gate (Phase 3e) or the post-build re-verify (Phase 4b) fails, you MUST:
+  (1) **inspect** each failing check in `output/verify-*.txt` and trace it to a root cause; (2) **fix**
+  that root cause — at the deterministic layer (`scripts/*.py`) when it's a logic/allocation bug the
+  agents can't touch, or in `data/*.json` / the slide when it's content; (3) **record the learning** with
+  `scripts/capture_correction.py`; (4) **re-run** and re-verify — for an isolated code/data fix reuse the
+  same inputs (`SKIP_FETCH=1 SKIP_DATA=1`) so the fix is the only variable and the loop stays fast. Repeat
+  until `OVERALL: PASS`. Two hard limits: **never fabricate data or weaken/bypass a check** just to turn it
+  green (that defeats the gate and violates "never fabricate"); and if a check still fails after a few
+  honest attempts because of a genuine upstream gap (e.g. a source truly lacks the data), **stop and
+  escalate to the human** with the specific blocker rather than shipping a FAIL or looping forever.
 - **A full run takes ~30–40 min** (it calls three agents). When asked to run it from a chat window,
   start it with the shell tool's **async/background** mode (logging to `output/run-*.log`) and then
   **stop** — the CLI notifies you automatically when it finishes. **Never `sleep`/`tail`-poll to
