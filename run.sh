@@ -241,8 +241,8 @@ fi
 # --- Phase 3e: deterministic gate (decides whether the AI build/review are even needed) -
 # If the deterministic editors already produced a deck that PASSES verify_deck, the build agent
 # (which only fixes deterministic gaps, including photo-pattern failures) and the AI reviewer add no
-# value — skip them to save
-# ~30-40 min + credits. A FAIL falls back to the agents. Set FORCE_AGENTS=1 to always run them.
+# value, so they are skipped to save the extra agent time + credits. A FAIL falls back to the agents.
+# Set FORCE_AGENTS=1 to always run them.
 GATE="unknown"
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   log "Phase 3e: deterministic gate"
