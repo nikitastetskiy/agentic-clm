@@ -29,11 +29,12 @@ STOPS = [(0.0, (0x6C, 0x81, 0xFF)), (0.34, (0xC0, 0x8D, 0xFF)),
 WORDMARK_W = 1100          # px width of the HashiCorp wordmark in the lockup
 TAGLINE = "An IBM Company"
 
-# Glow behind the lockup for legibility over photos — a soft cool-grey ("plata"/silver-grey) halo
-# rather than a heavy black shadow. (R, G, B) and peak alpha (grey needs a touch more alpha than black
-# to read on busy/bright photos).
-GLOW_COLOR = (120, 123, 132)
-GLOW_ALPHA = 0.85
+# Glow behind the lockup for legibility over photos: a soft dark halo tinted a deep brand NAVY rather
+# than flat black — same contrast as a dark glow (reads on bright photos like Amsterdam) but richer and
+# less "boring". (R, G, B), peak alpha, and the transparent margin so the blur doesn't clip.
+GLOW_COLOR = (18, 20, 42)   # deep navy
+GLOW_ALPHA = 0.82
+GLOW_PAD = 0.35
 
 
 def _font(size: int) -> ImageFont.FreeTypeFont:
@@ -90,10 +91,10 @@ def build() -> Image.Image:
     glyph = _gradient(W, H).convert("RGBA")
     glyph.putalpha(mask)
 
-    # Soft GREY/SILVER GLOW for legibility over any photo — a centered, blurred cool-grey halo behind
-    # the letters (no visible box, no sticker-like outline). Stacked passes give it presence on busy
-    # photos without the heaviness of a black shadow.
-    pad = round(H * 0.35)
+    # Soft NAVY dark glow for legibility over any photo — a centered, blurred deep-navy halo behind the
+    # letters (no visible box, no sticker outline). Stacked passes give it presence on busy/bright photos
+    # while the navy tint keeps it from looking like a flat black shadow.
+    pad = round(H * GLOW_PAD)
     canvas = Image.new("RGBA", (W + 2 * pad, H + 2 * pad), (0, 0, 0, 0))
     halo = Image.new("RGBA", canvas.size, GLOW_COLOR + (0,))
     halo_alpha = Image.new("L", canvas.size, 0)

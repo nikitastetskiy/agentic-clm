@@ -71,7 +71,7 @@ Then, inside the window:
 ```
 That reproduces a complete run — `run.sh` calls the `deck-data`,
 `pptx-orchestrator`, and `deck-reviewer` agents internally with their tuned
-prompts. Because a full run takes ~30–40 min, the assistant launches it in the
+prompts. Because a full run can take ~8–30 min (fast when the deterministic gate passes, longer if the build/review agents run), the assistant launches it in the
 **background** (logging to `output/run-*.log`) so the window stays responsive: it
 returns control immediately and is **notified on completion** — it does *not*
 sit in a `sleep`/`tail` poll loop. Want live progress? Run
