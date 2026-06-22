@@ -5,7 +5,7 @@
 # Phases:
 #   0. skill-updater  — ensure the vendored pptx skill matches its pin (advisory)
 #   1. fetch          — deterministic Python: releases + changelog highlights + TFE + blogs + events
-#   1b. event images   — deterministic Python (Playwright): event leadspace screenshots (best-effort)
+#   1b. event photos    — (retired) featured-event heroes are now CITY photos resolved at edit time
 #   2. copy           — timestamped working copy (original is never touched)
 #   3. data (agent)   — deck-data: events prose + light highlight polish (no web_fetch of changelogs/TFE)
 #   3b-d. det. edits   — deterministic Python: release (7,8,11,12) + blog (9,13) + event (10,14,18-22) slides
@@ -19,7 +19,7 @@
 #   SKILL_UPDATE_POLICY    check | update   (default: check)
 #   SKIP_FETCH/SKIP_DATA/SKIP_BUILD/SKIP_REVIEW = 1 to skip a phase
 #   FORCE_AGENTS           1 to always run the build+review agents even when the deterministic gate passes
-#   SKIP_EVENT_IMAGES      1 to skip the Playwright event-leadspace capture (Phase 1b)
+#   SKIP_EVENT_IMAGES      (retired no-op — featured-event photos are city photos resolved at edit time)
 #   SOURCE_PPTX            explicit source deck (default: the single .pptx in repo root)
 #
 set -euo pipefail
@@ -40,6 +40,7 @@ if [[ -f .env ]]; then
 fi
 
 PY="${PYTHON:-python3}"
+PIPELINE_START=$(date +%s)   # wall-clock start, for the "time taken" line in the run summary
 log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m[warn] %s\033[0m\n' "$*"; }
 
@@ -126,19 +127,12 @@ else
   warn "SKIP_FETCH=1 — using existing data/*.json"
 fi
 
-# --- Phase 1b: event photo visuals (Playwright; best-effort) ----------------------------
-# Captures event visuals for the featured slides. Per-event captures are quality-screened so
-# registration-page fragments (buttons/forms/large blank white areas) do not become deck photos; each
-# slide prefers its OWN per-city leadspace hero, with a clean HashiCorp series hero only as a fallback
-# for events whose page has no leadspace.
-if [[ "${SKIP_FETCH:-0}" != "1" && "${SKIP_EVENT_IMAGES:-0}" != "1" ]]; then
-  log "Phase 1b: event photo visuals (Playwright, best-effort)"
-  if "$PY" scripts/fetch_event_images.py > output/fetch-event-images.log 2>&1; then
-    tail -n 3 output/fetch-event-images.log
-  else
-    warn "event-image capture returned non-zero (non-fatal — existing photos kept); see output/fetch-event-images.log"
-  fi
-fi
+# --- Phase 1b: featured-event photos (no web capture) -----------------------------------
+# Featured-event slides (18-22) use the event CITY photo, resolved deterministically AT EDIT TIME
+# (Phase 3d) from config/city-photos.yaml -> a photo bundled in the source deck or a freely-licensed
+# file in assets/city-photos/. No Playwright capture runs here: the old leadspace/series screenshotting
+# was retired because those webpage captures duplicated the slide's own title/date text, carried a stray
+# divider line and cropped badly.
 
 # --- Phase 2: working copy -------------------------------------------------------------
 log "Phase 2: working copy"
@@ -176,10 +170,17 @@ Tasks:
   3) Produce data/events.json per data/events.request.json (upcoming events only, never fabricate).
      NOTE: events are now fetched deterministically by scripts/fetch_events.py (Playwright). If
      data/events.json status=="ok", DO NOT change its facts (dates/titles/urls/buckets) — only fill
-     the empty prose: each webinar "description" (one short sentence), and for each featured event the
-     "location" plus "description_points" (a list of 2-3 rich full-sentence bullets, ~15-30 words each,
-     matching the inviting style of the original event slides; ~300-500 chars total) the slide renders
-     as its description. Only fall back to web_fetch + the request file if status != "ok".
+     the empty prose. For each webinar "description" write one short factual sentence. For each featured
+     event set "location" and "description_points": 2-3 SHORT, FIRM, confident sentences written for a
+     CUSTOMER-FACING presentation (active voice, inviting, specific; NOT robotic, generic, or AI-sounding;
+     "This invite-only exchange brings leaders together to explore..." is too bland). Each point is ONE
+     punchy sentence of ~10-18 words (~60-110 chars); keep the TOTAL ~200-340 chars so the text fits
+     beside the photo WITHOUT overflowing the image height (concise beats wordy, do not pad). web_fetch the
+     event "url" (retry once) and ground every claim in the page; convey who it's for, what they'll do, and
+     the value, but never invent speakers, agendas, or specifics, and never write 3-6 word fragments. Use
+     PLAIN punctuation only: NO em dashes or en dashes ("—"/"–") and no AI-tell words (leverage, seamless,
+     delve, robust, "in today's"); write like a confident human. Only fall back to the request file if
+     status != "ok".
 Only write JSON files under data/. Do not touch any .pptx.
 EOF
 )"
@@ -332,5 +333,7 @@ log "Done. Output deck: $WORKING_COPY"
 # --- Final: human-readable run summary -------------------------------------------------
 # Print a table of what each automatable slide group changed, the verify gate result, and an
 # explicit "please review" notice with the path to the finished deck. Never fails the run.
+# RUN_ELAPSED_SEC is read by summarize_run.py to print the wall-clock "time taken".
+export RUN_ELAPSED_SEC=$(( $(date +%s) - PIPELINE_START ))
 "$PY" scripts/summarize_run.py "$WORKING_COPY" || \
   echo "Output deck: $WORKING_COPY  (review + build notes are in output/)"

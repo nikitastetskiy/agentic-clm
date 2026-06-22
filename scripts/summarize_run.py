@@ -224,9 +224,9 @@ def main(argv: list[str]) -> int:
         photos = sum(1 for n in FEATURED_SLIDES
                      if (evt.get("slides", {}).get(str(n)) or {}).get("image_swapped"))
         if photos:
-            series = sum(1 for n in FEATURED_SLIDES
-                         if ((evt.get("slides", {}).get(str(n)) or {}).get("image_source") or {}).get("kind") == "series")
-            suffix = f"; {series} using consistent series hero" if series else ""
+            city = sum(1 for n in FEATURED_SLIDES
+                       if ((evt.get("slides", {}).get(str(n)) or {}).get("image_source") or {}).get("kind") == "city")
+            suffix = f"; {city} city photo{'s' if city != 1 else ''}" if city else ""
             out.append(dim(f"  Event photos refreshed:  {photos}{suffix}"))
     out.append("")
 
@@ -237,6 +237,10 @@ def main(argv: list[str]) -> int:
     review = latest("review-*.md")
     if review:
         out.append(dim(f"  Reviewer notes:     {review.relative_to(REPO_ROOT)}"))
+    elapsed = os.environ.get("RUN_ELAPSED_SEC", "")
+    if elapsed.isdigit():
+        secs = int(elapsed)
+        out.append(f"  Time taken:         {secs // 60}m {secs % 60}s")
     out.append("")
 
     out.append(yellow("  ⚠️  PLEASE REVIEW BEFORE SHARING"))

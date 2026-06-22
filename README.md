@@ -81,7 +81,7 @@ ends by printing the action-summary table and a "please review before sharing"
 notice.
 
 Power-user variant: run the fast deterministic phases yourself
-(`make fetch && make event-images`), then drive a single agent with `/agent`
+(`make fetch`), then drive a single agent with `/agent`
 (or `copilot --agent pptx-orchestrator --allow-all -p "…"`) for a one-off edit.
 Either way, **launch from the repo root with `.venv` active** so the agents,
 guardrails, and headless browser are all available.
@@ -156,11 +156,10 @@ That's the whole loop: **run → review → (optionally) correct → run again**
   **"Copilot Requests"** permission for unattended/Docker runs.
 - **Python 3.11+** and the packages in `requirements.txt`.
 - *(For the upcoming-events slides)* a one-time Playwright Chromium install (the events page is
-  behind a bot-check that only a real browser passes). The same browser is reused to capture clean
-  event visuals for featured-event photos; each slide prefers its own decluttered per-city event hero,
-  falling back to a consistent HashiCorp series hero only when a page has no leadspace, and
-  registration-page fragments/blank-white captures are rejected. Without it, events fall back to the
-  agent and existing slide photos are kept.
+  behind a bot-check that only a real browser passes). Without it, events fall back to the agent.
+  Featured-event **photos** no longer need a browser: each slide's hero is the event **city photo**,
+  resolved at edit time from `config/city-photos.yaml` (a photo bundled in the source deck, or a
+  freely-licensed file in `assets/city-photos/`).
 - *(Optional, for the visual review step)* LibreOffice + poppler — already included if you use Docker.
 
 First-time setup:
@@ -220,9 +219,8 @@ run.sh
  ├─ 0. skill-updater   check the vendored pptx skill against upstream (advisory)
  ├─ 1. fetch (python)  fetch_releases.py · fetch_changelogs.py (highlights) · fetch_tfe_releases.py
  │                        (TFE + freshness guard) · fetch_blogs.py · fetch_events.py (Playwright) → data/*.json
- ├─ 1b. event images (python) fetch_event_images.py (Playwright) → captures quality-screened, decluttered
- │                        per-city event heroes plus an on-brand HashiCorp series hero fallback, so each
- │                        featured-event slide shows its own clean city visual → data/event-images/
+ ├─ 1b. event photos   (retired) featured-event heroes are CITY photos resolved at edit time (3d) from
+ │                        config/city-photos.yaml — no Playwright capture needed
  ├─ 2. copy            make_working_copy.py → output/<deck> — <timestamp>.pptx
  ├─ 2b. map (python)   map_slides.py → data/slide-structure.json (learned geometry; no re-discovery)
  ├─ 3. deck-data       agent: event descriptions + light highlight polish (NO changelog/TFE web_fetch)
@@ -231,9 +229,10 @@ run.sh
  │                        listed in data/release-edit-report.json for the agent (fallback_slides)
  ├─ 3c. blog edit (python)     edit_blog_slides.py → refreshes the newest posts on slides 9,13
  ├─ 3d. event edit (python)    edit_event_slides.py → fills webinars (10,14) + featured events
- │                        (18–22) with 2–3 description bullets + shrink-to-fit titles, swaps each event
- │                        photo for its own decluttered per-city hero (series hero as fallback), clears
- │                        surplus slots, hides slides with no event
+ │                        (18–22) with 2–3 description bullets + shrink-to-fit titles, sets each event's
+ │                        hero to its CITY photo (config/city-photos.yaml) with rounded corners + the
+ │                        gradient HashiCorp/IBM logo (bottom-left) + removes other extra pics,
+ │                        clears surplus slots, hides slides with no event
  ├─ 3e. gate (python)    verify_deck.py → output/verify-*.txt (integrity, hide audit, style, release
  │                        latest, date-keyed accuracy, blog + event coverage, no-empty-box, photo
  │                        consistency). **If it PASSES here, steps 4 + 5 are SKIPPED.**

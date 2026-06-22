@@ -57,13 +57,15 @@ bot-protected events page with Playwright). **First read `data/events.json`:**
   is present so the description mirrors the page's own framing): for each webinar slot set
   `description` to ONE short factual sentence; for each `featured` event set `location` (the
   city/venue, if derivable from the title, e.g. "London", "Delhi NCR", "Washington DC"), a one-line
-  `description`, AND `description_points`: a list of **2–3 rich, full-sentence bullet points** that
-  match the inviting style of the deck's existing hand-authored event slides. Each point should be a
-  complete sentence of **~15–30 words (~120–200 chars)**, present tense, drawn from the event page's
-  own copy where available — together covering who the event is for, what attendees will explore
-  (sessions/themes/demos), and what they walk away with. Aim for ~300–500 chars total across the
-  points (the slide's description box comfortably holds this). Keep them specific to THIS event;
-  never invent dates/URLs/speakers.
+  `description`, AND `description_points`: **2–3 SHORT, FIRM, confident sentences** written for a
+  **customer-facing presentation** (active voice, inviting and specific; **never robotic, generic, or
+  AI-sounding**). `web_fetch` the event's `url` (retry once) and ground every claim in the page. Each
+  point is **ONE punchy sentence of ~10–18 words (~60–110 chars)**; keep the **TOTAL ~200–340 chars**
+  so the points fit beside the photo **without overflowing the image height** (concise beats wordy, do
+  not pad). Convey who the event is for, what they'll do, and the value, but never invent speakers,
+  agendas, or specifics, and never write 3–6 word fragments. Use **plain punctuation only — NO em/en
+  dashes ("—"/"–")** and no AI-tell words (leverage, seamless, delve, robust, "in today's"); write like
+  a confident human.
 - **If `status` != `"ok"`** (Playwright unavailable/blocked): fall back to `data/events.request.json`
   — `web_fetch` each page in `pages`, keep only **upcoming** events (date ≥ `today`), bucket webinars
   by the product keywords, collect featured/in-person events separately, and write `data/events.json`

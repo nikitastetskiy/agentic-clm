@@ -13,14 +13,15 @@ Each slot/slide keeps its exact formatting — only the text inside existing run
 targets are repointed via FRESH relationships (shared-rId safe). Featured-event descriptions (18-22)
 render as 2-3 bullets from `description_points` (falling back to the single `description`) by reusing
 the placeholder's own paragraph templates; long titles are switched to shrink-to-fit so they no longer
-overflow the Register link. Featured-event photos prefer each event's OWN decluttered per-page capture
-(the IBM city leadspace hero — title + brand gradient), so every slide shows its own city. A configured
-HashiCorp SERIES hero (from the manifest `fallbacks`) is used only as a fallback when an event has no
-quality-approved own capture. The screenshot is added as fresh media with a fresh
-image rel and the per-event crop is recomputed as a "cover" srcRect (crop top/bottom to keep the full
-width, or left/right when the hero is wider) so the photo fills the frame without distortion; unrelated
-events with no usable capture keep their existing photo. Hiding sets `show="0"` on the slide root
-(never deletes).
+overflow the Register link. Each featured event's hero image is its CITY photo (config/city-photos.yaml
+-> a photo bundled in the source deck, or a freely-licensed file under assets/city-photos/), keyed by the
+event "location" — never the IBM/HashiCorp leadspace webpage screenshot, which duplicated the slide's own
+title/date/description text, carried a stray divider line and cropped badly. The city photo is added as
+fresh media with a fresh image rel and a "cover" srcRect crop (crop top/bottom to keep full width, or
+left/right when wider) so it fills the frame without distortion; an event whose city has no configured
+photo keeps its existing template photo. Every other extra picture (an old leadspace screenshot, a
+now-redundant skyline, a stray logo) is removed so each slide shows ONE clean city hero. Hiding sets
+`show="0"` on the slide root (never deletes).
 
 Runs AFTER the deck-data agent (which fills the description/location prose into events.json). Operates
 in place on a working copy; refuses to touch the original. Writes `data/event-edit-report.json`.
@@ -41,18 +42,28 @@ from xml.dom import minidom
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, load_config, log  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
+from lib.city_photos import build_city_photo_cache, resolve_city_photo, norm_city  # noqa: E402
 
 FEATURED_TITLE = "Title 1"
 FEATURED_DATE = "Subtitle 2"
 FEATURED_DESC = "Content Placeholder 4"
 WEBINAR_SHAPE = "Google Shape;397;p78"
 
-# Some featured slides ship a static "city photo" (a skyline next to the hero card). Keyed by the media
-# basename in the SOURCE deck -> the city it depicts. Because featured events are sorted by DATE onto
-# slides 18-22, a static city photo can end up next to an event in a DIFFERENT city; the editor keeps
-# such a photo only when it matches the event's city, and removes any other non-hero extra picture
-# (e.g. a leftover product logo) so every featured slide follows the global single-hero style.
-SECONDARY_CITY_PHOTOS = {"image46.png": "london", "image48.png": "amsterdam"}
+# Featured-event description text: render every slide's points at this size (14pt = sz 1400, matching
+# slide 18; some templates ship 12pt) and vertically centered, for one consistent look across 18-22.
+DESC_FONT_SZ = "1400"
+
+# Rounded-corner radius (a:prstGeom roundRect adj guide) for the featured hero photo. The template
+# rounds most hero placeholders to this value but leaves slide 18's hero a plain rect; the editor forces
+# every swapped hero to this same roundRect so all five featured photos have identical rounded corners.
+HERO_CORNER_ADJ = 1178
+
+# Brand logo overlay placed in the bottom-left of each featured hero (assets/brand/, via gen_brand_logo.py):
+# the "HashiCorp / An IBM Company" lockup with gradient-filled letters. WIDTH_FRAC is its width as a
+# fraction of the hero frame width; INSET_FRAC is the left/bottom padding from the hero corner.
+BRAND_LOGO = DATA_DIR.parent / "assets" / "brand" / "hashicorp-ibm-gradient.png"
+BRAND_LOGO_WIDTH_FRAC = 0.46
+BRAND_LOGO_INSET_FRAC = 0.012
 
 # Canonical featured-event geometry (EMU), matching slides 18/20. The deck's one webinar-derived
 # featured slide has a tiny hero placeholder + displaced title/subtitle; when an event lands there it is
@@ -159,11 +170,67 @@ def collapse_into_first_run(p, text: str) -> bool:
     return True
 
 
+def _strip_bunone(para) -> None:
+    """Remove an explicit <a:buNone/> so the paragraph inherits the placeholder's bullet — fixes a
+    description point that renders WITHOUT a bullet while its siblings have one (e.g. slide 22's p0)."""
+    pprs = para.getElementsByTagName("a:pPr")
+    if not pprs:
+        return
+    for bn in list(pprs[0].getElementsByTagName("a:buNone")):
+        px.remove_node(bn)
+
+
+def _fit_description(desc_sp, total_chars: int) -> None:
+    """Normalize the description box to shrink-to-fit (a:normAutofit) with a length-based fontScale, so
+    the points never overflow past the hero image height and every featured slide behaves the same (the
+    template ships a mix of normAutofit / noAutofit)."""
+    bodies = desc_sp.getElementsByTagName("a:bodyPr")
+    if not bodies:
+        return
+    body = bodies[0]
+    for tag in ("a:spAutoFit", "a:normAutofit", "a:noAutofit"):
+        for el in list(body.getElementsByTagName(tag)):
+            px.remove_node(el)
+    scale = (100000 if total_chars <= 280 else 92000 if total_chars <= 340
+             else 85000 if total_chars <= 420 else 78000)
+    naf = desc_sp.ownerDocument.createElement("a:normAutofit")
+    if scale < 100000:
+        naf.setAttribute("fontScale", str(scale))
+    body.appendChild(naf)
+
+
+def _uniform_description(desc_sp) -> None:
+    """Make every featured slide's description read identically: 14pt runs (some templates ship 12pt),
+    vertically centered in the box, and consistent bullet indentation (drops a stray marL/indent override
+    that breaks the first point's bullet on slide 22). Run typeface/colour are never touched."""
+    bodies = desc_sp.getElementsByTagName("a:bodyPr")
+    if bodies:
+        bodies[0].setAttribute("anchor", "ctr")
+    doc = desc_sp.ownerDocument
+    for para in px.paragraphs(desc_sp):
+        for ppr in para.getElementsByTagName("a:pPr"):
+            for attr in ("marL", "indent"):
+                if ppr.hasAttribute(attr):
+                    ppr.removeAttribute(attr)
+        for r in para.getElementsByTagName("a:r"):
+            rprs = r.getElementsByTagName("a:rPr")
+            if rprs:
+                rprs[0].setAttribute("sz", DESC_FONT_SZ)
+            else:
+                rpr = doc.createElement("a:rPr")
+                rpr.setAttribute("lang", "en-US")
+                rpr.setAttribute("sz", DESC_FONT_SZ)
+                r.insertBefore(rpr, r.firstChild)
+        for epr in para.getElementsByTagName("a:endParaRPr"):
+            epr.setAttribute("sz", DESC_FONT_SZ)
+
+
 def fill_description(desc_sp, points: list[str], max_points: int = 3) -> int:
     """Render 2-3 description bullets by reusing the placeholder's EXISTING paragraph templates
     (so each point keeps the slide's own bullet/indent/font). One point per paragraph; if there are
     more points than template paragraphs, the last paragraph is cloned to hold them; surplus template
-    paragraphs are removed. Returns how many points were written."""
+    paragraphs are removed. Strips any explicit buNone so every point keeps a consistent bullet, and
+    sets shrink-to-fit so the text never overflows the hero image height. Returns points written."""
     points = [p.strip() for p in (points or []) if p and p.strip()][:max_points]
     paras = px.paragraphs(desc_sp)
     if not paras or not points:
@@ -175,8 +242,11 @@ def fill_description(desc_sp, points: list[str], max_points: int = 3) -> int:
     n = len(points)
     for i in range(n):
         collapse_into_first_run(paras[i], points[i])
+        _strip_bunone(paras[i])
     for p in paras[n:]:
         px.remove_node(p)
+    _uniform_description(desc_sp)
+    _fit_description(desc_sp, sum(len(p) for p in points[:n]))
     return n
 
 
@@ -437,10 +507,11 @@ def normalize_small_hero(dom, by_name, hero_pic) -> bool:
     return True
 
 
-def normalize_secondary_pics(dom, rels_dom, hero_pic, event: dict) -> list:
-    """Keep one hero per featured slide. The full-bleed background and the small corner brand logo are
-    always kept; a static city photo is kept only when it matches the event's city; every other non-hero
-    extra picture (e.g. a leftover product logo, or a city photo for the wrong city) is removed."""
+def remove_nonhero_pics(dom, rels_dom, hero_pic) -> list:
+    """Keep exactly one event photo per featured slide. The full-bleed background (largest picture) and
+    the tiny corner brand logo are always kept, and so is the hero placeholder (now the city photo);
+    every OTHER extra picture — a leftover leadspace/series screenshot, a now-redundant bundled skyline,
+    or a stray product logo — is removed so the slide shows a single clean city hero."""
     pics = []
     for pic in dom.getElementsByTagName("p:pic"):
         g = _pic_geom(pic)
@@ -451,59 +522,42 @@ def normalize_secondary_pics(dom, rels_dom, hero_pic, event: dict) -> list:
     if not pics:
         return []
     bg_area = max(a for a, _, _ in pics)
-    loc = f"{event.get('location', '')} {event.get('title', '')}".lower()
     removed = []
     for area, nm, pic in pics:
         if pic is hero_pic or area >= bg_area or area < 0.012 * bg_area:
             continue  # hero, full-bleed background, or tiny corner logo
         base = _pic_media_basename(pic, rels_dom)
-        city = SECONDARY_CITY_PHOTOS.get(base)
-        if city and city in loc:
-            continue  # correct city skyline beside the hero -> keep
         px.remove_node(pic)
-        removed.append({"shape": nm, "media": base,
-                        "reason": "city-mismatch" if city else "non-hero-extra"})
+        removed.append({"shape": nm, "media": base, "reason": "non-hero-extra"})
     return removed
 
 
-def pick_event_image(event: dict, manifest: dict, fallbacks: list[dict]) -> dict | None:
-    """Choose the image record for an event.
-
-    Prefer the event's OWN per-page capture (the decluttered IBM city leadspace hero — title + brand
-    gradient), so each featured slide shows its own city. A configured HashiCorp SERIES hero is used
-    only as a FALLBACK when the event has no quality-approved own capture (e.g. the Hands-On Lab page
-    exposes no leadspace). Both paths require `status == "ok"` and a file.
-    """
-    title = event.get("title", "")
-    own = manifest.get(event.get("url", ""))
-    if own and own.get("status") == "ok" and own.get("file"):
-        rec = dict(own)
-        rec["_source_kind"] = "own"
-        rec["_source_id"] = own.get("url")
-        return rec
-    for fb in fallbacks:
-        if (fb.get("status") == "ok" and fb.get("file") and fb.get("match")
-                and re.search(fb["match"], title, re.I)):
-            rec = dict(fb)
-            rec["_source_kind"] = "series"
-            rec["_source_id"] = fb.get("id")
-            return rec
-    return None
-
-
-def image_source_summary(image_rec: dict | None) -> dict | None:
-    if not image_rec:
-        return None
-    return {
-        "kind": image_rec.get("_source_kind") or ("series" if image_rec.get("id") else "own"),
-        "id": image_rec.get("_source_id") or image_rec.get("id") or image_rec.get("url"),
-        "file": image_rec.get("file"),
-        "url": image_rec.get("url"),
-    }
+def set_round_corners(pic, adj: int = HERO_CORNER_ADJ) -> bool:
+    """Force the picture's preset geometry to a rounded rectangle with corner radius `adj`, so every
+    featured hero has identical rounded corners (the template leaves slide 18's hero a plain rect).
+    Modifies the existing <a:prstGeom> in place (keeps spPr child order)."""
+    sps = pic.getElementsByTagName("p:spPr")
+    if not sps:
+        return False
+    geoms = sps[0].getElementsByTagName("a:prstGeom")
+    if not geoms:
+        return False
+    pg = geoms[0]
+    pg.setAttribute("prst", "roundRect")
+    doc = pic.ownerDocument
+    for av in list(pg.getElementsByTagName("a:avLst")):
+        pg.removeChild(av)
+    av = doc.createElement("a:avLst")
+    gd = doc.createElement("a:gd")
+    gd.setAttribute("name", "adj")
+    gd.setAttribute("fmla", f"val {adj}")
+    av.appendChild(gd)
+    pg.appendChild(av)
+    return True
 
 
 def swap_event_image(dom, rels_dom, root: Path, slide_n: int, img_path: Path):
-    """Replace the slide's event-photo with the captured leadspace screenshot by adding the image as
+    """Replace the slide's event-photo with the city photo by adding the image as
     a FRESH media file + relationship and repointing the picture's <a:blip r:embed> (never mutating a
     shared image rel or overwriting existing media). Returns info dict, or None if no suitable pic."""
     pic = find_hero_pic(dom)
@@ -519,9 +573,8 @@ def swap_event_image(dom, rels_dom, root: Path, slide_n: int, img_path: Path):
     rid = px.add_image_rel(rels_dom, f"../media/{newname}")
     blips[0].setAttribute("r:embed", rid)
     # The old per-event crop (a:srcRect) was tuned to the previous photo. Replace it with a "cover"
-    # crop computed from THIS capture's pixel size vs the frame: crop top/bottom (keep full width, so
-    # the gradient spans the slide) when the hero is taller than the frame, or left/right when wider.
-    # This makes the screenshot fill the frame with NO horizontal/vertical stretching.
+    # crop computed from THIS photo's pixel size vs the frame: crop top/bottom (keep full width) when the
+    # hero is taller than the frame, or left/right when wider — fills the frame with NO stretching.
     blip = blips[0]
     blipfill = blip.parentNode
     for sr in pic.getElementsByTagName("a:srcRect"):
@@ -534,8 +587,88 @@ def swap_event_image(dom, rels_dom, root: Path, slide_n: int, img_path: Path):
         for k, v in crop.items():
             sr.setAttribute(k, str(v))
         blipfill.insertBefore(sr, blip.nextSibling)
+    rounded = set_round_corners(pic)
     name = pic.getElementsByTagName("p:cNvPr")[0].getAttribute("name")
-    return {"shape": name, "media": newname, "embed": rid, "srcRect": crop or None}
+    return {"shape": name, "media": newname, "embed": rid, "srcRect": crop or None, "rounded": rounded}
+
+
+def _next_shape_id(dom) -> int:
+    ids = [int(c.getAttribute("id")) for c in dom.getElementsByTagName("p:cNvPr")
+           if c.getAttribute("id").isdigit()]
+    return (max(ids) if ids else 1) + 1
+
+
+def place_brand_logo(dom, rels_dom, root: Path, hero_pic, slide_n: int,
+                     logo_path: Path = BRAND_LOGO) -> dict | None:
+    """Add the gradient HashiCorp/IBM lockup as a NEW picture in the bottom-left of the hero frame.
+
+    Built as a fresh <p:pic> (fresh media + image rel) and appended LAST in the shape tree so it draws
+    on top of the photo. Sized to BRAND_LOGO_WIDTH_FRAC of the hero width, inset from the bottom-left
+    corner. Returns info dict, or None if the hero geometry / logo asset is unavailable."""
+    if not logo_path.exists():
+        return None
+    box = _pic_xfrm(hero_pic)
+    size = _img_size(logo_path)
+    if not box or not size:
+        return None
+    x, y, cx, cy = box
+    iw, ih = size
+    ow = round(cx * BRAND_LOGO_WIDTH_FRAC)
+    oh = round(ow * ih / iw)
+    inset = round(cx * BRAND_LOGO_INSET_FRAC)
+    ox = x + inset
+    oy = y + cy - oh - inset
+
+    media = root / "ppt" / "media"
+    media.mkdir(parents=True, exist_ok=True)
+    newname = f"image_brand_slide{slide_n}{logo_path.suffix.lower() or '.png'}"
+    shutil.copy(logo_path, media / newname)
+    rid = px.add_image_rel(rels_dom, f"../media/{newname}")
+
+    doc = dom
+    pic = doc.createElement("p:pic")
+    nv = doc.createElement("p:nvPicPr")
+    cnvpr = doc.createElement("p:cNvPr")
+    cnvpr.setAttribute("id", str(_next_shape_id(dom)))
+    cnvpr.setAttribute("name", f"HashiCorp IBM Logo {slide_n}")
+    cnvpicpr = doc.createElement("p:cNvPicPr")
+    locks = doc.createElement("a:picLocks")
+    locks.setAttribute("noChangeAspect", "1")
+    cnvpicpr.appendChild(locks)
+    nv.appendChild(cnvpr)
+    nv.appendChild(cnvpicpr)
+    nv.appendChild(doc.createElement("p:nvPr"))
+    blipfill = doc.createElement("p:blipFill")
+    blip = doc.createElement("a:blip")
+    blip.setAttribute("r:embed", rid)
+    stretch = doc.createElement("a:stretch")
+    stretch.appendChild(doc.createElement("a:fillRect"))
+    blipfill.appendChild(blip)
+    blipfill.appendChild(stretch)
+    sppr = doc.createElement("p:spPr")
+    xfrm = doc.createElement("a:xfrm")
+    off = doc.createElement("a:off")
+    off.setAttribute("x", str(ox))
+    off.setAttribute("y", str(oy))
+    ext = doc.createElement("a:ext")
+    ext.setAttribute("cx", str(ow))
+    ext.setAttribute("cy", str(oh))
+    xfrm.appendChild(off)
+    xfrm.appendChild(ext)
+    geom = doc.createElement("a:prstGeom")
+    geom.setAttribute("prst", "rect")
+    geom.appendChild(doc.createElement("a:avLst"))
+    sppr.appendChild(xfrm)
+    sppr.appendChild(geom)
+    pic.appendChild(nv)
+    pic.appendChild(blipfill)
+    pic.appendChild(sppr)
+
+    trees = dom.getElementsByTagName("p:spTree")
+    if not trees:
+        return None
+    trees[0].appendChild(pic)
+    return {"media": newname, "embed": rid, "xfrm": [ox, oy, ow, oh]}
 
 
 def clear_txbody(sp) -> None:
@@ -624,8 +757,8 @@ def edit_webinar_slide(slide_file: Path, rels_file: Path, fill: list[dict],
 
 
 def edit_featured_slide(slide_file: Path, rels_file: Path, event: dict | None,
-                        root: Path | None = None, image_rec: dict | None = None,
-                        slide_n: int | None = None) -> dict:
+                        root: Path | None = None, city_photo: Path | None = None,
+                        slide_n: int | None = None, image_source: dict | None = None) -> dict:
     dom = minidom.parse(str(slide_file))
     if event is None:
         dom.documentElement.setAttribute("show", "0")
@@ -661,27 +794,36 @@ def edit_featured_slide(slide_file: Path, rels_file: Path, event: dict | None,
     desc_written = fill_description(desc_sp, points) if desc_sp else 0
 
     # Normalize the slide to the global single-hero featured style: enlarge a tiny webinar-derived hero
-    # (and its title/subtitle) to canonical geometry, then drop extra pictures (stray logos, or a static
-    # city photo that doesn't match THIS event's city).
+    # (and its title/subtitle) to canonical geometry, then set the hero to the event city photo and drop
+    # every other extra picture (old leadspace screenshot, redundant skyline, stray logo).
     hero_pic = find_hero_pic(dom)
     hero_normalized = normalize_small_hero(dom, by_name, hero_pic) if hero_pic is not None else False
+    # Force EVERY featured hero to the canonical geometry so the photo sits in the EXACT same position
+    # and size on all five slides (the template places them slightly differently — e.g. slide 19's x is
+    # 33px vs 43px, and heights vary 336-353px). Done before the swap so the cover-crop uses CANON dims.
+    if hero_pic is not None:
+        _set_xfrm(hero_pic, CANON_HERO[:2], CANON_HERO[2:])
 
     image_swapped = None
-    if root is not None and slide_n is not None and image_rec and image_rec.get("status") == "ok":
-        img_path = (DATA_DIR.parent / image_rec["file"]).resolve()
-        if img_path.exists():
-            image_swapped = swap_event_image(dom, rels_dom, root, slide_n, img_path)
+    if root is not None and slide_n is not None and city_photo is not None and Path(city_photo).exists():
+        image_swapped = swap_event_image(dom, rels_dom, root, slide_n, Path(city_photo))
 
-    secondary_removed = normalize_secondary_pics(dom, rels_dom, hero_pic, event) if hero_pic is not None else []
+    secondary_removed = remove_nonhero_pics(dom, rels_dom, hero_pic) if hero_pic is not None else []
+
+    # Brand logo overlay (added AFTER removing extras so it survives): the gradient HashiCorp/IBM lockup
+    # in the bottom-left of the hero.
+    brand_logo = None
+    if root is not None and slide_n is not None and hero_pic is not None:
+        brand_logo = place_brand_logo(dom, rels_dom, root, hero_pic, slide_n)
 
     pruned = px.prune_orphan_hyperlinks(dom, rels_dom)
     slide_file.write_text(dom.toxml(), encoding="utf-8")
     rels_file.write_text(rels_dom.toxml(), encoding="utf-8")
     return {"hidden": False, "title": event["title"], "date": event["display_date"],
             "desc_points": desc_written, "title_fit": title_fit,
-            "image_swapped": bool(image_swapped), "image_source": image_source_summary(image_rec),
+            "image_swapped": bool(image_swapped), "image_source": image_source if image_swapped else None,
             "hero_normalized": hero_normalized, "secondary_removed": secondary_removed,
-            "pruned_rels": pruned}
+            "brand_logo": bool(brand_logo), "pruned_rels": pruned}
 
 
 def slide_paths(root: Path, n: int) -> tuple[Path, Path]:
@@ -761,18 +903,11 @@ def main() -> int:
     webinars = events.get("webinars", {})
     featured = sorted(events.get("featured", []), key=lambda e: e["date"])  # soonest first
 
-    # Optional Playwright captures: quality-screened per-event screenshots (keyed by event URL) plus
-    # on-brand series heroes. Matching series heroes are preferred for consistent featured-slide photos.
-    image_manifest = {}
-    image_fallbacks: list[dict] = []
-    img_file = DATA_DIR / "event-images.json"
-    if img_file.exists():
-        try:
-            _imgs = json.loads(img_file.read_text(encoding="utf-8"))
-            image_manifest = _imgs.get("images", {})
-            image_fallbacks = list((_imgs.get("fallbacks") or {}).values())
-        except (ValueError, OSError):
-            image_manifest = {}
+    # Resolve each featured event's CITY photo (config/city-photos.yaml): a photo bundled in the source
+    # deck (extracted from --original) or a freely-licensed file under assets/city-photos/. The hero is
+    # the city photo, never a leadspace webpage screenshot; a city with no configured photo keeps its
+    # existing template hero.
+    city_cache = build_city_photo_cache(args.original)
 
     # Featured events shown on the in-person slides (18-22) are reserved — excluded from webinar
     # backfill so an event never appears twice in the deck. Key the reservation on _event_identity
@@ -820,9 +955,14 @@ def main() -> int:
                     if not sf.exists():
                         continue
                     ev = featured[i] if i < len(featured) else None
-                    img_rec = pick_event_image(ev, image_manifest, image_fallbacks) if ev else None
+                    city_photo = img_src = None
+                    if ev:
+                        city_photo = resolve_city_photo(ev.get("location", ""), city_cache)
+                        if city_photo:
+                            img_src = {"kind": "city", "city": norm_city(ev.get("location", "")),
+                                       "file": str(city_photo.relative_to(DATA_DIR.parent))}
                     report["slides"][str(n)] = edit_featured_slide(
-                        sf, rf, ev, root=tmp, image_rec=img_rec, slide_n=n)
+                        sf, rf, ev, root=tmp, city_photo=city_photo, slide_n=n, image_source=img_src)
                     report["any_change"] = True
         if report["any_change"] and not args.dry_run:
             out = px.pack(tmp, deck)
