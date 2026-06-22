@@ -64,7 +64,7 @@ regressions. Don't reach for `web_fetch` when a deterministic fetcher already pr
   green (that defeats the gate and violates "never fabricate"); and if a check still fails after a few
   honest attempts because of a genuine upstream gap (e.g. a source truly lacks the data), **stop and
   escalate to the human** with the specific blocker rather than shipping a FAIL or looping forever.
-- **A full run takes ~8–10 min** when the deterministic gate passes (build/review agents are skipped), or **~25–30 min** if the agents also run. When asked to run it from a chat window,
+- **A full run takes ~5–10 min** when the deterministic gate passes (build/review agents are skipped); a little longer if the agents also run. When asked to run it from a chat window,
   start it with the shell tool's **async/background** mode (logging to `output/run-*.log`) and then
   **stop** — the CLI notifies you automatically when it finishes. **Never `sleep`/`tail`-poll to
   babysit it** (busy-wait; wastes time + credits). Print the summary when the completion

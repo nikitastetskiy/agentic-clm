@@ -37,8 +37,8 @@ make run-local
 
 That one command fetches the latest data, makes a timestamped copy, updates the automatable slides,
 and writes a verification report. When the deterministic edits already pass the verification gate, a
-run takes **~5–10 minutes**; if the AI build/review agents are needed to resolve a gap (or you set
-`FORCE_AGENTS=1`), it's **~30–40 minutes**. Prefer to run unattended on a schedule?
+run takes **~5–10 minutes**, a little longer if the AI build/review agents are needed to resolve a gap (or you set
+`FORCE_AGENTS=1`). Prefer to run unattended on a schedule?
 See [Running it unattended](#running-it-unattended-docker--scheduled).
 
 Useful variants:
@@ -71,7 +71,7 @@ Then, inside the window:
 ```
 That reproduces a complete run — `run.sh` calls the `deck-data`,
 `pptx-orchestrator`, and `deck-reviewer` agents internally with their tuned
-prompts. Because a full run can take ~8–30 min (fast when the deterministic gate passes, longer if the build/review agents run), the assistant launches it in the
+prompts. Because a full run takes ~5–10 min (a little longer if the build/review agents run), the assistant launches it in the
 **background** (logging to `output/run-*.log`) so the window stays responsive: it
 returns control immediately and is **notified on completion** — it does *not*
 sit in a `sleep`/`tail` poll loop. Want live progress? Run
@@ -124,7 +124,7 @@ as you made it**. This tool only touches the slides listed above.
    ```
    This usually takes **~5–10 minutes**: the data gathering and slide edits are deterministic Python
    that finishes fast, and the AI agents only run if the deterministic deck doesn't already pass the
-   verification gate (then it's **~30–40 minutes**). Either way it's a "kick it off and come back"
+   verification gate (a little longer if they do). Either way it's a "kick it off and come back"
    job — see the [fresh Copilot window](#run-it-from-a-fresh-copilot-window-the-friendly-way) tip to
    launch it in the background.
 3. **Open the result.** Look in the `output/` folder for the newest file, e.g.
@@ -246,7 +246,7 @@ run.sh
 The Python phases are fast and free; the **agent** phases are where the time goes. The release, blog,
 and event edits now run as deterministic Python (steps 3b–3d), and step **3e gates the AI**: if the
 deterministic deck already passes `verify_deck`, the build and review agents are skipped entirely —
-so a clean run is roughly *deck-data + deterministic + verify ≈ 5–10 min* instead of ~30–40. The
+so a clean run is roughly *deck-data + deterministic + verify ≈ 5–10 min* instead of the slower full-agent path. The
 agents only kick in when the gate finds a real gap. Set `FORCE_AGENTS=1` to always run them.
 
 ### Skills (`.github/skills/`)
