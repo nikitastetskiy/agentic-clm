@@ -51,6 +51,7 @@ from xml.dom import minidom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, REPO_ROOT, load_config, log  # noqa: E402
+from lib.city_photos import build_city_photo_cache, resolve_city_photo  # noqa: E402
 
 UNPACK = REPO_ROOT / ".github/skills/pptx/scripts/office/unpack.py"
 STYLE_CHECK = REPO_ROOT / ".github/skills/hashicorp-deck-style/scripts/style_check.py"
@@ -279,6 +280,14 @@ def _sha256(path: Path | None) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _has_brand_logo(slide_file: Path) -> bool:
+    """True if the slide embeds the bottom-left HashiCorp/IBM brand logo overlay (media image_brand_*)."""
+    rels_file = slide_file.parent / "_rels" / f"{slide_file.name}.rels"
+    if not rels_file.exists():
+        return False
+    return "image_brand_slide" in rels_file.read_text(encoding="utf-8", errors="ignore")
+
+
 def release_month_window(releases: dict, product: str) -> list[dict]:
     """The same-line release history window for a product (used to detect a skipped same-month patch)."""
     top, sub = PRODUCT_KEY.get(product, (None, None))
@@ -292,19 +301,6 @@ def release_month_window(releases: dict, product: str) -> list[dict]:
 def _load_json(name: str) -> dict:
     p = DATA_DIR / name
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
-
-
-def _matching_series_fallback(event: dict, fallbacks: list[dict]) -> dict | None:
-    title = event.get("title", "")
-    for fb in fallbacks:
-        if not (fb.get("status") == "ok" and fb.get("file") and fb.get("match")):
-            continue
-        try:
-            if re.search(fb["match"], title, re.I):
-                return fb
-        except re.error:
-            continue
-    return None
 
 
 def _count_slides(deck: Path) -> int:
@@ -327,7 +323,7 @@ def main() -> int:
     releases = _load_json("releases.json")
     events = _load_json("events.json")
     blogs = _load_json("blogs.json")
-    event_images = _load_json("event-images.json")
+    city_cache = build_city_photo_cache(original)
 
     results: dict[str, dict] = {}
     unpacked = _unpack(deck)
@@ -640,12 +636,11 @@ def main() -> int:
         results["release_gap"] = gap
 
         # --- 10. Featured photo consistency (LOOP-HARDENING) -----------------------------
-        # Each featured event should show its OWN decluttered per-city capture when one was approved
-        # (status "ok"); a configured series hero is the fallback only when the event has no own capture.
-        # The embedded hero must match whichever the editor would pick (mirrors pick_event_image).
+        # Each featured event's hero must be its CITY photo (config/city-photos.yaml), NOT a leadspace
+        # webpage screenshot. The embedded hero must be byte-identical to the resolved city photo
+        # (mirrors edit_event_slides.resolve_city_photo). An event whose city has no configured photo
+        # keeps its template hero and is skipped here.
         photocov = {"slides": {}, "ok": True, "notes": []}
-        fallbacks = list((event_images.get("fallbacks") or {}).values())
-        images = event_images.get("images") or {}
         for entry in cfg.get("slides", []):
             if entry.get("type") != "in_person_event":
                 continue
@@ -655,26 +650,21 @@ def main() -> int:
                 if i >= len(featured):
                     continue
                 ev = featured[i]
-                own = images.get(ev.get("url", ""))
-                if own and own.get("status") == "ok" and own.get("file"):
-                    expected_file, kind = own["file"], "own"
-                else:
-                    fb = _matching_series_fallback(ev, fallbacks)
-                    if fb is None:
-                        photocov["slides"][str(n)] = []
-                        continue
-                    expected_file, kind = fb["file"], "series"
+                city_photo = resolve_city_photo(ev.get("location", ""), city_cache)
+                if city_photo is None:
+                    photocov["slides"][str(n)] = []
+                    continue
                 notes = []
                 f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
                 rid = _hero_pic_embed(f)
                 actual = _slide_rel_target(f, rid) if rid else None
                 actual_hash = _sha256(actual)
-                expected_hash = _sha256((DATA_DIR.parent / expected_file).resolve())
+                expected_hash = _sha256(Path(city_photo))
                 if not actual_hash:
                     notes.append("cannot resolve embedded featured-event photo")
                 elif actual_hash != expected_hash:
                     notes.append(
-                        f"embedded photo does not match expected {kind} hero "
+                        f"embedded photo does not match expected city hero for {ev.get('location', '?')} "
                         f"(actual {actual_hash[:10]}, expected {expected_hash[:10] if expected_hash else 'missing'})")
                 photocov["slides"][str(n)] = notes
                 if notes:
@@ -682,6 +672,26 @@ def main() -> int:
                     for m in notes:
                         photocov["notes"].append(f"slide {n} (featured photo): {m}")
         results["photo_consistency"] = photocov
+
+        # --- 11. Brand logo overlay (every visible featured slide gets the HashiCorp/IBM lockup) ----
+        brand = {"slides": {}, "ok": True, "notes": []}
+        for entry in cfg.get("slides", []):
+            if entry.get("type") != "in_person_event":
+                continue
+            ns = entry["n"]
+            ns = ns if isinstance(ns, list) else [ns]
+            for i, n in enumerate(ns):
+                if i >= len(featured):
+                    continue
+                f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
+                if not f.exists() or is_hidden(f):
+                    continue
+                ok = _has_brand_logo(f)
+                brand["slides"][str(n)] = [] if ok else ["missing HashiCorp/IBM brand logo overlay"]
+                if not ok:
+                    brand["ok"] = False
+                    brand["notes"].append(f"slide {n} (featured): missing HashiCorp/IBM brand logo overlay")
+        results["brand_logo"] = brand
     finally:
         shutil.rmtree(unpacked, ignore_errors=True)
         if orig_unpacked is not None:

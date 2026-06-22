@@ -1,0 +1,24 @@
+# Hero city photos for the featured-event slides (18-22).
+#
+# The featured-event hero image is the event city's photo (NOT the IBM/HashiCorp leadspace
+# screenshot — that webpage capture duplicated the slide's own Title/date/description text, carried a
+# stray divider line, and cropped badly). Keyed by the normalized event location (events.json
+# "location"). Two source kinds:
+#   bundled : a city photo that already ships in the SOURCE deck's media (extracted at edit time).
+#   file    : a freely-licensed photo committed under assets/city-photos/ (see its CREDITS.md).
+#
+# Normalization: location is lower-cased, trimmed, and punctuation collapsed before lookup; `aliases`
+# maps common variants onto a canonical key. Add a city here (prefer CC0/public-domain `file` photos)
+# and every featured slot for that city picks it up automatically — no code change needed.
+
+cities:
+  london:        {source: bundled, media: image46.png, note: "Tower Bridge (ships in the deck)"}
+  amsterdam:     {source: bundled, media: image48.png, note: "canal houses (ships in the deck)"}
+  hanoi:         {source: file, file: assets/city-photos/hanoi.jpg, note: "skyline at dusk (CC0)"}
+  washington dc: {source: file, file: assets/city-photos/washington-dc.jpg, note: "Potomac skyline (CC BY-SA 4.0)"}
+
+aliases:
+  "washington, dc": washington dc
+  "washington d.c.": washington dc
+  "washington dc usa": washington dc
+  "washington": washington dc
