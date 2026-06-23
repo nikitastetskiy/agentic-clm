@@ -300,8 +300,13 @@ gets more "you" over time.
   for that city picks it up automatically.
 
 ## Roadmap / not yet wired
-- **Google Drive delivery** — placeholders exist in `.env.example` (`GDRIVE_*`). When you decide on
-  unattended scheduling with a Drive account, the upload step plugs in after the review phase.
+- **Today's primary workflow is the interactive, manual run with Copilot** ([Quick start ①](#-let-copilot-run-it-easiest)):
+  kick it off, review the result, correct anything once. The
+  [Docker path](#running-it-unattended-docker--scheduled) already covers scheduled batch runs.
+- **Delivery to OneDrive / Box** (not Google Drive): auto-upload the finished deck to a shared folder
+  after the review phase. Placeholders live in `.env.example`; the upload step plugs in there.
+- **Serverless scheduling**: run the container as a scheduled cloud job (a function / job runner)
+  instead of a host with cron, for a hands-off monthly refresh.
 
 ## Licensing note
 The vendored `pptx` skill is **proprietary to Anthropic** — see `.github/skills/pptx/LICENSE.txt`.
