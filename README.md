@@ -14,32 +14,41 @@ plain Python for the boring, predictable bits.
 
 ---
 
-## Quickstart
+## Quick start
 
+**One-time setup** — clone, install deps, the headless browser used for the events page, and sign in to Copilot:
 ```bash
-# 1. Get the code and enter it
 git clone <this-repo-url> auto-pptx && cd auto-pptx
-
-# 2. One-time setup (Python deps + the headless browser used for the events page)
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python -m playwright install chromium
+python -m playwright install chromium          # used to fetch the events page
+copilot                                         # sign in once (or set COPILOT_GITHUB_TOKEN — see .env.example)
+```
+Then drop your deck — any single `.pptx` — in the project root. Now pick how to run it:
 
-# 3. Authenticate the GitHub Copilot CLI (needed for the AI phases)
-#    Install: https://github.com/github/copilot-cli   then:
-copilot            # sign in once when prompted (or set COPILOT_GITHUB_TOKEN — see .env.example)
+### ① Let Copilot run it (easiest)
+A fresh `copilot` session in this repo **auto-loads** the scope guardrails
+(`.github/copilot-instructions.md`) and the three custom agents, so you can just *ask*:
+```bash
+source .venv/bin/activate && copilot
+```
+```text
+/allow-all     # let it run the pipeline's shell + file edits without prompting
+> Run the full cadence deck pipeline in the background (bash run.sh) and tell me when it's done, with the summary.
+```
+It launches the run in the **background** (logging to `output/run-*.log`), keeps the window
+responsive, and prints the change-summary when it finishes. Live progress? `tail -f output/run-*.log`
+in another terminal.
 
-# 4. Put your deck in the project root (any single .pptx), then run the whole pipeline
+### ② One command
+```bash
 make run-local
-
-# 5. Open the newest file in ./output/  — your original is untouched.
 ```
 
-That one command fetches the latest data, makes a timestamped copy, updates the automatable slides,
-and writes a verification report. When the deterministic edits already pass the verification gate, a
-run takes **~5–10 minutes**, a little longer if the AI build/review agents are needed to resolve a gap (or you set
-`FORCE_AGENTS=1`). Prefer to run unattended on a schedule?
-See [Running it unattended](#running-it-unattended-docker--scheduled).
+Either way, the finished, **timestamped copy lands in `output/`** (your original is untouched) and the
+run ends with a summary table + a *"please review before sharing"* notice. A clean run is
+**~5–10 minutes** (a little longer only if the AI build/review agents are needed to fix a gap, or you
+set `FORCE_AGENTS=1`). Want it on a schedule? See [Running it unattended](#running-it-unattended-docker--scheduled).
 
 Useful variants:
 ```bash
@@ -50,41 +59,9 @@ SKIP_DATA=1 SKIP_REVIEW=1 make run-local   # run only part of the pipeline (see 
 SOURCE_PPTX="/path/to/Deck.pptx" make run-local   # use a deck that lives outside the repo
 ```
 
-### Run it from a fresh Copilot window (the friendly way)
-
-Prefer a chat window over `make`? A fresh `copilot` session in this repo
-**auto-loads** the scope guardrails (`.github/copilot-instructions.md`) and the
-three custom agents — so the easiest way to run everything is to just *ask
-Copilot to run it*:
-
-```bash
-cd auto-pptx
-source .venv/bin/activate     # Playwright (events + photos) lives in the venv
-copilot
-```
-Then, inside the window:
-```text
-/env             # confirm it loaded the instructions + the 3 agents
-/allow-all       # let it run the pipeline's shell + file edits without prompting
-> Run the full cadence deck pipeline in the background (bash run.sh) and
-  just tell me when it's finished, with the summary.
-```
-That reproduces a complete run — `run.sh` calls the `deck-data`,
-`pptx-orchestrator`, and `deck-reviewer` agents internally with their tuned
-prompts. Because a full run takes ~5–10 min (a little longer if the build/review agents run), the assistant launches it in the
-**background** (logging to `output/run-*.log`) so the window stays responsive: it
-returns control immediately and is **notified on completion** — it does *not*
-sit in a `sleep`/`tail` poll loop. Want live progress? Run
-`tail -f output/run-*.log` in another terminal yourself. The finished,
-timestamped copy lands in `./output/` (your original is untouched), and the run
-ends by printing the action-summary table and a "please review before sharing"
-notice.
-
-Power-user variant: run the fast deterministic phases yourself
-(`make fetch`), then drive a single agent with `/agent`
-(or `copilot --agent pptx-orchestrator --allow-all -p "…"`) for a one-off edit.
-Either way, **launch from the repo root with `.venv` active** so the agents,
-guardrails, and headless browser are all available.
+> **Power user:** run the deterministic phases yourself (`make fetch`), then drive a single agent for a
+> one-off edit with `copilot --agent pptx-orchestrator --allow-all -p "…"`. Launch from the repo root with
+> `.venv` active so the agents, guardrails, and headless browser are all available.
 
 ---
 
@@ -109,8 +86,27 @@ the result, check it, and tweak anything you don't like. If you correct somethin
 | 10, 14 | Terraform / Vault upcoming **webinars** | HashiCorp events page |
 | 18–22 | Featured / in-person **events** (title, date, 2–3 bullet description, photo) | HashiCorp events page |
 
+```mermaid
+flowchart LR
+    R["HashiCorp releases API"] --> S1["Slides 7 · 11 · 12<br/>Terraform / Vault releases"]
+    RP["Releases page"] --> S2["Slide 8<br/>Terraform Enterprise"]
+    BL["Blog feed"] --> S3["Slides 9 · 13<br/>recent blogs"]
+    EV["Events page"] --> S4["Slides 10 · 14<br/>webinars"]
+    EV --> S5["Slides 18–22<br/>featured events"]
+    CP["config/city-photos.yaml"] --> S5
+```
+
 Everything else — customer-specific slides, success plans, intro/branding slides — is **left exactly
 as you made it**. This tool only touches the slides listed above.
+
+> **Does it always edit the same slides?** Yes — it edits the slide **numbers** declared in
+> [`config/slide-map.yaml`](config/slide-map.yaml) (7, 8, 9, …). It does *not* auto-detect "the blogs
+> slide" by content. So if you **reorder the deck** (say, recent blogs move from slide 9 to slide 10),
+> update those numbers in `config/slide-map.yaml` — that one file is the single source of truth for
+> what maps to what. You won't get a *silent* mistake if you forget: the editors are **structure-aware**
+> (they look for the actual release columns / blog entries / webinar slots on each slide) and the
+> verify gate checks every configured slide, so a number pointing at the wrong slide simply finds
+> nothing to edit and is **flagged**, never corrupted.
 
 ---
 
@@ -214,40 +210,33 @@ This lets you keep the actual deck **out of the repository** while still sharing
 
 ## How it works under the hood
 
+`run.sh` runs a chain of **fast, deterministic Python** steps and only calls the **AI agents when
+they're actually needed**. A verification gate in the middle is the trick that keeps a clean run fast.
+
+```mermaid
+flowchart TD
+    A["📥 1. Fetch public data<br/>releases · changelogs · TFE · blogs · events"] --> B["📄 2. Timestamped working copy<br/>(original is never touched)"]
+    B --> C["🗺️ 2b. Map slide geometry<br/>map_slides.py"]
+    C --> D["✍️ 3. deck-data agent<br/>event prose + highlight polish"]
+    D --> E["🐍 3b–3d. Deterministic slide edits<br/>releases 7,8,11,12 · blogs 9,13 · events 10,14,18–22"]
+    E --> F{"✅ 3e. Verify gate<br/>verify_deck.py"}
+    F -->|PASS| Z["📋 6. Summary table<br/>+ finished deck in output/"]
+    F -->|FAIL| G["🤖 4. pptx-orchestrator agent<br/>fixes the leftover / ambiguous cases"]
+    G --> H["✅ 4b. Re-verify"]
+    H --> R["🔎 5. deck-reviewer agent<br/>judgment checks + records learnings"]
+    R --> Z
 ```
-run.sh
- ├─ 0. skill-updater   check the vendored pptx skill against upstream (advisory)
- ├─ 1. fetch (python)  fetch_releases.py · fetch_changelogs.py (highlights) · fetch_tfe_releases.py
- │                        (TFE + freshness guard) · fetch_blogs.py · fetch_events.py (Playwright) → data/*.json
- ├─ 1b. event photos   (retired) featured-event heroes are CITY photos resolved at edit time (3d) from
- │                        config/city-photos.yaml — no Playwright capture needed
- ├─ 2. copy            make_working_copy.py → output/<deck> — <timestamp>.pptx
- ├─ 2b. map (python)   map_slides.py → data/slide-structure.json (learned geometry; no re-discovery)
- ├─ 3. deck-data       agent: event descriptions + light highlight polish (NO changelog/TFE web_fetch)
- ├─ 3b. release edit (python)  edit_release_slides.py → applies the shift/refresh standard AND
- │                        date-reconciles mislabeled versions on slides 7,8,11,12; hard cases are
- │                        listed in data/release-edit-report.json for the agent (fallback_slides)
- ├─ 3c. blog edit (python)     edit_blog_slides.py → refreshes the newest posts on slides 9,13
- ├─ 3d. event edit (python)    edit_event_slides.py → fills webinars (10,14) + featured events
- │                        (18–22) with 2–3 description bullets + shrink-to-fit titles, sets each event's
- │                        hero to its CITY photo (config/city-photos.yaml) with rounded corners + the
- │                        gradient HashiCorp/IBM logo (bottom-left) + removes other extra pics,
- │                        clears surplus slots, hides slides with no event
- ├─ 3e. gate (python)    verify_deck.py → output/verify-*.txt (integrity, hide audit, style, release
- │                        latest, date-keyed accuracy, blog + event coverage, no-empty-box, photo
- │                        consistency). **If it PASSES here, steps 4 + 5 are SKIPPED.**
- ├─ 4. pptx-orchestrator  agent: ONLY when the gate failed (or FORCE_AGENTS=1) — fixes the leftover/
- │                        ambiguous cases the editors skipped (style-preserving), hides empties, repacks
- ├─ 4b. re-verify (python) verify_deck.py again, only after the build agent edited the deck
- ├─ 5. deck-reviewer   agent: ONLY when the build agent ran (or FORCE_AGENTS=1) — judgment checks
- │                        (data/highlights/links/scope); record learnings
- └─ 6. summarize (python) summarize_run.py → prints the action table + "please review" notice
-```
-The Python phases are fast and free; the **agent** phases are where the time goes. The release, blog,
-and event edits now run as deterministic Python (steps 3b–3d), and step **3e gates the AI**: if the
-deterministic deck already passes `verify_deck`, the build and review agents are skipped entirely —
-so a clean run is roughly *deck-data + deterministic + verify ≈ 5–10 min* instead of the slower full-agent path. The
-agents only kick in when the gate finds a real gap. Set `FORCE_AGENTS=1` to always run them.
+
+**The gate is what makes it fast.** Steps 1–3d are deterministic and free; the **agents** (steps 4–5)
+are where the time and Copilot credits go. Because the release, blog and event edits are now plain
+Python, the deck usually passes `verify_deck` on its own — so the build and review agents are
+**skipped entirely** and the run finishes in ~5–10 min. They only kick in when the gate finds a real
+gap (or you set `FORCE_AGENTS=1`).
+
+What the gate checks (`verify_deck.py`): integrity (slide count unchanged), hide-audit (`show="0"`,
+never deleted), style (no foreign colour/font), release columns + date-keyed accuracy, blog/event
+coverage, no-empty-box, and photo + brand-logo consistency. A `FAIL` is never the final state — the
+agents (or a human) resolve it and it re-verifies until it passes.
 
 ### Skills (`.github/skills/`)
 - **`pptx/`** — vendored from [anthropics/skills] at a pinned commit (see `.skill-manifest.json`).
@@ -287,7 +276,10 @@ gets more "you" over time.
 ## Configuration
 - `config/sources.yaml` — source URLs, product keywords, item counts, retry policy.
 - `config/slide-map.yaml` — which slide maps to which data, plus slot hints. **This is the one place**
-  to add or adjust which slides get automated.
+  to add or adjust which slides get automated (the slide numbers above live here).
+- `config/city-photos.yaml` — the featured-event hero **city photos** (a photo bundled in the source
+  deck, or a freely-licensed file under `assets/city-photos/`). Add a city here and every featured slot
+  for that city picks it up automatically.
 
 ## Roadmap / not yet wired
 - **Google Drive delivery** — placeholders exist in `.env.example` (`GDRIVE_*`). When you decide on
