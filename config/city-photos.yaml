@@ -16,8 +16,12 @@ cities:
   amsterdam:     {source: bundled, media: image48.png, note: "canal houses (ships in the deck)"}
   hanoi:         {source: file, file: assets/city-photos/hanoi.jpg, note: "skyline at dusk (CC0)"}
   washington dc: {source: file, file: assets/city-photos/washington-dc.jpg, note: "Potomac skyline (CC BY-SA 4.0)"}
+  zurich:        {source: file, file: assets/city-photos/zurich.jpg, note: "Old Town + Limmat (CC BY-SA 3.0)"}
 
 aliases:
+  "uk": london                  # CISO UK and similar UK events are held in London
+  "united kingdom": london
+  "england": london
   "washington, dc": washington dc
   "washington d.c.": washington dc
   "washington dc usa": washington dc

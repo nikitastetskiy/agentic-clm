@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import io
 import re
+import unicodedata
 import zipfile
 from pathlib import Path
 
@@ -27,8 +28,11 @@ CACHE_DIR = DATA_DIR / "event-images"
 
 
 def norm_city(s: str) -> str:
-    """Normalize a location string for lookup: lower-case, drop '.'/',', collapse whitespace."""
-    s = (s or "").strip().lower()
+    """Normalize a location string for lookup: strip accents, lower-case, drop '.'/',', collapse whitespace."""
+    s = (s or "").strip()
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = s.lower()
     s = re.sub(r"[.,]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
