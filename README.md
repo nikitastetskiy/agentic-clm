@@ -225,6 +225,8 @@ flowchart TD
     G --> H["✅ 4b. Re-verify"]
     H --> R["🔎 5. deck-reviewer agent<br/>judgment checks + records learnings"]
     R --> Z
+    R -. records learnings .-> L[("📒 corrections/")]
+    L -. read first by the NEXT run .-> D
 ```
 
 **The gate is what makes it fast.** Steps 1–3d are deterministic and free; the **agents** (steps 4–5)
@@ -237,6 +239,13 @@ What the gate checks (`verify_deck.py`): integrity (slide count unchanged), hide
 never deleted), style (no foreign colour/font), release columns + date-keyed accuracy, blog/event
 coverage, no-empty-box, and photo + brand-logo consistency. A `FAIL` is never the final state — the
 agents (or a human) resolve it and it re-verifies until it passes.
+
+> **Where the loops go.** Two different loops, easy to mix up: (1) the **fix loop** is between the
+> build agent (4) and re-verify (4b) — keep fixing until the gate is green. (2) The **learning loop**
+> does *not* jump back to the gate: the reviewer (5) is report-only, so after it records durable rules
+> to `corrections/`, the run just finishes at the summary (6). Those rules are read first by the
+> **next** run (`deck-data` and the orchestrator both honor them), so learnings improve the *next*
+> deck, not the current one. See [The learning loop](#the-learning-loop-corrections).
 
 ### Skills (`.github/skills/`)
 - **`pptx/`** — vendored from [anthropics/skills] at a pinned commit (see `.skill-manifest.json`).
