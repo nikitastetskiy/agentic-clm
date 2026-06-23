@@ -52,7 +52,7 @@ from xml.dom import minidom
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, REPO_ROOT, load_config, log  # noqa: E402
 from lib.city_photos import build_city_photo_cache, resolve_city_photo  # noqa: E402
-from lib.regions import scope_events  # noqa: E402
+from lib.regions import resolve_scope_regions, scope_events  # noqa: E402
 
 UNPACK = REPO_ROOT / ".github/skills/pptx/scripts/office/unpack.py"
 STYLE_CHECK = REPO_ROOT / ".github/skills/hashicorp-deck-style/scripts/style_check.py"
@@ -326,10 +326,10 @@ def main() -> int:
     blogs = _load_json("blogs.json")
     city_cache = build_city_photo_cache(original)
     # Apply the same geographic scope the editors use, so the coverage/photo checks expect the SAME
-    # in-region events that were placed on the slides (config/sources.yaml events.scope_regions).
+    # in-region events that were placed on the slides (EVENT_SCOPE env overrides events.scope_regions).
     if events:
-        scope_regions = (load_config("sources.yaml").get("events", {}) or {}).get("scope_regions") or []
-        scope_events(events, scope_regions)
+        cfg_scope = (load_config("sources.yaml").get("events", {}) or {}).get("scope_regions")
+        scope_events(events, resolve_scope_regions(cfg_scope))
 
     results: dict[str, dict] = {}
     unpacked = _unpack(deck)

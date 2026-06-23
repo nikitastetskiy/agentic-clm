@@ -54,6 +54,8 @@ events:
   # Geographic scope: keep only events/webinars in these macro-regions (EMEA, MENA, APAC, AMERICAS).
   # Empty list / absent = no filter (all regions). This is the CSE EMEA deck, so EMEA + MENA.
   # Online webinars (no location) are always kept; see scripts/lib/regions.py for the place map.
+  # Override per run without editing this file via the EVENT_SCOPE env var, e.g.
+  #   EVENT_SCOPE="EMEA,MENA" ./run.sh   |   EVENT_SCOPE="GLOBAL" ./run.sh   |   EVENT_SCOPE="USA" ./run.sh
   scope_regions: [EMEA, MENA]
   # Behind Vercel bot protection -> fetched by the deck-data agent via web_fetch, not curl.
   pages:

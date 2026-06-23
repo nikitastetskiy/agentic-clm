@@ -14,6 +14,7 @@ Unknown locations are KEPT (never silently dropped) — extend PLACE_REGION belo
 """
 from __future__ import annotations
 
+import os
 import re
 
 # Macro-region keyword for a place token (lowercased). Region words (emea/apac/...) included so a title
@@ -70,6 +71,82 @@ PLACE_REGION: dict[str, str] = {
 }
 # bare, ambiguous tokens common in event titles ("AWS Summit DC")
 _ALIASES = {"dc": "AMERICAS", "d c": "AMERICAS"}
+
+# ---- scope resolution (which macro-regions a given run keeps) ----------------------------------
+# The active scope is dynamic: the EVENT_SCOPE env var overrides config/sources.yaml
+# events.scope_regions, so a run can be retargeted without editing config, e.g.
+#     EVENT_SCOPE="EMEA,MENA"  ./run.sh   # Europe + Middle East + Africa (the default)
+#     EVENT_SCOPE="GLOBAL"     ./run.sh   # everywhere (no region filter)
+#     EVENT_SCOPE="USA"        ./run.sh   # United States / Americas only
+SCOPE_ENV_VAR = "EVENT_SCOPE"
+# Canonical macro-regions the pipeline understands.
+CANONICAL_REGIONS = ("EMEA", "MENA", "APAC", "AMERICAS")
+# Friendly things people type on the CLI -> canonical region.
+_SCOPE_ALIASES = {
+    "US": "AMERICAS", "USA": "AMERICAS", "AMERICA": "AMERICAS", "AMERICAN": "AMERICAS",
+    "NA": "AMERICAS", "NAMER": "AMERICAS", "NORTH AMERICA": "AMERICAS", "LATAM": "AMERICAS",
+    "EU": "EMEA", "EUROPE": "EMEA", "EUR": "EMEA",
+    "ME": "MENA", "MIDDLE EAST": "MENA", "MIDDLEEAST": "MENA",
+    "ASIA": "APAC", "APJ": "APAC", "ANZ": "APAC",
+}
+# Tokens that mean "no region filter — keep everything".
+_GLOBAL_TOKENS = {"GLOBAL", "ALL", "WORLD", "WORLDWIDE", "EVERYWHERE", "ANY", "NONE", "*"}
+
+
+def parse_regions(value) -> list[str]:
+    """Parse a scope spec into a de-duplicated list of UPPERCASE macro-regions.
+
+    `value` may be a YAML list (["EMEA", "MENA"]) or a string ("EMEA,MENA" / "emea mena" / "USA").
+    A GLOBAL/ALL/empty token means "no filter" and yields [] (keep everything). Friendly aliases
+    (USA->AMERICAS, EU->EMEA, "Middle East"->MENA, ...) are canonicalized; an unknown token passes
+    through uppercased so a brand-new region keyword still works once it's added to PLACE_REGION.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        # Try the whole string first so multi-word names ("Middle East") survive before we split on spaces.
+        whole = " ".join(value.split()).strip().upper()
+        if whole in _GLOBAL_TOKENS:
+            return []
+        if whole in _SCOPE_ALIASES:
+            return [_SCOPE_ALIASES[whole]]
+        if whole in CANONICAL_REGIONS:
+            return [whole]
+        tokens = re.split(r"[\s,/|;]+", value)
+    else:
+        tokens = [str(v) for v in value]
+    out: list[str] = []
+    for tok in tokens:
+        t = " ".join(tok.split()).strip().upper()
+        if not t:
+            continue
+        if t in _GLOBAL_TOKENS:
+            return []  # "global" wins outright -> no filter
+        t = _SCOPE_ALIASES.get(t, t)
+        if t not in out:
+            out.append(t)
+    return out
+
+
+def resolve_scope_regions(config_value=None, *, env_var: str = SCOPE_ENV_VAR) -> list[str]:
+    """Active scope = the `env_var` override when set & non-empty, else the YAML `config_value`.
+
+    Returns canonical regions; [] means no filter (global). Examples::
+
+        EVENT_SCOPE="EMEA,MENA"  -> ["EMEA", "MENA"]
+        EVENT_SCOPE="global"     -> []            (keep everything)
+        EVENT_SCOPE="USA"        -> ["AMERICAS"]
+        (unset)                  -> parse_regions(config_value)
+    """
+    raw = os.environ.get(env_var)
+    if raw is None or not raw.strip():
+        raw = config_value
+    return parse_regions(raw)
+
+
+def unknown_regions(regions) -> list[str]:
+    """Regions in `regions` that aren't canonical (for a 'did you mean?' warning); never raises."""
+    return [r for r in (regions or []) if r not in CANONICAL_REGIONS]
 
 
 def _norm(s: str) -> str:
