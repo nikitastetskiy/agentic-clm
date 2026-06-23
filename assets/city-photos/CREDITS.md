@@ -8,6 +8,7 @@ deck (Tower Bridge / canal houses) and are extracted at edit time (see `config/c
 |------|------|----------------------------|--------|---------|
 | `hanoi.jpg` | Hanoi | [Hanoi skyline with Ba Vi Mountain](https://commons.wikimedia.org/wiki/File:Hanoi_skyline_with_Ba_Vi_Mountain.jpg) | Quangnlnhe182394 | CC0 1.0 (public domain dedication) |
 | `washington-dc.jpg` | Washington, DC | [Washington, D.C., September 20, 2024 - 24](https://commons.wikimedia.org/wiki/File:Washington,_D.C.,_September_20,_2024_-_24.jpg) | (see Commons file page) | CC BY-SA 4.0 |
+| `zurich.jpg` | Zurich | [Altstadt Zürich 2015](https://commons.wikimedia.org/wiki/File:Altstadt_Z%C3%BCrich_2015.jpg) | Thomas Wolf, www.foto-tw.de | CC BY-SA 3.0 DE |
 
 Notes:
 - `washington-dc.jpg` is CC BY-SA 4.0 — attribution is provided here and the image is used

@@ -30,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, load_config, log, write_output  # noqa: E402
+from lib.regions import scope_events  # noqa: E402
 
 EVENTS_URL = "https://www.hashicorp.com/en/events"
 BASE = "https://www.hashicorp.com"
@@ -70,9 +71,18 @@ def render_cards(timeout_ms: int = 50000) -> list[dict]:
             if "Security Checkpoint" not in page.title() and "Just a moment" not in page.title():
                 break
         page.wait_for_timeout(2500)
-        for y in range(0, 7000, 1000):  # trigger any lazy-rendered cards
-            page.evaluate(f"window.scrollTo(0,{y})")
-            page.wait_for_timeout(300)
+        # Scroll to the bottom in steps until the page height stops growing, so EVERY lazy-rendered
+        # event card loads (not just the first screenful) — captures the full upcoming list.
+        prev_h = 0
+        for _ in range(40):
+            h = page.evaluate("document.body.scrollHeight")
+            page.evaluate(f"window.scrollTo(0,{h})")
+            page.wait_for_timeout(500)
+            if h <= prev_h:
+                break
+            prev_h = h
+        page.evaluate("window.scrollTo(0,0)")
+        page.wait_for_timeout(300)
         cards = page.evaluate(
             """() => {
               const seen = new Set(); const out = [];
@@ -217,6 +227,12 @@ def main() -> int:
         cards = render_cards()
         log(f"events page rendered; {len(cards)} candidate cards")
         events = build_events(cards, today, ecfg["webinars"])
+        scope = ecfg.get("scope_regions") or []
+        rep = scope_events(events, scope)
+        if scope:
+            log(f"region scope {scope}: kept {rep['kept']}, dropped {len(rep['dropped'])} out-of-region")
+            for d in rep["dropped"]:
+                log(f"   - dropped [{d['region']}] {d['bucket']}: {d['title']}")
         if not (events["webinars"]["terraform"] or events["webinars"]["vault"] or events["featured"]):
             raise RuntimeError("rendered page yielded zero upcoming events (layout change?)")
         write_output("events.json", events)

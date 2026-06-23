@@ -52,6 +52,7 @@ from xml.dom import minidom
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, REPO_ROOT, load_config, log  # noqa: E402
 from lib.city_photos import build_city_photo_cache, resolve_city_photo  # noqa: E402
+from lib.regions import scope_events  # noqa: E402
 
 UNPACK = REPO_ROOT / ".github/skills/pptx/scripts/office/unpack.py"
 STYLE_CHECK = REPO_ROOT / ".github/skills/hashicorp-deck-style/scripts/style_check.py"
@@ -324,6 +325,11 @@ def main() -> int:
     events = _load_json("events.json")
     blogs = _load_json("blogs.json")
     city_cache = build_city_photo_cache(original)
+    # Apply the same geographic scope the editors use, so the coverage/photo checks expect the SAME
+    # in-region events that were placed on the slides (config/sources.yaml events.scope_regions).
+    if events:
+        scope_regions = (load_config("sources.yaml").get("events", {}) or {}).get("scope_regions") or []
+        scope_events(events, scope_regions)
 
     results: dict[str, dict] = {}
     unpacked = _unpack(deck)
@@ -549,10 +555,11 @@ def main() -> int:
         results["event_coverage"] = evcov
 
         # --- 8. No empty in-scope box (LOOP-HARDENING) ----------------------------------
-        # The hand-authored deck NEVER leaves a webinar slot or blog entry blank. A blank box is a
-        # silent defect the old checks accepted (a cleared surplus slot, a blanked duplicate blog
-        # entry). This makes it a hard FAIL: every VISIBLE webinar slide must have all slots filled,
-        # and every blog slide must keep its full original entry count (none blanked).
+        # Blog slides must keep their full original entry count (none blanked) — that stays a hard FAIL.
+        # Webinar slides may legitimately show FEWER than their slot count: the deck now fills webinar
+        # slots with REAL webinars only (no conference/featured backfill), so a product with fewer
+        # upcoming webinars than slots simply leaves the extra slots empty. Empty webinar slots are
+        # therefore reported for visibility but do NOT fail the gate.
         emptybox = {"slides": {}, "ok": True, "notes": []}
         for entry in cfg.get("slides", []):
             etype = entry.get("type")
@@ -562,11 +569,8 @@ def main() -> int:
                 if not f.exists() or is_hidden(f):
                     continue
                 empties = webinar_slot_total(f) - len(webinar_slot_texts(f))
-                note = [f"{empties} empty webinar slot(s)"] if empties > 0 else []
-                emptybox["slides"][str(n)] = note
-                if note:
-                    emptybox["ok"] = False
-                    emptybox["notes"].append(f"slide {n} (webinars): {note[0]}")
+                # informational only — fewer real webinars than slots is allowed now
+                emptybox["slides"][str(n)] = [f"{empties} empty webinar slot(s)"] if empties > 0 else []
             elif etype == "recent_blogs":
                 ns = entry["n"]
                 for n in (ns if isinstance(ns, list) else [ns]):

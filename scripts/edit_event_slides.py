@@ -43,6 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, load_config, log  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
 from lib.city_photos import build_city_photo_cache, resolve_city_photo, norm_city  # noqa: E402
+from lib.regions import scope_events  # noqa: E402
 
 FEATURED_TITLE = "Title 1"
 FEATURED_DATE = "Subtitle 2"
@@ -832,16 +833,15 @@ def slide_paths(root: Path, n: int) -> tuple[Path, Path]:
     return sf, rf
 
 
-def allocate_webinars(webinar_slides: list[tuple], webinars: dict, featured: list[dict],
-                      reserved_featured_ids: set) -> dict:
-    """Globally allocate slot-fill entries so no event repeats across slides and no in-scope slot is
-    left blank while events remain. Each slide first takes its OWN product's webinars (soonest-first),
-    then empty slots are backfilled from a shared pool of cross-product/other webinars + featured events
-    NOT already shown on the in-person slides (18-22) — mirroring the hand-authored deck, which always
-    filled every slot with cert/cross-product/regional sessions."""
+def allocate_webinars(webinar_slides: list[tuple], webinars: dict) -> dict:
+    """Fill each webinar slide's slots with that slide's OWN product webinars (soonest-first), then
+    backfill any leftover slots from the shared 'other' bucket (cross-product / certification / regional
+    WEBINARS only). Featured events / conferences are NEVER used to pad a webinar slide — webinar slides
+    show webinars. If a product has fewer real webinars than slots, the extra slots are simply left
+    empty (the deck no longer forces every slot full)."""
     used = set()
     plan = {}
-    # Pass 1 — primary product webinars.
+    # Pass 1 — each slide's own product webinars.
     for n, product, slots in webinar_slides:
         chosen = []
         for w in sorted(webinars.get(product, []), key=lambda x: x.get("date", "")):
@@ -852,24 +852,15 @@ def allocate_webinars(webinar_slides: list[tuple], webinars: dict, featured: lis
             chosen.append(_entry(w, "WEBINAR"))
             used.add(_event_identity(w))
         plan[n] = chosen
-    # Shared backfill pool — every remaining webinar (any bucket) + non-reserved featured.
-    pool = []
-    for bucket in webinars.values():
-        for w in bucket:
-            if _event_identity(w) not in used:
-                pool.append(_entry(w, "WEBINAR"))
-    for f in featured:
-        if _event_identity(f) not in used and _event_identity(f) not in reserved_featured_ids:
-            ent = _entry(f, f.get("type", "EVENT"))
-            ent["backfill"] = True
-            pool.append(ent)
+    # Shared pool — general / cross-product WEBINARS only (the 'other' bucket); never featured events.
     seen, dedup = set(), []
-    for e in sorted(pool, key=lambda x: x["date"]):
-        if _event_identity(e) in seen:
+    for w in sorted(webinars.get("other", []), key=lambda x: x.get("date", "")):
+        wid = _event_identity(w)
+        if wid in used or wid in seen:
             continue
-        seen.add(_event_identity(e))
-        dedup.append(e)
-    # Pass 2 — distribute the pool across empty slots in slide order.
+        seen.add(wid)
+        dedup.append(_entry(w, "WEBINAR"))
+    # Pass 2 — distribute the general webinar pool across leftover slots in slide order.
     pi = 0
     for n, _product, slots in webinar_slides:
         while len(plan[n]) < slots and pi < len(dedup):
@@ -877,10 +868,10 @@ def allocate_webinars(webinar_slides: list[tuple], webinars: dict, featured: lis
             pi += 1
             if _event_identity(e) in used:
                 continue
-            e.setdefault("backfill", True)
+            e["backfill"] = True
             plan[n].append(e)
             used.add(_event_identity(e))
-        plan[n].sort(key=lambda x: x["date"])  # soonest-first reading order, like the hand-authored deck
+        plan[n].sort(key=lambda x: x.get("date", ""))  # soonest-first reading order
     return plan
 
 
@@ -900,6 +891,12 @@ def main() -> int:
 
     slide_map = load_config("slide-map.yaml")
     events = json.loads((DATA_DIR / "events.json").read_text(encoding="utf-8"))
+    # Geographic scope (config/sources.yaml events.scope_regions): keep only in-region events/webinars
+    # before they reach the slides. Applied here too so it works on SKIP_FETCH reuse of older data.
+    scope_regions = (load_config("sources.yaml").get("events", {}) or {}).get("scope_regions") or []
+    rep = scope_events(events, scope_regions)
+    if scope_regions and rep["dropped"]:
+        log(f"region scope {scope_regions}: dropped {len(rep['dropped'])} out-of-region event(s)")
     webinars = events.get("webinars", {})
     featured = sorted(events.get("featured", []), key=lambda e: e["date"])  # soonest first
 
@@ -908,18 +905,6 @@ def main() -> int:
     # the city photo, never a leadspace webpage screenshot; a city with no configured photo keeps its
     # existing template hero.
     city_cache = build_city_photo_cache(args.original)
-
-    # Featured events shown on the in-person slides (18-22) are reserved — excluded from webinar
-    # backfill so an event never appears twice in the deck. Key the reservation on _event_identity
-    # (title+date), NOT url: several distinct featured events share a generic landing-page url (e.g.
-    # AWS Summit DC / Mexico City / Zurich all link to aws.amazon.com/events/summits/), so a url-keyed
-    # reservation would wrongly drop the non-reserved AWS Summits from the pool and starve a slide.
-    inperson_ns = []
-    for entry in slide_map.get("slides", []):
-        if entry.get("type") == "in_person_event":
-            ns = entry["n"]
-            inperson_ns.extend(ns if isinstance(ns, list) else [ns])
-    reserved_featured_ids = {_event_identity(f) for f in featured[:len(inperson_ns)]}
 
     tmp = Path(tempfile.mkdtemp(prefix="eventedit-"))
     report = {"slides": {}, "any_change": False}
@@ -934,7 +919,7 @@ def main() -> int:
             sf, _rf = slide_paths(tmp, n)
             if sf.exists():
                 webinar_slides.append((n, entry["product"], count_slots(sf)))
-        plan = allocate_webinars(webinar_slides, webinars, featured, reserved_featured_ids)
+        plan = allocate_webinars(webinar_slides, webinars)
 
         for entry in slide_map.get("slides", []):
             etype = entry.get("type")
