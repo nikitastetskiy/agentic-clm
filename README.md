@@ -213,6 +213,12 @@ pushing to GitHub:
 - `data/` and `output/` (fetched data and generated decks) are git-ignored too, so you won't leak
   generated copies.
 
+**Going public / sharing the bot.** Once it's a shared repo, the **git auto-sync** keeps everyone's
+learnings in step: each run pulls the latest `corrections/` first, and a run that records a new rule
+opens (and auto-merges, with write access) a `corrections/` PR so the next run — for every user —
+applies it. See [The learning loop](#the-learning-loop-corrections). Contributors with only read
+access still benefit from the pull; their own new learnings stay local until a maintainer merges them.
+
 ### Bring your own deck
 The tool automatically picks up the single `.pptx` in the project root, or you can point at one
 explicitly:
@@ -230,7 +236,8 @@ they're actually needed**. A verification gate in the middle is the trick that k
 
 ```mermaid
 flowchart TD
-    A["📥 1. Fetch public data<br/>releases · changelogs · TFE · blogs · events"] --> B["📄 2. Timestamped working copy<br/>(original is never touched)"]
+    S0["🔄 0s. git pull --rebase<br/>(latest shared learnings)"] --> A["📥 1. Fetch public data<br/>releases · changelogs · TFE · blogs · events"]
+    A --> B["📄 2. Timestamped working copy<br/>(original is never touched)"]
     B --> C["🗺️ 2b. Map slide geometry<br/>map_slides.py"]
     C --> D["✍️ 3. deck-data agent<br/>event prose + highlight polish"]
     D --> E["🐍 3b–3d. Deterministic slide edits<br/>releases 7,8,11,12 · blogs 9,13 · events 10,14,18–22"]
@@ -241,7 +248,10 @@ flowchart TD
     H --> R["🔎 5. deck-reviewer agent<br/>judgment checks + records learnings"]
     R --> Z
     R -. records learnings .-> L[("📒 corrections/")]
-    L -. read first by the NEXT run .-> D
+    Z --> S6["🔼 6s. Auto-PR + merge new learnings<br/>(corrections/ → shared repo, if write access)"]
+    S6 -. shared learnings .-> L
+    L -. pulled first by the NEXT run .-> S0
+    L -. read first .-> D
     Z -. if FAIL, fix the root cause and re-run .-> A
 ```
 
@@ -304,15 +314,58 @@ The orchestrator **reads `corrections/corrections.md` before every run** and app
 reviewer also records recurring issues automatically. Newer rules override older ones — so the tool
 gets more "you" over time.
 
+**Shared learnings (git auto-sync).** When the repo is shared, those learnings are kept in sync for
+everyone, automatically, around each run:
+
+- **Before a run** (`GIT_SYNC=1`, default) it does a `git pull --rebase --autostash` so you start from
+  the latest learnings other people merged.
+- **After a run** (`AUTO_PR=1`, default) — *if* this run recorded a new rule under `corrections/` — it
+  opens a small PR with just that change and **auto-merges it** (`AUTO_MERGE=1`) when **you have write
+  access** and `gh` is authenticated for the remote's host. Then everyone's *next* run picks it up via
+  the pre-run pull.
+
+It's entirely **best-effort and non-fatal**: with no remote, no `gh` auth, or read-only access, the
+learning is simply kept in your working tree (the run still succeeds) and the tool tells you to push it
+manually or have a maintainer merge it. Nothing is ever force-pushed, and only `corrections/` is shared
+(your deck, `data/`, and `output/` are git-ignored and never leave your machine). Turn any of it off
+with `GIT_SYNC=0` / `AUTO_PR=0` / `AUTO_MERGE=0` (see `.env.example`).
+
 ---
 
 ## Configuration
-- `config/sources.yaml` — source URLs, product keywords, item counts, retry policy.
+- `config/sources.yaml` — source URLs, product keywords, item counts, retry policy, and the default
+  event/webinar **region scope** (`events.scope_regions`).
 - `config/slide-map.yaml` — which slide maps to which data, plus slot hints. **This is the one place**
   to add or adjust which slides get automated (the slide numbers above live here).
 - `config/city-photos.yaml` — the featured-event hero **city photos** (a photo bundled in the source
   deck, or a freely-licensed file under `assets/city-photos/`). Add a city here and every featured slot
   for that city picks it up automatically.
+
+### Region filters (`EVENT_SCOPE`)
+Events and webinars are filtered to the regions you care about. The default is **EMEA + MENA** (this is
+the CSE EMEA deck); set `events.scope_regions` in `config/sources.yaml` to change the default, or
+`EVENT_SCOPE` to override it for a single run. Online webinars (no location) are always kept; in-person
+events outside the scope are dropped before they reach the slides.
+
+| `EVENT_SCOPE` | Keeps | Notes |
+|---|---|---|
+| `GLOBAL` (or `ALL`) | Everywhere | No region filter |
+| `EMEA` | Europe + Middle East + Africa | **Includes MENA** (MENA is a subset of EMEA) |
+| `MENA` | Middle East + North Africa only | The subset on its own (excludes the rest of Europe/Africa) |
+| `APAC` | Asia-Pacific | incl. ANZ, India, Japan |
+| `AMERICAS` | North + Latin America | |
+| `EMEA,MENA` | Same as `EMEA` | The default for this deck |
+
+Handy aliases (case-insensitive): `USA`/`US` → AMERICAS, `EU`/`EUROPE` → EMEA, `ASIA` → APAC,
+`"Middle East"` → MENA. Combine regions with commas, e.g. `EVENT_SCOPE="EMEA,APAC"`. Unknown words are
+kept (never silently dropped) so a brand-new region keyword still works once it's added to
+`scripts/lib/regions.py`.
+
+```bash
+EVENT_SCOPE="EMEA,MENA" make run-local   # default — Europe, Middle East, Africa
+EVENT_SCOPE=GLOBAL      make run-local   # everywhere
+EVENT_SCOPE=USA         make run-local   # Americas only
+```
 
 ## Roadmap / not yet wired
 - **Today's primary workflow is the interactive, manual run with Copilot** ([Quick start ①](#-let-copilot-run-it-easiest)):

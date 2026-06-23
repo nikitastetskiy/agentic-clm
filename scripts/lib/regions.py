@@ -81,6 +81,10 @@ _ALIASES = {"dc": "AMERICAS", "d c": "AMERICAS"}
 SCOPE_ENV_VAR = "EVENT_SCOPE"
 # Canonical macro-regions the pipeline understands.
 CANONICAL_REGIONS = ("EMEA", "MENA", "APAC", "AMERICAS")
+# Region containment: selecting a parent region also keeps its sub-regions. MENA (Middle East & North
+# Africa) is a subset of EMEA (Europe, Middle East, Africa), so a scope of EMEA also keeps MENA events.
+# Selecting MENA alone keeps ONLY the Middle East / North Africa (not the rest of Europe/Africa).
+REGION_CONTAINS = {"EMEA": ("MENA",)}
 # Friendly things people type on the CLI -> canonical region.
 _SCOPE_ALIASES = {
     "US": "AMERICAS", "USA": "AMERICAS", "AMERICA": "AMERICAS", "AMERICAN": "AMERICAS",
@@ -149,6 +153,15 @@ def unknown_regions(regions) -> list[str]:
     return [r for r in (regions or []) if r not in CANONICAL_REGIONS]
 
 
+def expand_regions(regions) -> set[str]:
+    """Expand a scope to include contained sub-regions (e.g. EMEA -> {EMEA, MENA}). Returns a set."""
+    out: set[str] = set()
+    for r in regions or []:
+        out.add(r)
+        out.update(REGION_CONTAINS.get(r, ()))
+    return out
+
+
 def _norm(s: str) -> str:
     s = (s or "").lower()
     s = s.replace("ã", "a").replace("ü", "u").replace("ö", "o").replace("é", "e")
@@ -184,11 +197,13 @@ def event_region(event: dict) -> str | None:
 
 
 def in_scope(event: dict, regions) -> bool:
-    """True if the event is in scope. `regions` empty/None = no filter. Unknown region = kept."""
+    """True if the event is in scope. `regions` empty/None = no filter. Unknown region = kept.
+
+    The scope is expanded for containment first, so a scope of EMEA also keeps MENA events."""
     if not regions:
         return True
     reg = event_region(event)
-    return reg is None or reg in regions
+    return reg is None or reg in expand_regions(regions)
 
 
 def scope_events(events: dict, regions) -> dict:

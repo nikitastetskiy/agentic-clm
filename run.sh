@@ -3,6 +3,7 @@
 # auto-pptx pipeline orchestrator.
 #
 # Phases:
+#   0s. git sync      — pre-run `git pull --rebase` so this run starts from the latest shared learnings
 #   0. skill-updater  — ensure the vendored pptx skill matches its pin (advisory)
 #   1. fetch          — deterministic Python: releases + changelog highlights + TFE + blogs + events
 #   1b. event photos    — (retired) featured-event heroes are now CITY photos resolved at edit time
@@ -13,6 +14,7 @@
 #   4. build (agent)  — pptx-orchestrator: ONLY when the gate failed (or FORCE_AGENTS=1) — fix the gaps
 #   4b. re-verify      — deterministic verify_deck again, after the build agent edited the deck
 #   5. review (agent) — deck-reviewer: ONLY when the build agent ran (or FORCE_AGENTS=1)
+#   6s. learning sync — post-run: if new learnings were recorded, open (and auto-merge) a corrections PR
 #
 # Env (see .env.example):
 #   COPILOT_MODEL          model override (optional)
@@ -23,6 +25,9 @@
 #   EVENT_SCOPE            region scope for events/webinars; overrides config/sources.yaml events.scope_regions.
 #                          e.g. "EMEA,MENA" (default), "GLOBAL" (everywhere), "USA" (Americas). Known regions:
 #                          EMEA, MENA, APAC, AMERICAS (aliases: USA/US->AMERICAS, EU->EMEA, ASIA->APAC).
+#   GIT_SYNC               1 (default) to `git pull --rebase` before the run; 0 to skip
+#   AUTO_PR                1 (default) to open a PR for new learnings (corrections/) after the run; 0 to skip
+#   AUTO_MERGE             1 (default) to auto-merge that PR when you have write access; 0 to leave it open
 #   SOURCE_PPTX            explicit source deck (default: the single .pptx in repo root)
 #
 set -euo pipefail
@@ -95,6 +100,12 @@ run_copilot() {
     exit "$rc"
   fi
 }
+
+# --- Phase 0s: git sync (pull latest shared learnings before we start) -----------------
+# Keeps this "bot" up to date: pulls any corrections/ learnings other users merged since the last
+# run, so we apply them this time. Best-effort and non-fatal (no remote / offline / no upstream = skip).
+log "Phase 0s: git sync (pull latest learnings)"
+"$PY" scripts/git_sync.py pull || true
 
 # --- Phase 0: skill-updater ------------------------------------------------------------
 POLICY="${SKILL_UPDATE_POLICY:-check}"
@@ -343,3 +354,9 @@ log "Done. Output deck: $WORKING_COPY"
 export RUN_ELAPSED_SEC=$(( $(date +%s) - PIPELINE_START ))
 "$PY" scripts/summarize_run.py "$WORKING_COPY" || \
   echo "Output deck: $WORKING_COPY  (review + build notes are in output/)"
+
+# --- Phase 6s: learning sync (share any new corrections back to the repo) ---------------
+# If this run recorded a new learning (corrections/), open a PR and merge it when you have write
+# access + gh is authenticated for the remote's host — so every user's NEXT run benefits. Best-effort
+# and non-fatal: with no access / no gh auth it just keeps the change local and tells you.
+"$PY" scripts/git_sync.py propose || true
