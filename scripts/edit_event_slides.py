@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, load_config, log  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
 from lib.city_photos import build_city_photo_cache, resolve_city_photo, norm_city  # noqa: E402
-from lib.regions import scope_events  # noqa: E402
+from lib.regions import resolve_scope_regions, scope_events  # noqa: E402
 
 FEATURED_TITLE = "Title 1"
 FEATURED_DATE = "Subtitle 2"
@@ -891,12 +891,16 @@ def main() -> int:
 
     slide_map = load_config("slide-map.yaml")
     events = json.loads((DATA_DIR / "events.json").read_text(encoding="utf-8"))
-    # Geographic scope (config/sources.yaml events.scope_regions): keep only in-region events/webinars
-    # before they reach the slides. Applied here too so it works on SKIP_FETCH reuse of older data.
-    scope_regions = (load_config("sources.yaml").get("events", {}) or {}).get("scope_regions") or []
+    # Geographic scope: EVENT_SCOPE env var overrides config/sources.yaml events.scope_regions, so a
+    # run can be retargeted (EMEA,MENA / GLOBAL / USA) without editing config. Keep only in-region
+    # events/webinars before they reach the slides. Applied here too so it works on SKIP_FETCH reuse.
+    cfg_scope = (load_config("sources.yaml").get("events", {}) or {}).get("scope_regions")
+    scope_regions = resolve_scope_regions(cfg_scope)
     rep = scope_events(events, scope_regions)
-    if scope_regions and rep["dropped"]:
+    if scope_regions:
         log(f"region scope {scope_regions}: dropped {len(rep['dropped'])} out-of-region event(s)")
+    else:
+        log("region scope: GLOBAL (no region filter)")
     webinars = events.get("webinars", {})
     featured = sorted(events.get("featured", []), key=lambda e: e["date"])  # soonest first
 

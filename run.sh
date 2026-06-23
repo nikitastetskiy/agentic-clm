@@ -20,6 +20,9 @@
 #   SKIP_FETCH/SKIP_DATA/SKIP_BUILD/SKIP_REVIEW = 1 to skip a phase
 #   FORCE_AGENTS           1 to always run the build+review agents even when the deterministic gate passes
 #   SKIP_EVENT_IMAGES      (retired no-op — featured-event photos are city photos resolved at edit time)
+#   EVENT_SCOPE            region scope for events/webinars; overrides config/sources.yaml events.scope_regions.
+#                          e.g. "EMEA,MENA" (default), "GLOBAL" (everywhere), "USA" (Americas). Known regions:
+#                          EMEA, MENA, APAC, AMERICAS (aliases: USA/US->AMERICAS, EU->EMEA, ASIA->APAC).
 #   SOURCE_PPTX            explicit source deck (default: the single .pptx in repo root)
 #
 set -euo pipefail
@@ -41,6 +44,9 @@ fi
 
 PY="${PYTHON:-python3}"
 PIPELINE_START=$(date +%s)   # wall-clock start, for the "time taken" line in the run summary
+# Region scope for events/webinars (events.scope_regions in config/sources.yaml is the default).
+# Export so the deterministic editors and nested agent subprocesses all see the same override.
+export EVENT_SCOPE="${EVENT_SCOPE:-}"
 log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m[warn] %s\033[0m\n' "$*"; }
 

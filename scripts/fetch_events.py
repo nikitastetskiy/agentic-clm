@@ -30,7 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, load_config, log, write_output  # noqa: E402
-from lib.regions import scope_events  # noqa: E402
+from lib.regions import resolve_scope_regions, scope_events, unknown_regions  # noqa: E402
 
 EVENTS_URL = "https://www.hashicorp.com/en/events"
 BASE = "https://www.hashicorp.com"
@@ -227,12 +227,17 @@ def main() -> int:
         cards = render_cards()
         log(f"events page rendered; {len(cards)} candidate cards")
         events = build_events(cards, today, ecfg["webinars"])
-        scope = ecfg.get("scope_regions") or []
+        scope = resolve_scope_regions(ecfg.get("scope_regions"))
+        bad = unknown_regions(scope)
+        if bad:
+            log(f"WARNING: unrecognized scope region(s) {bad}; known: EMEA, MENA, APAC, AMERICAS (or GLOBAL)")
         rep = scope_events(events, scope)
         if scope:
             log(f"region scope {scope}: kept {rep['kept']}, dropped {len(rep['dropped'])} out-of-region")
             for d in rep["dropped"]:
                 log(f"   - dropped [{d['region']}] {d['bucket']}: {d['title']}")
+        else:
+            log("region scope: GLOBAL (no region filter)")
         if not (events["webinars"]["terraform"] or events["webinars"]["vault"] or events["featured"]):
             raise RuntimeError("rendered page yielded zero upcoming events (layout change?)")
         write_output("events.json", events)

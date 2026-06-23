@@ -40,6 +40,14 @@ It launches the run in the **background** (logging to `output/run-*.log`), keeps
 responsive, and prints the change-summary when it finishes. Live progress? `tail -f output/run-*.log`
 in another terminal.
 
+**Want only certain regions?** Events and webinars are region-scoped — just say so and Copilot sets
+`EVENT_SCOPE` for the run (default is **EMEA + MENA**, since this is the CSE EMEA deck):
+```text
+> Run the pipeline for EMEA and MENA only, in the background, and show me the summary when it's done.
+> Run it for the whole world (global), in the background.
+> Run it for the USA only.
+```
+
 ### ② One command
 ```bash
 make run-local
@@ -57,7 +65,14 @@ make fetch                             # just refresh data/*.json (seconds, no C
 make summary                           # re-print the change table for the newest deck in output/
 SKIP_DATA=1 SKIP_REVIEW=1 make run-local   # run only part of the pipeline (see run.sh for flags)
 SOURCE_PPTX="/path/to/Deck.pptx" make run-local   # use a deck that lives outside the repo
+EVENT_SCOPE="EMEA,MENA" make run-local     # scope events/webinars to regions (default: EMEA+MENA)
+EVENT_SCOPE=GLOBAL make run-local          #   …everywhere; or EVENT_SCOPE=USA for Americas only
 ```
+
+> **Region scope:** `EVENT_SCOPE` overrides `config/sources.yaml` `events.scope_regions` for one run.
+> Known regions are **EMEA, MENA, APAC, AMERICAS** (handy aliases: `USA`/`US` → AMERICAS, `EU` → EMEA,
+> `ASIA` → APAC); `GLOBAL` (or `ALL`) means no filter. Online webinars (no location) are always kept.
+> Out-of-scope in-person events/webinars are dropped before they reach the slides.
 
 > **Power user:** run the deterministic phases yourself (`make fetch`), then drive a single agent for a
 > one-off edit with `copilot --agent pptx-orchestrator --allow-all -p "…"`. Launch from the repo root with
