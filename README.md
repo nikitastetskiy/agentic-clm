@@ -220,13 +220,14 @@ flowchart TD
     C --> D["✍️ 3. deck-data agent<br/>event prose + highlight polish"]
     D --> E["🐍 3b–3d. Deterministic slide edits<br/>releases 7,8,11,12 · blogs 9,13 · events 10,14,18–22"]
     E --> F{"✅ 3e. Verify gate<br/>verify_deck.py"}
-    F -->|PASS| Z["📋 6. Summary table<br/>+ finished deck in output/"]
+    F -->|PASS| Z["📋 6. Summary + finished deck<br/>(PASS — or FAIL, clearly flagged)"]
     F -->|FAIL| G["🤖 4. pptx-orchestrator agent<br/>fixes the leftover / ambiguous cases"]
     G --> H["✅ 4b. Re-verify"]
     H --> R["🔎 5. deck-reviewer agent<br/>judgment checks + records learnings"]
     R --> Z
     R -. records learnings .-> L[("📒 corrections/")]
     L -. read first by the NEXT run .-> D
+    Z -. if FAIL, fix the root cause and re-run .-> A
 ```
 
 **The gate is what makes it fast.** Steps 1–3d are deterministic and free; the **agents** (steps 4–5)
@@ -237,15 +238,23 @@ gap (or you set `FORCE_AGENTS=1`).
 
 What the gate checks (`verify_deck.py`): integrity (slide count unchanged), hide-audit (`show="0"`,
 never deleted), style (no foreign colour/font), release columns + date-keyed accuracy, blog/event
-coverage, no-empty-box, and photo + brand-logo consistency. A `FAIL` is never the final state — the
-agents (or a human) resolve it and it re-verifies until it passes.
+coverage, no-empty-box, and photo + brand-logo consistency. A single `run.sh` is **best-effort**: it
+always writes the deck and prints the summary, and it **can end on a FAIL** — but it never hides one
+(the summary shows a clear ⚠️ and points you at the report).
 
-> **Where the loops go.** Two different loops, easy to mix up: (1) the **fix loop** is between the
-> build agent (4) and re-verify (4b) — keep fixing until the gate is green. (2) The **learning loop**
-> does *not* jump back to the gate: the reviewer (5) is report-only, so after it records durable rules
-> to `corrections/`, the run just finishes at the summary (6). Those rules are read first by the
-> **next** run (`deck-data` and the orchestrator both honor them), so learnings improve the *next*
-> deck, not the current one. See [The learning loop](#the-learning-loop-corrections).
+> **So can a run end on a FAIL? Yes — and that's expected.** One `run.sh` is a single, best-effort
+> pass with **no automatic loop inside it**: if the build agent (4) can't close the gap, re-verify (4b)
+> still fails, the reviewer (5) reports it, and the run ends at the summary (6) with the FAIL flagged
+> (the deck is still written, for inspection; exit code is `0`).
+>
+> **Loop-until-pass is the operator's job, one level up.** Per `.github/copilot-instructions.md`, the
+> Copilot agent — and you — must inspect the FAIL, fix the root cause, record the learning, and
+> **re-run** until it's green. If a check is genuinely unfixable (a source truly lacks the data), it
+> **stops and flags it for you** instead of looping forever or faking a pass. So *asking Copilot to run
+> it* self-corrects across runs; a bare `bash run.sh` you launch by hand is just one pass.
+>
+> The **learning loop** (reviewer → `corrections/` → next run) is separate and report-only — it never
+> jumps back to the gate. See [The learning loop](#the-learning-loop-corrections).
 
 ### Skills (`.github/skills/`)
 - **`pptx/`** — vendored from [anthropics/skills] at a pinned commit (see `.skill-manifest.json`).
