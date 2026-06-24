@@ -79,7 +79,7 @@ run_copilot() {
           --no-ask-user \
           --no-color \
           --log-level error \
-          "${model_args[@]}" \
+          ${model_args[@]+"${model_args[@]}"} \
           -p "$prompt" 2>&1 | tee "$out_log"
   local rc="${PIPESTATUS[0]}"
   set -e
@@ -155,7 +155,7 @@ fi
 log "Phase 2: working copy"
 COPY_ARGS=()
 [[ -n "${SOURCE_PPTX:-}" ]] && COPY_ARGS=("$SOURCE_PPTX")
-WORKING_COPY="$("$PY" scripts/make_working_copy.py "${COPY_ARGS[@]}")"
+WORKING_COPY="$("$PY" scripts/make_working_copy.py ${COPY_ARGS[@]+"${COPY_ARGS[@]}"})"
 echo "working copy: $WORKING_COPY"
 
 # --- Phase 2b: slide-structure map ------------------------------------------------------
