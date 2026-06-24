@@ -211,6 +211,37 @@ def blog_entry_texts(slide_file: Path) -> list[str]:
     return out
 
 
+def _norm_blog_url(u: str) -> str:
+    """Normalize a blog URL for identity comparison (ignore scheme, locale '/en/', trailing slash)."""
+    if not u:
+        return ""
+    u = re.sub(r"^https?://", "", u.strip()).rstrip("/")
+    u = u.replace("/en/blog/", "/blog/")
+    return u.lower()
+
+
+def blog_entry_urls(slide_file: Path) -> set[str]:
+    """Normalized hyperlink targets of the recent-blog 'See here' entries on a slide."""
+    rels_file = slide_file.parent / "_rels" / f"{slide_file.name}.rels"
+    rels = {}
+    if rels_file.exists():
+        rels = {r.getAttribute("Id"): r.getAttribute("Target")
+                for r in minidom.parse(str(rels_file)).getElementsByTagName("Relationship")}
+    doc = minidom.parse(str(slide_file))
+    out: set[str] = set()
+    for sp in doc.getElementsByTagName("p:sp"):
+        y = _shape_y(sp)
+        if y is None or y < 1.3:
+            continue
+        if sp.getElementsByTagName("a:hlinkClick") and "See here" in _text(sp).replace("\xa0", " "):
+            for hl in sp.getElementsByTagName("a:hlinkClick"):
+                rid = hl.getAttribute("r:id")
+                if rid and rid in rels:
+                    out.add(_norm_blog_url(rels[rid]))
+    return out
+
+
+
 def webinar_slot_texts(slide_file: Path) -> list[str]:
     """Non-empty webinar slot shapes ('Google Shape;397;p78') on a webinar slide."""
     doc = minidom.parse(str(slide_file))
@@ -397,6 +428,11 @@ def main() -> int:
             for k, v in releases.get("products", {}).items()
         }
         prod_latest["terraform-enterprise"] = (releases.get("terraform_enterprise", {}).get("latest") or {}).get("version")
+        prod_latest_month = {
+            k: ((v.get("latest") or {}).get("month_label"))
+            for k, v in releases.get("products", {}).items()
+        }
+        prod_latest_month["terraform-enterprise"] = (releases.get("terraform_enterprise", {}).get("latest") or {}).get("month_label")
         for entry in cfg.get("slides", []):
             if entry.get("type") != "release_updates":
                 continue
@@ -409,9 +445,20 @@ def main() -> int:
                 product = entry.get("product")
                 latest_v = prod_latest.get(product)
                 col3 = cols[2]
-                # No latest in data (e.g. TFE marked stale_source/unavailable) -> the slide is
-                # correctly left unchanged; there is nothing to place, so treat it as satisfied.
-                col3_has_latest = (latest_v in col3["entries"]) if latest_v else True
+                # HCP release slides (variant: hcp) track the broad product rollout by DATE/month, not
+                # by patch semver (e.g. "HCP Vault 2.0 rolling out", dated). The version-token check is
+                # the wrong currency for them: validate that the rightmost column's month header matches
+                # the latest release month_label instead. (Still fails if HCP col3 is a stale month.)
+                if entry.get("variant") == "hcp":
+                    latest_month = prod_latest_month.get(product)
+                    col3_header = (col3["header"] or "")
+                    col3_has_latest = (not latest_month) or (latest_month.lower() in col3_header.lower())
+                    miss_msg = f"latest col month '{col3_header}' is behind {latest_month}"
+                else:
+                    # No latest in data (e.g. TFE marked stale_source/unavailable) -> the slide is
+                    # correctly left unchanged; there is nothing to place, so treat it as satisfied.
+                    col3_has_latest = (latest_v in col3["entries"]) if latest_v else True
+                    miss_msg = f"latest col missing {latest_v} (has {col3['entries']})"
                 summary = {
                     "headers": [cols[i]["header"] for i in range(3)],
                     "entry_counts": [len(cols[i]["entries"]) for i in range(3)],
@@ -420,9 +467,9 @@ def main() -> int:
                     "col3_has_latest": col3_has_latest,
                 }
                 rel["slides"][str(n)] = summary
-                if latest_v and not col3_has_latest:
+                if not col3_has_latest:
                     rel["ok"] = False
-                    rel["notes"].append(f"slide {n} ({product}): latest col missing {latest_v} (has {col3['entries']})")
+                    rel["notes"].append(f"slide {n} ({product}): {miss_msg}")
         results["release_columns"] = rel
 
         # --- 5. Release accuracy (date-keyed) -------------------------------------------
@@ -474,12 +521,23 @@ def main() -> int:
                     continue
                 texts = blog_entry_texts(f)
                 orig_texts = []
+                orig_urls: set[str] = set()
                 if orig_unpacked is not None:
                     of = orig_unpacked / "ppt" / "slides" / f"slide{n}.xml"
                     if of.exists():
                         orig_texts = blog_entry_texts(of)
+                        orig_urls = blog_entry_urls(of)
                 orig_blob = " || ".join(orig_texts)
-                fresh = [p for p in recent if p["title"] not in orig_blob]  # newest-first already
+                # A post is already present (NOT fresh) if its title text OR its hyperlink URL is on the
+                # original slide. URL-matching mirrors the editor's own dedup and avoids false "missing"
+                # flags when the deck transcribed a title slightly differently (e.g. "What is new" vs the
+                # canonical "What's new") while still linking the same blog post.
+                def _present(p: dict) -> bool:
+                    if p["title"] in orig_blob:
+                        return True
+                    purl = _norm_blog_url(p.get("url") or p.get("link") or "")
+                    return bool(purl) and purl in orig_urls
+                fresh = [p for p in recent if not _present(p)]  # newest-first already
                 misses = []
                 for i, post in enumerate(fresh):
                     if i >= len(texts):

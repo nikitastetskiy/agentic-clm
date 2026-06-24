@@ -3,7 +3,7 @@
   "fonts": {
     "headers": ["Poppins", "Inter Black", "Inter SemiBold"],
     "body": ["Inter", "Inter Light"],
-    "fallback": ["Arial", "Calibri", "Aptos"],
+    "fallback": ["Arial", "Arial,Sans-Serif", "Calibri", "Aptos"],
     "theme_refs": ["+mj-lt", "+mn-lt", "+mn-ea", "+mn-cs"]
   },
   "colors": {
