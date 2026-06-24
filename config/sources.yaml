@@ -61,6 +61,9 @@ events:
   pages:
     all_events: "https://www.hashicorp.com/en/events"
   webinars:
+    # Product bucketing of webinars is BADGE-driven in scripts/fetch_events.py (each card's product
+    # icon/sr-only label), so these `keywords` are NOT used to tag the deterministic render. They
+    # remain only as a hint for the legacy agent web_fetch fallback (when Playwright is unavailable).
     terraform:
       display: "Terraform"
       keywords: ["terraform", "infrastructure", "iac"]

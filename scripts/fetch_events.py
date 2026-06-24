@@ -5,17 +5,20 @@ The events page (https://www.hashicorp.com/en/events) sits behind a **Vercel Sec
 Checkpoint** (a JavaScript challenge) that returns HTTP 429 to plain HTTP clients AND to the
 agent's `web_fetch` tool. A headless Chromium passes the challenge — it executes the challenge
 JS and receives the clearance cookie — so this script renders the page, extracts the event
-cards (date, type, title, url, product tags) straight from the live DOM, buckets WEBINARs by
+cards (date, type, title, url, product badges) straight from the live DOM, buckets WEBINARs by
 product and collects CONFERENCE/in-person events as `featured`, and writes `data/events.json`
 with `status: "ok"`. This is the deterministic replacement for the old flaky agent web_fetch.
 
-Card text on the page is line-structured, e.g.:
+Product tagging is **badge-driven**: each card shows one coloured product icon per product
+(``class="flight-icon-<product>-color"`` with a ``<span class="sr-only">Terraform</span>`` label),
+so a webinar is bucketed by the product(s) it is actually badged with — Terraform-badged webinars go
+to Terraform, Boundary+Vault-badged ones to both, etc. The title text is NEVER keyword-matched to a
+product (that over-tagged, e.g. a "policy"/"security" title onto Vault). Card text is line-structured:
     JUN 24, 2026|
     WEBINAR
     Hands-on workshop: Vault Radar
     Vault
-=> date / type / title / product-tags. Webinars are bucketed by their product tags (a far more
-reliable signal than keyword-matching the title).
+=> date / type / title (the trailing product line is the badge's screen-reader label).
 
 If Playwright or its browser is unavailable, or rendering fails, this falls back to the legacy
 behavior: write `data/events.request.json` (so the deck-data agent can attempt web_fetch) and an
@@ -92,7 +95,19 @@ def render_cards(timeout_ms: int = 50000) -> list[dict]:
                 if (!/^[A-Z]{3}\\s+\\d{1,2},\\s+\\d{4}/.test(text)) return;  // event cards start with a date
                 const key = text.slice(0, 80);
                 if (seen.has(key)) return; seen.add(key);
-                out.push({ href: a.getAttribute('href') || '', text });
+                // Product tags come from the card's BADGES, not the title text: each product badge has a
+                // screen-reader label (<span class="sr-only">Terraform</span>) and a coloured product icon
+                // (class "flight-icon-<product>-color"). This is the authoritative product signal.
+                const products = new Set();
+                card.querySelectorAll('[class*="badge"] .sr-only').forEach(s => {
+                  const t = (s.textContent || '').trim().toLowerCase(); if (t) products.add(t);
+                });
+                card.querySelectorAll('[class*="flight-icon-"]').forEach(el => {
+                  (el.getAttribute('class') || '').split(/\\s+/).forEach(c => {
+                    const m = c.match(/^flight-icon-([a-z0-9]+)-color$/); if (m) products.add(m[1]);
+                  });
+                });
+                out.push({ href: a.getAttribute('href') || '', text, products: [...products] });
               });
               return out;
             }"""
@@ -102,7 +117,11 @@ def render_cards(timeout_ms: int = 50000) -> list[dict]:
 
 
 def parse_card(card: dict, today: str) -> dict | None:
-    """Turn a raw {href, text} card into a structured event (upcoming only), or None to drop it."""
+    """Turn a raw {href, text, products} card into a structured event (upcoming only), or None to drop.
+
+    Products come from the card's BADGES (``card['products']`` — the per-product icon/sr-only label),
+    which is authoritative. We fall back to innerText lines that exactly equal a product name only when
+    the card carried no badge at all (defensive), and never keyword-guess from the title."""
     lines = [ln.strip() for ln in card["text"].splitlines() if ln.strip()]
     if not lines:
         return None
@@ -110,7 +129,11 @@ def parse_card(card: dict, today: str) -> dict | None:
     if not iso or iso < today:  # past or unparseable -> drop
         return None
     etype = (lines[1] if len(lines) > 1 else "").upper().strip(" |")
-    products = [ln for ln in lines if ln in PRODUCTS]
+    known = {p.lower() for p in PRODUCTS}
+    products = [p for p in (card.get("products") or []) if p in known]
+    if not products:  # no badge captured -> fall back to a product NAME on its own innerText line
+        products = [ln.lower() for ln in lines if ln in PRODUCTS]
+    products = sorted(set(products))
     title = next((ln for ln in lines[2:] if ln not in PRODUCTS and "|" not in ln), "").strip()
     if not title:
         return None
@@ -123,7 +146,7 @@ def parse_card(card: dict, today: str) -> dict | None:
         "display_date_short": d.strftime("%B %-d"),
         "title": title,
         "type": etype or "EVENT",
-        "products": [p.lower() for p in products],
+        "products": products,
         "url": url,
     }
 
@@ -149,26 +172,29 @@ def build_events(cards: list[dict], today: str, webinar_cfg: dict) -> dict:
         (e for e in (parse_card(c, today) for c in cards) if e),
         key=lambda e: e["date"],
     )
-    # "other" keeps the FULL webinar pool — untagged/certification/cross-product/regional sessions
-    # that don't map to a primary product bucket. The event editor uses it (plus featured) to BACKFILL
-    # any leftover empty webinar slots, exactly as the human-authored deck does (it never left a slot
-    # blank). Without this pool those webinars were silently dropped and the slot went empty.
+    # Webinars are bucketed by their PRODUCT BADGE (authoritative). A webinar tagged with several
+    # products (e.g. Boundary + Vault) is placed in each bucket it belongs to. "other" keeps the FULL
+    # cross-product pool — sessions whose badge isn't a deck product (or that carry no badge) — which
+    # the event editor uses to BACKFILL leftover webinar slots. We do NOT keyword-guess from the title
+    # (that used to over-tag, e.g. a "policy"/"security" title onto Vault); the only title fallback is a
+    # product NAME appearing as its own word, used solely when a webinar has no product badge at all.
+    buckets = [p for p in webinar_cfg.keys() if p in ("terraform", "vault")]
     webinars = {"terraform": [], "vault": [], "other": []}
     featured = []
     for e in events:
         if e["type"] == "WEBINAR":
             placed = False
-            for prod in ("terraform", "vault"):
+            for prod in buckets:
                 if prod in e["products"]:
                     webinars[prod].append(_slot(e))
                     placed = True
-            if not placed:  # untagged webinar -> keyword fallback so it is not lost
+            if not placed and not e["products"]:  # badge-less webinar -> last-resort product-name match
                 low = e["title"].lower()
-                for prod, meta in webinar_cfg.items():
-                    if prod in webinars and any(k in low for k in meta.get("keywords", [])):
+                for prod in buckets:
+                    if re.search(rf"\b{re.escape(prod)}\b", low):
                         webinars[prod].append(_slot(e))
                         placed = True
-            if not placed:  # still unplaced -> keep in the cross-product pool for backfill
+            if not placed:  # tagged for a non-deck product, or unmatched -> cross-product pool
                 webinars["other"].append(_slot(e))
         else:
             featured.append(_featured(e))
