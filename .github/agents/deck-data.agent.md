@@ -38,14 +38,16 @@ light wording polish:
   invent one.
 
 ### 2. Terraform Enterprise (`data/releases.json` → `terraform_enterprise`)
-TFE is now **fetched deterministically** by `scripts/fetch_tfe_releases.py` (it parses the releases
-page's embedded `__NEXT_DATA__` and applies the freshness guard). **First read the `status` field:**
-- **`"stale_source"` or `"unavailable"`** (the common case — the live page is an older versioning
-  scheme than the deck): the guard has already decided slide 8 stays unchanged. **Do nothing** — do
-  NOT refetch the page or dig through git history.
-- **`"ok"`**: `recent`/`latest` already hold the correct versions + dates. You MAY optionally polish
-  each release `highlight` from its `release_notes_url` (one short factual sentence), but never change
-  versions/dates and never invent a highlight.
+TFE is now **fetched deterministically** by `scripts/fetch_tfe_releases.py` (it reads the newest
+`N.M.x` **semver series page**, e.g. `/releases/2.0.x`, for each version + real date + a one-line
+highlight, and applies the freshness guard). **First read the `status` field:**
+- **`"stale_source"` or `"unavailable"`** (the live page is genuinely behind the deck, or unreachable):
+  the guard has already decided slide 8 stays unchanged. **Do nothing** — do NOT refetch the page or
+  dig through git history.
+- **`"ok"`**: `recent`/`latest` already hold the correct versions, dates, and a pre-filled `highlight`.
+  You MAY optionally polish each `highlight` (one short factual sentence; e.g. tighten a generic
+  "Security: Security vulnerabilities…" into plainer words), but never change versions/dates and never
+  invent a highlight.
 
 ### 3. Events (`data/events.json`)
 Events are now fetched **deterministically by Python** (`scripts/fetch_events.py` renders the

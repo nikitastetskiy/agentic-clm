@@ -106,9 +106,27 @@ def load_release_index() -> dict:
     return idx
 
 
+def tfe_release_url(version: str) -> str:
+    """developer.hashicorp.com release-notes URL for a TFE version (semver series page, or calendar)."""
+    v = version.lstrip("v")
+    m = re.match(r"(\d+)\.(\d+)\.(\d+)$", v)            # semver: 2.0.3 -> /2.0.x#2-0-3
+    if m:
+        maj, minr, pat = m.groups()
+        return ("https://developer.hashicorp.com/terraform/enterprise/releases/"
+                f"{maj}.{minr}.x#{maj}-{minr}-{pat}")
+    m = re.match(r"(\d{4})(\d{2})-(\d+)$", v)           # calendar: 202507-1 -> /2025/v202507-1
+    if m:
+        return f"https://developer.hashicorp.com/terraform/enterprise/releases/{m.group(1)}/v{v}"
+    return "https://developer.hashicorp.com/terraform/enterprise/releases"
+
+
 def tag_url(product: str, version: str) -> str:
-    repo = {"terraform": "terraform", "terraform-enterprise": "terraform",
-            "vault": "vault"}.get(product, product)
+    """Canonical release-notes/changelog link for a version. Terraform Enterprise lives on
+    developer.hashicorp.com (it has NO hashicorp/terraform git tag — that repo is the 1.x CLI);
+    terraform CE and vault use their public GitHub release tags."""
+    if product == "terraform-enterprise":
+        return tfe_release_url(version)
+    repo = {"terraform": "terraform", "vault": "vault"}.get(product, product)
     return f"https://github.com/hashicorp/{repo}/releases/tag/v{version}"
 
 
@@ -245,6 +263,17 @@ def set_at(at_node, text: str) -> None:
     at_node.firstChild.data = text
 
 
+def _relabel_version_text(old: str, version: str, date: str) -> str:
+    """Rewrite the ``vX.Y.Z (date)`` token in ``old``, PRESERVING any prefix the entry carries.
+
+    Terraform Enterprise entries read ``Terraform Enterprise vX.Y.Z (date)``; terraform/vault entries
+    are just ``vX.Y.Z (date)``. Replacing the whole run would drop the TFE prefix, so keep everything
+    before the version number and re-emit ``v<version> (<date>)``."""
+    m = VERSION_RE.search(old or "")
+    prefix = re.sub(r"v\s*$", "", old[:m.start()]) if m else ""
+    return f"{prefix}v{version} ({date})"
+
+
 def set_highlight(entry: Entry, highlight: str) -> bool:
     """Put ``highlight`` into the entry's first highlight paragraph; collapse extra runs.
 
@@ -292,7 +321,7 @@ def _clone_entry(template: Entry, version: str, date: str, highlight: str,
                if t.firstChild and VERSION_RE.search(t.firstChild.data)), None)
     if at is None:
         return None
-    set_at(at, f"v{version} ({date})")
+    set_at(at, _relabel_version_text(at.firstChild.data, version, date))
     for hl in vpara.getElementsByTagName("a:hlinkClick"):
         if hl.getAttribute("r:id"):
             hl.setAttribute("r:id", add_rel(rels_dom, tag_url(product, version)))
@@ -508,7 +537,7 @@ def ensure_latest(cols: list[Column], rel_index: dict, rels_dom, rid_target: dic
         # the same release date — i.e. there is no distinct stable release to preserve. Otherwise ADD
         # the latest ABOVE it so an existing stable release (e.g. vault 2.0.2) is never overwritten.
         if _is_prerelease(top.text) or top.version == lv or (ld and top.date == ld):
-            set_at(top.version_at, f"v{lv} ({ld})")
+            set_at(top.version_at, _relabel_version_text(top.version_at.firstChild.data, lv, ld))
             if not set_highlight(top, lhl):
                 report["fallback"] = True
                 report["notes"].append("refresh: could not set highlight; fallback")
