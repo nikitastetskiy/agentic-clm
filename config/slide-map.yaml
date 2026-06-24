@@ -73,7 +73,8 @@ slides:
 
   - n: 8
     name: "Terraform Enterprise Upgrades"
-    source: terraform_enterprise        # NOT on releases API — agent fetches releases_page
+    source: terraform_enterprise        # NOT on the releases API — fetched deterministically from the
+                                        # docs releases page (newest N.M.x semver series) by fetch_tfe_releases.py
     product: terraform-enterprise
     type: release_updates
     layout: three_column_rolling
