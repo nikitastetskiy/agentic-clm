@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, load_config, log  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
 from lib.city_photos import build_city_photo_cache, resolve_city_photo, norm_city  # noqa: E402
-from lib.regions import resolve_scope_regions, scope_events  # noqa: E402
+from lib.regions import event_region, resolve_scope_regions, scope_events  # noqa: E402
 
 FEATURED_TITLE = "Title 1"
 FEATURED_DATE = "Subtitle 2"
@@ -79,14 +79,19 @@ CANON_SUBTITLE = (320040, 822960, 8321040, 246888)  # ~0.35", 0.90"  9.10" x 0.2
 FLAG_DIR = Path(__file__).resolve().parent.parent / "assets" / "flags"
 FLAG_DESCR = {
     "en": "Union Jack - Wikipedia",
+    "us": "Flag of the United States - Wikipedia",
     "de": "Flag of Germany - Wikipedia",
     "it": "Flag of Italy - Wikipedia",
     "fr": "Flag of France - Wikipedia",
     "es": "Flag of Spain - Wikipedia",
     "nl": "Flag of the Netherlands - Wikipedia",
 }
-# Map an existing flag's alt-text (descr) back to a language so an already-correct flag is left alone.
-_DESCR_LANG = [("union jack", "en"), ("united kingdom", "en"), ("germany", "de"), ("italy", "it"),
+# Map an existing flag's alt-text (descr) back to a language/region code so an already-correct flag is
+# left alone. US -> "us", UK -> "en": both are ENGLISH, but we keep them distinct so an English webinar
+# never flips the deck author's US-vs-UK choice (we can't tell US from UK English by the title).
+_DESCR_LANG = [("union jack", "en"), ("united kingdom", "en"), ("great britain", "en"),
+               ("united states", "us"), ("u.s.", "us"), ("usa", "us"), ("american", "us"),
+               ("stars and stripes", "us"), ("germany", "de"), ("italy", "it"),
                ("france", "fr"), ("spain", "es"), ("netherlands", "nl")]
 # Distinctive function/content words per language (lowercase). Title-level language detection — short
 # but enough to tell an English webinar from an Italian/French/Spanish/German/Dutch regional one.
@@ -136,12 +141,19 @@ def slot_date_label(iso: str) -> str:
 
 
 def _entry(src: dict, kind: str) -> dict:
-    """Normalize a webinar slot or featured event into a uniform slot-fill entry."""
+    """Normalize a webinar slot or featured event into a uniform slot-fill entry.
+
+    The slot flag follows the webinar's LANGUAGE, except an English event that resolves to the AMERICAS
+    region gets the US flag (US flag for US events; UK/European English keeps the Union Jack)."""
     title = src.get("title", "")
+    lang = detect_language(title)
+    if lang == "en" and event_region(src) == "AMERICAS":
+        lang = "us"
+    prods = src.get("products") or []
     return {"date": src.get("date", ""), "date_label": slot_date_label(src.get("date", "")),
             "kind": (kind or "WEBINAR").upper(), "title": title,
             "url": src.get("url", ""), "description": (src.get("description") or "").strip(),
-            "language": detect_language(title)}
+            "product": (prods[0] if prods else ""), "language": lang}
 
 
 def _event_identity(e: dict) -> tuple:
@@ -379,14 +391,20 @@ def flag_for_slot(slot_sp, flags: list, used: set):
 
 def set_slot_flag(pic, rels_dom, root: Path, slide_n, idx: int, lang: str):
     """Repoint a slot's circular flag to assets/flags/<lang>.png (fresh media + rel) and update its alt
-    text. No-op (returns None) when the flag is already that language or the asset is missing."""
+    text. No-op (returns None) when the flag is already correct or the asset is missing.
+
+    English webinars NEVER flip the deck author's US-vs-UK choice: if the desired flag is English ('en')
+    and the slot already carries a US OR a UK flag, it is left untouched. A US flag is only set
+    positively when the caller passes 'us' (i.e. the event resolved to the AMERICAS region)."""
     lang = lang if lang in FLAG_DESCR else "en"
+    cnv = pic.getElementsByTagName("p:cNvPr")
+    cur = _descr_lang(cnv[0].getAttribute("descr") if cnv else "")
+    if lang == "en" and cur in ("en", "us"):
+        return None  # keep the author's existing US or UK English flag
+    if cur == lang:
+        return None
     asset = FLAG_DIR / f"{lang}.png"
     if not asset.exists():
-        return None
-    cnv = pic.getElementsByTagName("p:cNvPr")
-    cur = cnv[0].getAttribute("descr") if cnv else ""
-    if _descr_lang(cur) == lang:
         return None
     blips = pic.getElementsByTagName("a:blip")
     if not blips:
@@ -688,6 +706,25 @@ def clear_txbody(sp) -> None:
     body.appendChild(p)
 
 
+def _para_text(p) -> str:
+    return "".join(px.run_text(r) for r in px.para_runs(p)).strip()
+
+
+# Mandatory fallback when a webinar has neither a deck-data description nor an existing slot blurb.
+_WEBINAR_FALLBACK = {
+    "terraform": "Join this session to see how HashiCorp Terraform standardizes and automates "
+                 "infrastructure as code across your teams.",
+    "vault": "Join this session to see how HashiCorp Vault secures secrets, identity, and access "
+             "across your environment.",
+}
+
+
+def _fallback_webinar_desc(e: dict) -> str:
+    return _WEBINAR_FALLBACK.get((e.get("product") or "").lower(),
+                                 "Join this HashiCorp session to see what's new and how to put it to "
+                                 "work in your environment.")
+
+
 def fill_webinar_slot(sp, rels_dom, e: dict) -> bool:
     paras = px.paragraphs(sp)
     if len(paras) < 2:
@@ -701,14 +738,20 @@ def fill_webinar_slot(sp, rels_dom, e: dict) -> bool:
         px.remove_node(r)
     px.run_hyperlink(runs0[see_idx]).setAttribute("r:id", px.add_rel(rels_dom, e["url"]))
     collapse_into_first_run(paras[1], e["title"])
-    desc = (e.get("description") or "").strip()
     if len(paras) >= 3:
-        if desc and collapse_into_first_run(paras[2], desc):
-            for p in paras[3:]:
-                px.remove_node(p)
-        else:
-            for p in paras[2:]:
-                px.remove_node(p)
+        desc = (e.get("description") or "").strip()
+        if desc:
+            # Fresh description (deck-data) -> write it and drop any extra description paragraphs.
+            if collapse_into_first_run(paras[2], desc):
+                for p in paras[3:]:
+                    px.remove_node(p)
+        elif not _para_text(paras[2]):
+            # No fresh description AND the slot has no existing blurb -> synthesize a MANDATORY one
+            # (a webinar slot must never be description-less).
+            if collapse_into_first_run(paras[2], _fallback_webinar_desc(e)):
+                for p in paras[3:]:
+                    px.remove_node(p)
+        # else: PRESERVE the slot's existing hand-authored description as-is (never blank it).
     return True
 
 
@@ -793,6 +836,11 @@ def edit_featured_slide(slide_file: Path, rels_file: Path, event: dict | None,
         single = (event.get("description") or "").strip()
         points = [single] if single else []
     desc_written = fill_description(desc_sp, points) if desc_sp else 0
+    # When there are no fresh points (the source deck's hand-authored blurb is preserved), still
+    # normalize that existing description box to the uniform featured style — 14pt and VERTICALLY
+    # CENTERED — so slides without deck-data points (e.g. CISO UK, Zurich) match 19/20.
+    if desc_sp is not None and desc_written == 0:
+        _uniform_description(desc_sp)
 
     # Normalize the slide to the global single-hero featured style: enlarge a tiny webinar-derived hero
     # (and its title/subtitle) to canonical geometry, then set the hero to the event city photo and drop

@@ -50,6 +50,7 @@ def fetch_product(
     *,
     normalize: bool,
     recent_count: int,
+    stable_only: bool = True,
     changelog_url_template: str | None = None,
     release_notes_url_template: str | None = None,
 ) -> list[dict]:
@@ -63,7 +64,8 @@ def fetch_product(
     out: list[dict] = []
     for rel in raw:
         ver = rel.get("version", "")
-        if not is_stable(ver, rel.get("is_prerelease", False)):
+        prerelease = bool(rel.get("is_prerelease", False)) or not is_stable(ver, False)
+        if stable_only and prerelease:  # only drop alpha/beta/rc when the product is stable-only
             continue
         key = base_semver(ver) if normalize else ver
         if key in seen:
@@ -88,7 +90,7 @@ def fetch_product(
                 "date": (rel.get("timestamp_created") or "")[:10],
                 "month": (rel.get("timestamp_created") or "")[:7],
                 "month_label": month_label((rel.get("timestamp_created") or "")[:10]),
-                "is_prerelease": False,
+                "is_prerelease": prerelease,
                 "changelog_url": changelog_url,
                 "release_notes_url": release_notes_url,
                 "highlight": None,  # agent fills this in (summarized from changelog_url)
@@ -116,6 +118,7 @@ def main() -> int:
             slug,
             normalize=bool(pcfg.get("normalize_base_semver", False)),
             recent_count=recent_count,
+            stable_only=bool(pcfg.get("stable_only", True)),
             changelog_url_template=pcfg.get("changelog_url_template"),
             release_notes_url_template=pcfg.get("release_notes_url_template"),
         )

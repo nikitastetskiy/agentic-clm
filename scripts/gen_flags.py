@@ -47,11 +47,31 @@ def _rgb(hexc: str) -> tuple[int, int, int]:
     return (int(hexc[0:2], 16), int(hexc[2:4], 16), int(hexc[4:6], 16))
 
 
+def usa() -> Image.Image:
+    """A simplified Stars and Stripes (13 stripes + a blue canton with star dots). Recognisable when
+    the deck clips it to a circle; we don't need all 50 stars at icon size."""
+    from PIL import ImageDraw
+    red, white, blue = "#B22234", "#FFFFFF", "#3C3B6E"
+    img = Image.new("RGB", (W, H), white)
+    d = ImageDraw.Draw(img)
+    for i in range(13):
+        if i % 2 == 0:
+            d.rectangle([0, round(i * H / 13), W, round((i + 1) * H / 13)], fill=red)
+    cw, ch = round(W * 0.42), round(7 * H / 13)
+    d.rectangle([0, 0, cw, ch], fill=blue)
+    for r in range(5):
+        for c in range(6):
+            cx, cy = (c + 0.5) * cw / 6, (r + 0.5) * ch / 5
+            d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=white)
+    return img
+
+
 FLAGS = {
     "it": lambda: vertical(["#009246", "#FFFFFF", "#CE2B37"]),
     "fr": lambda: vertical(["#0055A4", "#FFFFFF", "#EF4135"]),
     "nl": lambda: horizontal([("#AE1C28", 1 / 3), ("#FFFFFF", 1 / 3), ("#21468B", 1 / 3)]),
     "es": lambda: horizontal([("#AA151B", 0.25), ("#F1BF00", 0.5), ("#AA151B", 0.25)]),
+    "us": usa,
 }
 
 
