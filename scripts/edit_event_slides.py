@@ -725,6 +725,30 @@ def _fallback_webinar_desc(e: dict) -> str:
                                  "work in your environment.")
 
 
+def _norm(s: str) -> str:
+    """Loose title key for equality (lowercase, collapse whitespace, drop punctuation)."""
+    return re.sub(r"[^a-z0-9 ]", "", re.sub(r"\s+", " ", (s or "").lower())).strip()
+
+
+def _same_event(source_title: str, event: dict) -> bool:
+    """True if the slot's EXISTING title already names this event — keyed on the event's city, which is
+    the reliable signal (titles vary, e.g. 'Agentic ... Exchange London' vs 'HashiCorp ... - London').
+    A slot reused for an event in a DIFFERENT city (or a duplicated slide) returns False so its blurb
+    is regenerated rather than inherited."""
+    src_words = set(_norm(source_title).split())
+    loc_words = _norm(event.get("location", "")).split()
+    return bool(loc_words) and all(w in src_words for w in loc_words)
+
+
+def _fallback_featured_points(event: dict) -> list[str]:
+    """Mandatory featured-event blurb when there is no deck-data description and the slot's existing
+    text belongs to a DIFFERENT event (reassigned slot or duplicated slide). Generic but on-brand."""
+    loc = (event.get("location") or "").strip()
+    where = f" in {loc}" if loc else ""
+    return [f"Join the HashiCorp and IBM team and industry peers at this in-person event{where}.",
+            "See the latest in infrastructure and security automation and meet our experts in person."]
+
+
 def fill_webinar_slot(sp, rels_dom, e: dict) -> bool:
     paras = px.paragraphs(sp)
     if len(paras) < 2:
@@ -815,7 +839,9 @@ def edit_featured_slide(slide_file: Path, rels_file: Path, event: dict | None,
 
     title_sp = by_name.get(FEATURED_TITLE)
     title_fit = False
+    old_title = ""
     if title_sp and px.paragraphs(title_sp):
+        old_title = _para_text(px.paragraphs(title_sp)[0])
         collapse_into_first_run(px.paragraphs(title_sp)[0], event["title"])
         title_fit = fit_title(title_sp, event["title"])
 
@@ -836,11 +862,17 @@ def edit_featured_slide(slide_file: Path, rels_file: Path, event: dict | None,
         single = (event.get("description") or "").strip()
         points = [single] if single else []
     desc_written = fill_description(desc_sp, points) if desc_sp else 0
-    # When there are no fresh points (the source deck's hand-authored blurb is preserved), still
-    # normalize that existing description box to the uniform featured style — 14pt and VERTICALLY
-    # CENTERED — so slides without deck-data points (e.g. CISO UK, Zurich) match 19/20.
     if desc_sp is not None and desc_written == 0:
-        _uniform_description(desc_sp)
+        # No deck-data description. KEEP the slide's existing hand-authored blurb only if it was
+        # written for THIS event (the title is unchanged) — date-sorting and auto-grow reassign events
+        # to slots, and a duplicated slide carries its template's blurb, so an unrelated event must NOT
+        # inherit it. Otherwise synthesize a mandatory fallback. Either way render 14pt + centered.
+        existing = _para_text(px.paragraphs(desc_sp)[0]) if px.paragraphs(desc_sp) else ""
+        same_event = bool(existing) and _same_event(old_title, event)
+        if same_event:
+            _uniform_description(desc_sp)
+        else:
+            fill_description(desc_sp, _fallback_featured_points(event))
 
     # Normalize the slide to the global single-hero featured style: enlarge a tiny webinar-derived hero
     # (and its title/subtitle) to canonical geometry, then set the hero to the event city photo and drop
@@ -986,7 +1018,22 @@ def main() -> int:
                 report["any_change"] = True
             elif etype == "in_person_event":
                 ns = entry["n"]
-                ns = ns if isinstance(ns, list) else [ns]
+                ns = list(ns) if isinstance(ns, list) else [ns]
+                # AUTO-GROW (no cap): one featured slide per upcoming in-scope event. When there are
+                # more events than template slots, duplicate the LAST featured slide (still pristine
+                # here — it is edited below) and splice each copy in right after the section, in date
+                # order. Best-effort: if a duplication fails we just fill the slots we have.
+                if len(featured) > len(ns):
+                    template = anchor = ns[-1]
+                    for _ in range(len(featured) - len(ns)):
+                        new_n = px.duplicate_slide_after(tmp, template, anchor)
+                        if new_n is None:
+                            break
+                        ns.append(new_n)
+                        anchor = new_n
+                        report["added_featured"] = report.get("added_featured", 0) + 1
+                    log(f"featured auto-grow: {len(featured)} events -> {len(ns)} slides "
+                        f"(+{report.get('added_featured', 0)} added)")
                 for i, n in enumerate(ns):
                     sf, rf = slide_paths(tmp, n)
                     if not sf.exists():

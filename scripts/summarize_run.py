@@ -173,8 +173,17 @@ def featured_rows(report: dict | None) -> tuple[list[tuple[str, str, str]], int,
     rows = []
     shown = hidden = 0
     slides = (report or {}).get("slides", {})
-    for n in FEATURED_SLIDES:
-        s = slides.get(str(n))
+    base = [str(n) for n in FEATURED_SLIDES]
+
+    def _is_featured(s):  # featured entries lack the webinar 'slots' key
+        return isinstance(s, dict) and "slots" not in s and any(
+            k in s for k in ("title", "hidden", "image_swapped"))
+
+    # Auto-grow can append extra featured slides (one per upcoming event, no cap) not in slide-map.
+    extra = sorted((k for k, s in slides.items() if k not in base and _is_featured(s)),
+                   key=lambda x: int(x) if x.isdigit() else 0)
+    for k in base + extra:
+        s = slides.get(k)
         if s is None:
             action = "not run"
         elif s.get("hidden"):
@@ -187,7 +196,7 @@ def featured_rows(report: dict | None) -> tuple[list[tuple[str, str, str]], int,
             if s.get("image_swapped"):
                 action += "  [photo updated]"
             shown += 1
-        rows.append((str(n), "Featured event", action))
+        rows.append((k, "Featured event" + (" (added)" if k in extra else ""), action))
     return rows, shown, hidden
 
 

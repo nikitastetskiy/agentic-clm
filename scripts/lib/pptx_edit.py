@@ -11,6 +11,9 @@ stays small and consistent. The golden rules encoded here (learned the hard way,
 """
 from __future__ import annotations
 
+import importlib.util
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -19,6 +22,7 @@ from xml.dom import minidom
 REPO_ROOT = Path(__file__).resolve().parents[2]
 UNPACK = REPO_ROOT / ".github/skills/pptx/scripts/office/unpack.py"
 PACK = REPO_ROOT / ".github/skills/pptx/scripts/office/pack.py"
+ADD_SLIDE = REPO_ROOT / ".github/skills/pptx/scripts/add_slide.py"
 EMU_PER_IN = 914400
 HYPERLINK_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"
 IMAGE_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
@@ -32,6 +36,59 @@ def unpack(deck: Path, dest: Path) -> None:
 def pack(src: Path, deck: Path) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable, str(PACK), str(src), str(deck), "--validate", "true"],
                           capture_output=True, text=True)
+
+
+def _load_add_slide():
+    spec = importlib.util.spec_from_file_location("pptx_add_slide", ADD_SLIDE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def duplicate_slide_after(unpacked: Path, src_n: int, anchor_n: int) -> int | None:
+    """Duplicate ppt/slides/slide{src_n}.xml as a NEW slide and place it RIGHT AFTER slide{anchor_n}
+    in the deck's display order. Reuses the vendored pptx skill's add_slide.py for the file/rels/
+    content-type/presentation-rels registration, then splices the <p:sldId> into presentation.xml.
+    Returns the new slide's file number, or None on failure (caller treats failure as non-fatal)."""
+    try:
+        add = _load_add_slide()
+        slides = unpacked / "ppt" / "slides"
+        src = f"slide{src_n}.xml"
+        if not (slides / src).exists():
+            return None
+        new_n = add.get_next_slide_number(slides)
+        dest = f"slide{new_n}.xml"
+        shutil.copy2(slides / src, slides / dest)
+        src_rels = slides / "_rels" / f"{src}.rels"
+        if src_rels.exists():
+            shutil.copy2(src_rels, slides / "_rels" / f"{dest}.rels")
+        add._add_to_content_types(unpacked, dest)
+        rid = add._add_to_presentation_rels(unpacked, dest)
+        if not _insert_sldid_after(unpacked, anchor_n, rid):
+            return None
+        return new_n
+    except Exception:  # noqa: BLE001 — slide growth is best-effort; never crash the editor
+        return None
+
+
+def _insert_sldid_after(unpacked: Path, anchor_n: int, new_rid: str) -> bool:
+    """Splice a <p:sldId> for `new_rid` into presentation.xml immediately after slide{anchor_n}'s."""
+    prels = (unpacked / "ppt" / "_rels" / "presentation.xml.rels").read_text(encoding="utf-8")
+    m = (re.search(rf'Id="(rId\d+)"[^>]*Target="slides/slide{anchor_n}\.xml"', prels)
+         or re.search(rf'Target="slides/slide{anchor_n}\.xml"[^>]*Id="(rId\d+)"', prels))
+    if not m:
+        return False
+    anchor_rid = m.group(1)
+    pres_path = unpacked / "ppt" / "presentation.xml"
+    txt = pres_path.read_text(encoding="utf-8")
+    ids = [int(x) for x in re.findall(r'<p:sldId[^>]*id="(\d+)"', txt)]
+    nid = (max(ids) + 1) if ids else 256
+    am = re.search(rf'<p:sldId[^>]*r:id="{anchor_rid}"\s*/>', txt)
+    if not am:
+        return False
+    new_el = f'<p:sldId id="{nid}" r:id="{new_rid}"/>'
+    pres_path.write_text(txt[:am.end()] + new_el + txt[am.end():], encoding="utf-8")
+    return True
 
 
 # --------------------------------------------------------------------------- geometry/text --------
