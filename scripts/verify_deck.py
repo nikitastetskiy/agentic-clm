@@ -21,14 +21,16 @@ Checks (all deterministic, no AI):
                       (e.g. an entry dated 2026-05-27 typed as 1.15.4 when the API says that date is 1.15.5).
   6. Blog coverage   — the newest blogs.json posts appear on slides 9/13, in order, with no duplicates.
   7. Event coverage  — webinar slots / featured slides carry known events; empty-supply slides are hidden.
+                      Covers AUTO-GROWN featured slides too (file 86+, absent from the slide-map) and FAILS
+                      when there are more upcoming featured events than featured slides (auto-grow shortfall).
   8. No empty box    — LOOP-HARDENING: a VISIBLE webinar slide has every slot filled and a blog slide keeps
                       its full original entry count (catches a cleared surplus slot / blanked blog entry).
   9. Release gap     — LOOP-HARDENING: no same-month same-line release is skipped "as historical", for
                       EVERY month column the slide displays (full historical window, not just the latest
                       — e.g. a missing May patch is caught as well as a missing June one).
- 10. Photo consistency — LOOP-HARDENING: each featured-event slide uses its OWN per-city leadspace
-                      hero capture (clean title+gradient), or the on-brand series hero as a fallback
-                      when the event page has no leadspace — never mixed registration buttons/blank-white.
+ 10. Photo consistency — LOOP-HARDENING: each featured-event slide's hero is its event CITY photo
+                      (config/city-photos.yaml), byte-identical to the resolved file — never a webpage
+                      leadspace/registration screenshot. Checks auto-grown featured slides as well.
 
 Usage:
     python scripts/verify_deck.py "output/<deck>.pptx" [--original "<original>.pptx"] [--json]
@@ -339,6 +341,57 @@ def _has_brand_logo(slide_file: Path) -> bool:
     return "image_brand_slide" in rels_file.read_text(encoding="utf-8", errors="ignore")
 
 
+def _featured_static_ns(cfg: dict) -> list[int]:
+    """The slide-map's STATIC featured (in_person_event) slot file-numbers, e.g. [19,20,21,22]."""
+    for entry in cfg.get("slides", []):
+        if entry.get("type") == "in_person_event":
+            ns = entry["n"]
+            return list(ns) if isinstance(ns, list) else [ns]
+    return []
+
+
+def featured_slide_ns(unpacked: Path, cfg: dict, report: dict | None) -> list[int]:
+    """Ordered featured-slide FILE numbers to verify — the slide-map's static slots PLUS any AUTO-GROWN
+    slides. When there are more upcoming in-scope events than template slots the editor auto-grows (one
+    extra featured slide per event, file numbers 86+, spliced in right after the section), so those
+    files are NOT in the slide-map and would otherwise escape verification.
+
+    Primary source: the editor's event-edit-report — its featured entries (the ones WITHOUT a webinar
+    'slots' key) are exactly the slides it produced, already in event order. Fallback (no report, e.g.
+    a standalone verify): structural — the contiguous run of brand-logo'd slides that begins right
+    after the last static featured slide in DISPLAY order (the neighbouring 'Engagement Status' slide
+    carries no such overlay, so it cleanly delimits the featured block).
+    """
+    static = _featured_static_ns(cfg)
+    if not static:
+        return []
+    if isinstance(report, dict):
+        feat = [int(k) for k, v in report.get("slides", {}).items()
+                if isinstance(v, dict) and "slots" not in v and str(k).isdigit()]
+        if feat:
+            return static + [n for n in feat if n not in static]
+    order = slide_order(unpacked)
+    num_of = {}
+    for f in order:
+        m = re.search(r"slide(\d+)\.xml", f.name)
+        if m:
+            num_of[f] = int(m.group(1))
+    pos_of_num = {num_of[f]: i for i, f in enumerate(order) if f in num_of}
+    present = [n for n in static if n in pos_of_num]
+    if not present:
+        return static
+    extras: list[int] = []
+    p = max(pos_of_num[n] for n in present) + 1
+    while p < len(order):
+        f = order[p]
+        if f in num_of and num_of[f] not in static and _has_brand_logo(f):
+            extras.append(num_of[f])
+            p += 1
+        else:
+            break
+    return static + extras
+
+
 def release_month_window(releases: dict, product: str) -> list[dict]:
     """The same-line release history window for a product (used to detect a skipped same-month patch)."""
     top, sub = PRODUCT_KEY.get(product, (None, None))
@@ -374,6 +427,7 @@ def main() -> int:
     releases = _load_json("releases.json")
     events = _load_json("events.json")
     blogs = _load_json("blogs.json")
+    edit_report = _load_json("event-edit-report.json")
     city_cache = build_city_photo_cache(original)
     # Apply the same geographic scope the editors use, so the coverage/photo checks expect the SAME
     # in-region events that were placed on the slides (EVENT_SCOPE env overrides events.scope_regions).
@@ -387,6 +441,11 @@ def main() -> int:
     try:
         order = slide_order(unpacked)
         total = len(order)
+        # Featured slide FILE numbers to verify — the slide-map's static slots PLUS any AUTO-GROWN
+        # slides (file 86+, spliced after the section, absent from the slide-map). The featured checks
+        # below (event coverage, photo consistency, brand logo) iterate THIS list, so auto-grown slides
+        # are verified exactly like the template ones instead of silently escaping the gate.
+        feat_ns = featured_slide_ns(unpacked, cfg, edit_report)
 
         # --- 1. Integrity ---------------------------------------------------------------
         integ = {"slides": total, "ok": True, "notes": []}
@@ -615,8 +674,7 @@ def main() -> int:
                     for m in notes:
                         evcov["notes"].append(f"slide {n} (webinars): {m}")
             elif etype == "in_person_event":
-                ns = entry["n"]
-                ns = ns if isinstance(ns, list) else [ns]
+                ns = feat_ns
                 for i, n in enumerate(ns):
                     f = unpacked / "ppt" / "slides" / f"slide{n}.xml"
                     if not f.exists():
@@ -633,6 +691,13 @@ def main() -> int:
                         evcov["ok"] = False
                         for m in notes:
                             evcov["notes"].append(f"slide {n} (featured): {m}")
+                # Under-display: more in-scope featured events than featured slides means events were
+                # dropped (auto-grow failed to add enough slides) — a hard coverage FAIL.
+                if len(featured) > len(ns):
+                    evcov["ok"] = False
+                    evcov["notes"].append(
+                        f"{len(featured) - len(ns)} featured event(s) have no slide "
+                        f"({len(ns)} featured slides for {len(featured)} upcoming events)")
         results["event_coverage"] = evcov
 
         # --- 8. No empty in-scope box (LOOP-HARDENING) ----------------------------------
@@ -737,8 +802,7 @@ def main() -> int:
         for entry in cfg.get("slides", []):
             if entry.get("type") != "in_person_event":
                 continue
-            ns = entry["n"]
-            ns = ns if isinstance(ns, list) else [ns]
+            ns = feat_ns
             for i, n in enumerate(ns):
                 if i >= len(featured):
                     continue
@@ -771,8 +835,7 @@ def main() -> int:
         for entry in cfg.get("slides", []):
             if entry.get("type") != "in_person_event":
                 continue
-            ns = entry["n"]
-            ns = ns if isinstance(ns, list) else [ns]
+            ns = feat_ns
             for i, n in enumerate(ns):
                 if i >= len(featured):
                     continue
