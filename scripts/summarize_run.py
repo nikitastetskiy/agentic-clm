@@ -23,17 +23,49 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "data"
 OUTPUT_DIR = REPO_ROOT / "output"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# Slide groups, in the deck's reading order, mapped to a friendly label.
-RELEASE_SLIDES = [
-    (7, "HCP Terraform releases"),
+
+def _slide_groups():
+    """Derive (release, blog, webinar, featured) slide groups from config/slide-map.yaml so the
+    summary always matches the deck the editors actually targeted — slide positions/labels drift
+    per deck (e.g. this deck added a 'Terraform Core' slide, shifting the rest). Falls back to the
+    historic hard-coded sets if the map can't be read."""
+    rel, blog, web, feat = [], [], [], []
+    try:
+        from lib.common import load_config
+        slides = (load_config("slide-map.yaml") or {}).get("slides", []) or []
+    except Exception:  # noqa: BLE001 — summary must never fail the run
+        slides = []
+    for s in slides:
+        n, name = s.get("n"), s.get("name", "")
+        typ, src, prod = s.get("type"), s.get("source"), s.get("product")
+        if prod == "featured" or typ == "in_person_event":
+            feat.extend(n if isinstance(n, list) else [n])
+        elif isinstance(n, list):
+            continue
+        elif typ == "recent_blogs" or src == "blogs":
+            blog.append((n, name))
+        elif typ == "webinars":
+            web.append((n, name))
+        elif typ == "release_updates" or src in ("releases", "terraform_enterprise"):
+            rel.append((n, name))
+    return rel, blog, web, [n for n in feat if n is not None]
+
+
+_REL, _BLOG, _WEB, _FEAT = _slide_groups()
+
+# Slide groups, in the deck's reading order, mapped to a friendly label. Derived from slide-map.yaml
+# (above); the literals here are only a fallback if the map is missing/unreadable.
+RELEASE_SLIDES = _REL or [
+    (7, "Terraform Core releases"),
     (8, "Terraform Enterprise releases"),
-    (11, "Vault Enterprise releases"),
-    (12, "HCP Vault releases"),
+    (12, "Vault Enterprise releases"),
+    (13, "HCP Vault releases"),
 ]
-BLOG_SLIDES = [(9, "Terraform blogs"), (13, "Vault blogs")]
-WEBINAR_SLIDES = [(10, "Terraform webinars"), (14, "Vault webinars")]
-FEATURED_SLIDES = [18, 19, 20, 21, 22]
+BLOG_SLIDES = _BLOG or [(10, "Terraform blogs"), (14, "Vault blogs")]
+WEBINAR_SLIDES = _WEB or [(11, "Terraform webinars"), (15, "Vault webinars")]
+FEATURED_SLIDES = _FEAT or [19, 20, 21, 22]
 
 
 def _color(enabled: bool):
@@ -220,7 +252,9 @@ def main(argv: list[str]) -> int:
     out[2] = blue(bar)
     out += table
     if FEATURED_SLIDES and evt is not None:
-        out.append(dim(f"  Featured events (18–22): {shown} shown, {hidden} hidden"))
+        _frange = (f"{min(FEATURED_SLIDES)}–{max(FEATURED_SLIDES)}"
+                   if len(FEATURED_SLIDES) > 1 else str(FEATURED_SLIDES[0]))
+        out.append(dim(f"  Featured events ({_frange}): {shown} shown, {hidden} hidden"))
         photos = sum(1 for n in FEATURED_SLIDES
                      if (evt.get("slides", {}).get(str(n)) or {}).get("image_swapped"))
         if photos:
