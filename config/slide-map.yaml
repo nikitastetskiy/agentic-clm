@@ -32,8 +32,12 @@
 #     product has fewer real webinars than slots, the extra slots are simply left EMPTY (the deck no
 #     longer forces every slot full; the verify gate allows empty webinar slots). Hide the slide only if
 #     there are ZERO webinars to place. Events/webinars are also region-scoped (see events.scope_regions).
-#   * Featured-event slides (18-22): one event per slide, filled with the SOONEST upcoming featured
-#     events (one per slide, in date order); hide any slide with no event (never delete).
+#   * Featured-event slides: one event per slide, in date order, filled with the SOONEST upcoming
+#     in-scope events. AUTO-GROW (no cap): if there are MORE upcoming events than template slides, the
+#     editor DUPLICATES the featured template and inserts a slide per extra event (right after the
+#     section). Hide any template slide with no event (never delete); the deck count may GROW but never
+#     shrink. A slide reused for a different event (or a duplicate) gets a synthesized blurb if it has
+#     no deck-data description; an event whose city matches the slot's existing title keeps that blurb.
 #   * Blog slides (9, 13): 8 entry boxes, newest-first. INSERT-AND-SHIFT: genuinely-new posts (in
 #     blogs.json but not already on the slide) go to the TOP, every existing entry shifts DOWN one,
 #     the oldest fall off the bottom — all 8 boxes stay filled, nothing is overwritten or duplicated,

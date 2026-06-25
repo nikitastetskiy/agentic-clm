@@ -21,8 +21,10 @@ comments in `run.sh` for the full flow.
 3. **Preserve the style exactly.** Follow the `hashicorp-deck-style` skill and edit *text inside
    existing runs only* — never change fonts, colours, sizes, or layout. Run its `style_check.py`
    guard before finishing. A foreign colour/font is a failure.
-4. **Hide, don't delete.** Slides with no fresh data get `show="0"` on the slide root; the slide
-   count must stay identical to the original. Never remove a slide.
+4. **Hide, don't delete.** Slides with no fresh data get `show="0"` on the slide root; **never remove a
+   slide** and the count must never shrink. It MAY grow: the featured-event section auto-grows by
+   duplicating its template (one slide per extra upcoming event, no cap), so `verify_deck` allows
+   `count >= original` (a lower count means a deletion and fails).
 5. **Never fabricate data.** Use only the facts in `data/*.json`. Leave a field empty rather than
    inventing a version, date, title, or link. Don't paste the raw `recent[]` API array into a
    release column — follow the shift/refresh standard in `config/slide-map.yaml`.

@@ -393,9 +393,13 @@ def main() -> int:
         if original and original.exists():
             o = _count_slides(original)
             integ["original_slides"] = o
-            if o != total:
+            # The deck may GROW (featured events auto-grow: one slide per upcoming event, no cap), but
+            # it must never SHRINK — a lower count means a slide was deleted instead of hidden.
+            if total < o:
                 integ["ok"] = False
-                integ["notes"].append(f"slide count changed: original {o} -> output {total} (deletion/addition!)")
+                integ["notes"].append(f"slide count shrank: original {o} -> output {total} (deletion!)")
+            elif total > o:
+                integ["notes"].append(f"slide count grew {o} -> {total} (+{total - o} featured event slide(s))")
             if original == deck:
                 integ["ok"] = False
                 integ["notes"].append("output path == original path (original would be overwritten)")

@@ -261,9 +261,10 @@ Python, the deck usually passes `verify_deck` on its own — so the build and re
 **skipped entirely** and the run finishes in ~5–10 min. They only kick in when the gate finds a real
 gap (or you set `FORCE_AGENTS=1`).
 
-What the gate checks (`verify_deck.py`): integrity (slide count unchanged), hide-audit (`show="0"`,
-never deleted), style (no foreign colour/font), release columns + date-keyed accuracy, blog/event
-coverage, no-empty-box, and photo + brand-logo consistency. A single `run.sh` is **best-effort**: it
+What the gate checks (`verify_deck.py`): integrity (no slide deleted — the count may grow when the
+featured-event section auto-grows, but never shrinks), hide-audit (`show="0"`, never deleted), style
+(no foreign colour/font), release columns + date-keyed accuracy, blog/event coverage, no-empty-box
+(incl. mandatory webinar descriptions), and photo + brand-logo consistency. A single `run.sh` is **best-effort**: it
 always writes the deck and prints the summary, and it **can end on a FAIL** — but it never hides one
 (the summary shows a clear ⚠️ and points you at the report).
 
