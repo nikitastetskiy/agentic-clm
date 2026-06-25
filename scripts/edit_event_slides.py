@@ -795,6 +795,24 @@ def count_slots(slide_file: Path) -> int:
     return len(webinar_slots(minidom.parse(str(slide_file))))
 
 
+# Stray invisible characters that sometimes hide in hand-authored runs (e.g. a U+200B zero-width space
+# in the "All global events here" webinar subtitle) — safe to strip everywhere (they render as nothing).
+_INVISIBLES = dict.fromkeys([0x200B, 0x200C, 0x200D, 0xFEFF, 0x00AD, 0x2060], None)
+
+
+def _clean_invisibles(dom) -> int:
+    """Remove stray zero-width / invisible characters from every text run on the slide. Returns count."""
+    n = 0
+    for t in dom.getElementsByTagName("a:t"):
+        node = t.firstChild
+        if node is not None and node.data:
+            cleaned = node.data.translate(_INVISIBLES)
+            if cleaned != node.data:
+                node.data = cleaned
+                n += 1
+    return n
+
+
 def edit_webinar_slide(slide_file: Path, rels_file: Path, fill: list[dict],
                        root: Path = None, slide_n=None) -> dict:
     """Fill each slot from the precomputed `fill` list (primary product webinars + backfills, already
@@ -823,11 +841,13 @@ def edit_webinar_slide(slide_file: Path, rels_file: Path, fill: list[dict],
     hidden = len(filled) == 0
     if hidden:
         dom.documentElement.setAttribute("show", "0")
+    invis = _clean_invisibles(dom)  # strip the stray U+200B in the "All global events here" subtitle, etc.
     pruned = px.prune_orphan_hyperlinks(dom, rels_dom)
     slide_file.write_text(dom.toxml(), encoding="utf-8")
     rels_file.write_text(rels_dom.toxml(), encoding="utf-8")
     return {"slots": len(slots), "filled": filled, "backfilled": backfilled, "cleared": cleared,
-            "hidden": hidden, "available": len(fill), "pruned_rels": pruned, "flags": flag_changes}
+            "hidden": hidden, "available": len(fill), "pruned_rels": pruned, "flags": flag_changes,
+            "invisibles_cleaned": invis}
 
 
 def edit_featured_slide(slide_file: Path, rels_file: Path, event: dict | None,
