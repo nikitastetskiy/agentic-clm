@@ -191,6 +191,21 @@ def region_for(location: str) -> str | None:
     return _match(location)
 
 
+def place_in(text: str) -> str:
+    """The most specific known place named in `text` (original case), e.g. 'Zurich'/'UK', or ''.
+
+    Lets the events fetcher recover a location from titles that don't use the trailing '- City' form
+    ('AWS Summit Zurich' -> 'Zurich', 'CISO UK' -> 'UK'), so city-photo resolution works without the
+    agent. Longest keys first so the most specific place wins; word boundaries avoid in-word matches."""
+    if not text:
+        return ""
+    for key in sorted(set(PLACE_REGION) | set(_ALIASES), key=len, reverse=True):
+        m = re.search(rf"\b{re.escape(key)}\b", text, re.I)
+        if m:
+            return m.group(0)
+    return ""
+
+
 def event_region(event: dict) -> str | None:
     """Best-effort region for an event dict: its `location`, else a place named in its `title`."""
     return _match(event.get("location", "")) or _match(event.get("title", ""))

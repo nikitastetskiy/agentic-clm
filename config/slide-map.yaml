@@ -59,14 +59,15 @@ defaults:
 
 slides:
   - n: 7
-    name: "HCP Terraform Upgrades"
+    name: "Terraform Core – GitHub Releases"
     source: releases
     product: terraform
     type: release_updates
     layout: three_column_rolling
     columns: 3
+    variant: core
     slot_hints:
-      - "3 columns in data/slide-structure.json (roles col1_*/col2_*/col3_*_latest). Driver: products.terraform.latest."
+      - "Terraform Core = the open-source CLI (Community Edition), versioned vX.Y.Z. 3 columns (roles col1_*/col2_*/col3_*_latest). Driver: products.terraform.latest."
       - "If latest.month == col3 header month -> refresh col3 entry in place; else shift (header,entry) pairs left and put latest in col3."
       - "Column entry (colN_entry) = 'vX.Y.Z (YYYY-MM-DD)' + one-line highlight from changelog_url. Header = that column's month_label."
       - "Preserve col1/col2 history; never blank them. If a 'pre-release' entry currently occupies col3, a newer STABLE release replaces it."
@@ -83,6 +84,19 @@ slides:
       - "3 columns, col3=latest. Driver: terraform_enterprise.latest (agent-summarized from releases_page)."
       - "Same shift/refresh rule as slide 7. Entry: 'Terraform Enterprise vX.Y.Z (YYYY-MM-DD)' + highlight."
       - "If terraform_enterprise.status == 'stale_source' (data older than the deck), leave UNCHANGED."
+
+  - n: 9
+    name: "HCP Terraform Upgrades"
+    source: releases
+    product: terraform
+    type: release_updates
+    layout: three_column_rolling
+    columns: 3
+    variant: hcp
+    slot_hints:
+      - "HCP Terraform is the managed cloud platform: a DATE-based broad-rollout slide ('... rolling out', dated) with NO patch-semver tokens — do NOT write vX.Y.Z here."
+      - "edit_release_slides flags it as fallback (its version-column logic can't see date entries); that's expected. verify_deck checks currency by col3's MONTH header == products.terraform.latest month_label."
+      - "If col3's month is already the current month, leave the slide UNCHANGED; only shift when col3 is a month behind."
 
   - n: 12
     name: "Vault Enterprise Release Updates"

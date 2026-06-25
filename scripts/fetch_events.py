@@ -33,7 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, load_config, log, write_output  # noqa: E402
-from lib.regions import resolve_scope_regions, scope_events, unknown_regions  # noqa: E402
+from lib.regions import place_in, resolve_scope_regions, scope_events, unknown_regions  # noqa: E402
 
 EVENTS_URL = "https://www.hashicorp.com/en/events"
 BASE = "https://www.hashicorp.com"
@@ -157,11 +157,15 @@ def _slot(e: dict) -> dict:
 
 
 def _featured(e: dict) -> dict:
-    # Heuristic location: the trailing place in titles like "... Exchange - London" / "AWS Summit DC".
+    # Location: prefer a trailing place after a dash ("... Exchange - London"); otherwise fall back to
+    # any known place named in the title ("AWS Summit Zurich" -> Zurich, "CISO UK" -> UK) so the
+    # city-photo resolver always has something to match, even without the deck-data agent.
     loc = ""
     m = re.search(r"[-\u2013]\s*([A-Z][\w .'/]+)$", e["title"])
     if m:
         loc = m.group(1).strip()
+    if not loc:
+        loc = place_in(e["title"])
     return {"date": e["date"], "display_date": e["display_date_short"], "title": e["title"],
             "location": loc, "type": e["type"].title(), "url": e["url"],
             "products": e["products"], "description": "", "language": "en"}
