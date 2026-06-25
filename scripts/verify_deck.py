@@ -256,6 +256,25 @@ def webinar_slot_total(slide_file: Path) -> int:
                if _shape_name(sp) == "Google Shape;397;p78")
 
 
+def webinar_slots_missing_desc(slide_file: Path) -> list[str]:
+    """FILLED webinar slots (carry a 'See here' link) whose description line is empty. A webinar slot
+    must never be description-less — date + title alone is an incomplete slot."""
+    doc = minidom.parse(str(slide_file))
+    out: list[str] = []
+    for sp in doc.getElementsByTagName("p:sp"):
+        if _shape_name(sp) != "Google Shape;397;p78":
+            continue
+        if "See here" not in _text(sp).replace("\xa0", " "):
+            continue  # empty / unfilled slot
+        paras = sp.getElementsByTagName("a:p")
+        # paragraphs: [0]=date|type|See here, [1]=title, [2..]=description
+        desc = "".join(_text(p) for p in paras[2:]).strip()
+        if not desc:
+            title = _text(paras[1]).strip() if len(paras) > 1 else _text(sp)[:40]
+            out.append(title[:48])
+    return out
+
+
 def _pic_geom(pic) -> tuple[int, int] | None:
     x = pic.getElementsByTagName("a:xfrm")
     if not x:
@@ -628,7 +647,15 @@ def main() -> int:
                     continue
                 empties = webinar_slot_total(f) - len(webinar_slot_texts(f))
                 # informational only — fewer real webinars than slots is allowed now
-                emptybox["slides"][str(n)] = [f"{empties} empty webinar slot(s)"] if empties > 0 else []
+                notes = [f"{empties} empty webinar slot(s)"] if empties > 0 else []
+                # ...but a FILLED slot with no description is a real defect (mandatory description).
+                nodesc = webinar_slots_missing_desc(f)
+                if nodesc:
+                    emptybox["ok"] = False
+                    emptybox["notes"].append(
+                        f"slide {n} (webinars): {len(nodesc)} filled slot(s) missing a description: {nodesc}")
+                    notes.append(f"{len(nodesc)} filled slot(s) missing description")
+                emptybox["slides"][str(n)] = notes
             elif etype == "recent_blogs":
                 ns = entry["n"]
                 for n in (ns if isinstance(ns, list) else [ns]):

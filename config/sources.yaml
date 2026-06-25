@@ -8,7 +8,11 @@ releases:
     terraform:
       slug: terraform
       display: "Terraform"
-      # Strip pre-releases (alpha/beta/rc) and build metadata.
+      # Strip pre-releases (alpha/beta/rc) and build metadata. NOTE: keeping this true is correct even
+      # though a 1.16.0-alphaYYYYMMDD ships most days — that alpha is a preview of the NEXT minor and is
+      # typically superseded the SAME day by the latest stable patch (e.g. 1.15.7 shipped ~3h after
+      # 1.16.0-alpha20260624), so the stable patch is the real "latest". (stable_only IS wired in
+      # fetch_releases now; set false only for a product whose slide should preview pre-releases.)
       stable_only: true
     vault:
       slug: vault
@@ -45,7 +49,9 @@ blogs:
     vault:
       display: "Vault"
       keywords: ["vault", "hcp vault", "vault radar", "secrets", "pki", "encryption", "zero trust", "secrets management"]
-  recent_count: 3
+  recent_count: 6      # candidates per product to consider for the 8-slot blog slide (was 3 -> missed
+                       # the 4th+ most recent relevant post, e.g. the Vault "zero trust" blog). The
+                       # editor still inserts only NOT-already-present posts newest-first.
   # Feed is rate-limited (429). Retry with backoff and cache last good result.
   max_retries: 4
   retry_backoff_seconds: 3

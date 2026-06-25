@@ -44,6 +44,25 @@ def fmt_date(iso: str) -> str:
     return f"{d.strftime('%B')} {d.day}"
 
 
+_MONTHS = {m: i for i, m in enumerate(
+    ["january", "february", "march", "april", "may", "june", "july", "august",
+     "september", "october", "november", "december"], 1)}
+
+
+def _display_to_iso(disp: str, year: int) -> str | None:
+    """'June 9' (+ a reference year) -> '2026-06-09' for date-sorting existing entries."""
+    m = re.match(r"\s*([A-Za-z]+)\.?\s+(\d{1,2})", disp or "")
+    if not m:
+        return None
+    mon = _MONTHS.get(m.group(1).lower())
+    return f"{year:04d}-{mon:02d}-{int(m.group(2)):02d}" if mon else None
+
+
+def _entry_date_key(item: dict, year: int) -> str:
+    """Sortable date for a blog entry: its ISO `date` (fresh posts) or parsed `date_display`."""
+    return item.get("date") or _display_to_iso(item.get("date_display", ""), year) or "0000-00-00"
+
+
 def is_blog_entry(sp) -> bool:
     _, y = px.shape_xy(sp)
     if y is None or y < 1.3:
@@ -127,13 +146,20 @@ def edit_slide(slide_file: Path, rels_file: Path, posts: list[dict]) -> dict:
     for p in posts:  # blogs.json is newest-first
         if norm_url(p["url"]) in existing_urls or p["title"].strip().lower() in existing_titles:
             continue
-        fresh.append({"date_display": fmt_date(p["date"]), "title": p["title"], "url": p["url"]})
+        fresh.append({"date": p["date"], "date_display": fmt_date(p["date"]),
+                      "title": p["title"], "url": p["url"]})
 
     changed = bool(fresh)
     results: list[dict] = []
     pruned: list[str] = []
     if changed:
-        merged = (fresh + existing)[:len(entries)]
+        # Order by DATE (newest-first), not the source slide's position: the deck's blog boxes are not
+        # always date-sorted, so a plain position shift would push a RECENT post off the bottom while
+        # keeping an older one (e.g. the June 9 "zero trust" post sat at slot 8 below May posts). Sort
+        # so the 8 boxes always hold the 8 most-recent posts.
+        ref_year = int(posts[0]["date"][:4]) if posts else date.today().year
+        merged = sorted(fresh + existing, key=lambda e: _entry_date_key(e, ref_year),
+                        reverse=True)[:len(entries)]
         for sp, item in zip(entries, merged):
             results.append(write_entry(sp, rels_dom, item))
         pruned = px.prune_orphan_hyperlinks(dom, rels_dom)
