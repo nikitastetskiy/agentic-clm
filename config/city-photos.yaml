@@ -21,6 +21,13 @@ cities:
   hanoi:         {source: file, file: assets/city-photos/hanoi.jpg, note: "skyline at dusk (CC0)"}
   washington dc: {source: file, file: assets/city-photos/washington-dc.jpg, note: "Potomac skyline (CC BY-SA 4.0)"}
   zurich:        {source: file, file: assets/city-photos/zurich.jpg, note: "Old Town + Limmat (CC BY-SA 3.0)"}
+  paris:         {source: file, file: assets/city-photos/paris.jpg, note: "Eiffel Tower + cityscape (CC BY-SA 4.0)"}
+  berlin:        {source: file, file: assets/city-photos/berlin.jpg, note: "Fernsehturm + Tiergarten (CC BY-SA 4.0)"}
+  madrid:        {source: file, file: assets/city-photos/madrid.jpg, note: "Edificio Metropolis (CC BY-SA 4.0)"}
+  munich:        {source: file, file: assets/city-photos/munich.jpg, note: "Frauenkirche + Old Town (CC BY-SA 3.0)"}
+  dublin:        {source: file, file: assets/city-photos/dublin.jpg, note: "Convention Centre + Liffey (CC BY-SA 2.0)"}
+  milan:         {source: file, file: assets/city-photos/milan.jpg, note: "Duomo di Milano (CC0)"}
+  dubai:         {source: file, file: assets/city-photos/dubai.jpg, note: "Burj Khalifa skyline (CC BY 3.0)"}
 
 aliases:
   "uk": london                  # CISO UK and similar UK events are held in London
@@ -30,3 +37,9 @@ aliases:
   "washington d.c.": washington dc
   "washington dc usa": washington dc
   "washington": washington dc
+  "munchen": munich             # "Munchen"/"Munchen" (accent stripped by norm_city) -> munich
+  "muenchen": munich
+  "milano": milan
+  "uae": dubai                  # MENA events in the UAE are held in Dubai
+  "united arab emirates": dubai
+  "ireland": dublin             # HashiCorp Ireland events are held in Dublin
