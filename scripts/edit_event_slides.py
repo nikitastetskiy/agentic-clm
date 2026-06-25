@@ -725,6 +725,17 @@ def _fallback_webinar_desc(e: dict) -> str:
                                  "work in your environment.")
 
 
+def _one_sentence(text: str, limit: int = 155) -> str:
+    """Trim a webinar blurb to ONE concise sentence so it fits the small slot box (the box is sized for
+    one short sentence — deck-data writes one; a preserved multi-sentence source blurb would overflow)."""
+    text = " ".join((text or "").split())
+    m = re.match(r"(.+?[.!?])(?:\s|$)", text)
+    s = (m.group(1) if m else text).strip()
+    if len(s) > limit:
+        s = s[:limit].rsplit(" ", 1)[0].rstrip(",;:") + "\u2026"
+    return s
+
+
 def _norm(s: str) -> str:
     """Loose title key for equality (lowercase, collapse whitespace, drop punctuation)."""
     return re.sub(r"[^a-z0-9 ]", "", re.sub(r"\s+", " ", (s or "").lower())).strip()
@@ -763,19 +774,14 @@ def fill_webinar_slot(sp, rels_dom, e: dict) -> bool:
     px.run_hyperlink(runs0[see_idx]).setAttribute("r:id", px.add_rel(rels_dom, e["url"]))
     collapse_into_first_run(paras[1], e["title"])
     if len(paras) >= 3:
+        # Description priority: deck-data sentence -> preserved source blurb -> mandatory fallback.
+        # Always trimmed to ONE sentence so the small slot box never overflows.
         desc = (e.get("description") or "").strip()
-        if desc:
-            # Fresh description (deck-data) -> write it and drop any extra description paragraphs.
-            if collapse_into_first_run(paras[2], desc):
-                for p in paras[3:]:
-                    px.remove_node(p)
-        elif not _para_text(paras[2]):
-            # No fresh description AND the slot has no existing blurb -> synthesize a MANDATORY one
-            # (a webinar slot must never be description-less).
-            if collapse_into_first_run(paras[2], _fallback_webinar_desc(e)):
-                for p in paras[3:]:
-                    px.remove_node(p)
-        # else: PRESERVE the slot's existing hand-authored description as-is (never blank it).
+        if not desc:
+            desc = _para_text(paras[2]) or _fallback_webinar_desc(e)
+        if collapse_into_first_run(paras[2], _one_sentence(desc)):
+            for p in paras[3:]:
+                px.remove_node(p)
     return True
 
 
