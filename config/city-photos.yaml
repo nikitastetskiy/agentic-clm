@@ -5,6 +5,10 @@
 # stray divider line, and cropped badly). Keyed by the normalized event location (events.json
 # "location"). Two source kinds:
 #   bundled : a city photo that already ships in the SOURCE deck's media (extracted at edit time).
+#             AVOID for cities whose deck slide is an event leadspace — media indices (image46.png …)
+#             are deck-specific and a different deck can put an event-branded leadspace at that index
+#             (e.g. this deck's image46 is the "Agentic Runtime Security Exchange - London" leadspace,
+#             not a skyline). Prefer `file` for robustness across decks.
 #   file    : a freely-licensed photo committed under assets/city-photos/ (see its CREDITS.md).
 #
 # Normalization: location is lower-cased, trimmed, and punctuation collapsed before lookup; `aliases`
@@ -12,8 +16,8 @@
 # and every featured slot for that city picks it up automatically — no code change needed.
 
 cities:
-  london:        {source: bundled, media: image46.png, note: "Tower Bridge (ships in the deck)"}
-  amsterdam:     {source: bundled, media: image48.png, note: "canal houses (ships in the deck)"}
+  london:        {source: file, file: assets/city-photos/london.jpg, note: "Tower Bridge (CC BY-SA 4.0)"}
+  amsterdam:     {source: file, file: assets/city-photos/amsterdam.jpg, note: "Damrak canal houses (CC BY-SA 4.0)"}
   hanoi:         {source: file, file: assets/city-photos/hanoi.jpg, note: "skyline at dusk (CC0)"}
   washington dc: {source: file, file: assets/city-photos/washington-dc.jpg, note: "Potomac skyline (CC BY-SA 4.0)"}
   zurich:        {source: file, file: assets/city-photos/zurich.jpg, note: "Old Town + Limmat (CC BY-SA 3.0)"}
