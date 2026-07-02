@@ -179,7 +179,16 @@ slides:
       - "Each slot has a circular language flag (top-right); the editor repoints it to match the filled webinar's detected language (en/de/it/fr/es/nl) — assets/flags/<lang>.png."
       - "WEBINARS ONLY. Backfill spare slots from cross-product/cert WEBINARS (webinars.other), soonest-first; NEVER pad with conferences or featured events. Fewer webinars than slots -> leave the extra slots EMPTY (allowed). Hide only if ZERO webinars. Update .rels."
 
-  - n: [19, 20, 21, 22]
+  - n: [20]
+    # CORRECTED (2026-07-02): this deck edition has only ONE real featured-event template — slide 20
+    # (the only slide with a "Register Here" hyperlink + Title 1 + Content Placeholder hero pattern).
+    # Slide 19 is the "Featured/ In Person Events" SECTION DIVIDER (a title-only slide, no Title 1/
+    # date_register/description shapes) and slides 21 ("Engagement Status") / 22 ("Follow Up Items")
+    # are unrelated internal-process slides — none of the three are event-card templates. The previous
+    # [19, 20, 21, 22] list wrongly treated all four as event slots, which corrupted the deck: it hid
+    # slide 20 (the real, correctly-populated template) plus the two out-of-scope slides 21/22, and
+    # wrote a no-op into slide 19. AUTO-GROW still applies if this edition ever needs more than 1 slot:
+    # the editor duplicates slide 20 (the last/only template) after itself for each extra upcoming event.
     name: "Featured / In-Person Events"
     source: events
     product: featured
