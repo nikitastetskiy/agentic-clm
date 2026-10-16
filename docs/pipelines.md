@@ -350,8 +350,10 @@ or the enrichment step fails (the build continues with the rule-based wording).
   self-heal, in a throwaway copy of the repository with a parser deliberately made to mismatch the
   live changelog page, which the repair agent diagnosed and fixed, and the pipeline then proved.
   On GitHub Actions (2026-10-16): a preflight run (every tool present; every source host, GitHub and
-  the gateway host reachable), a weekly run that published release `deck-2026-10-16` with its PDF
-  preview in 2.5 minutes (degraded: the events page's checkpoint, see above), and the failure chain:
+  the gateway host reachable); weekly runs that published release `deck-2026-10-16` with its PDF
+  preview in under 3 minutes — first degraded by hashicorp.com's checkpoint, then, with the events
+  index and the browser change (see above), complete: all eleven slides, both webinar slides and the
+  October Vault posts, the gate passing without "degraded"; and the failure chain:
   a weekly run failed on purpose (`STRICT=1` with the events page blocked), its self-heal job
   reproduced the failure and, with no gateway key, opened an issue with the job's token. With the
   key: Haiku 5.5 worded the week's three new items from GitHub's runner (all accepted, committed to
