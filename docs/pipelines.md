@@ -311,15 +311,27 @@ publishes and it commits `state/`.
 - **Memory.** A managed worker gives a stage 4 GiB by default; headless Chromium plus LibreOffice fit.
   Build the image with `--build-arg INSTALL_OFFICE=false` to drop LibreOffice and the PDF preview.
 - **The events page** is behind a bot check. If the workers' network cannot pass it, the deck is built
-  without the event slides and marked degraded; set `strict = 1` to fail instead.
+  without the event slides and marked degraded; set `strict = 1` to fail instead. **GitHub-hosted
+  runners do not pass it** (checked 2026-10-16): from that datacenter network the checkpoint turns
+  away a browser that reports itself as automated, while the same browser passes from an office or
+  home network. The blog listing pages have the same check; the blog slides fall back to the feed
+  and lose nothing. IBM Cloud workers are a datacenter network too, so expect the same on SPS until
+  it has been tried. A runner on a network the checkpoint accepts (a self-hosted runner) gets the
+  event slides with the code as it is.
 - **What has been exercised, and what has not.** On a laptop: the build and the gate; the enrichment
   step against the real gateway; the GitHub client against GitHub Enterprise (read-only calls only);
   the credential path against a stand-in gateway; and a dry-run rehearsal of both pipelines — for
   self-heal, in a throwaway copy of the repository with a parser deliberately made to mismatch the
   live changelog page, which the repair agent diagnosed and fixed, and the pipeline then proved.
-  **Not yet exercised:** anything inside SPS (the image build, the pipeline definitions, the triggers,
-  the secret references) and every real write to GitHub (creating a release, pushing, opening a pull
-  request or an issue). Those need their first run there; start with `pipeline-mode = preflight`.
+  On GitHub Actions (2026-10-16): a preflight run (every tool present; every source host, GitHub and
+  the gateway host reachable), a weekly run that published release `deck-2026-10-16` with its PDF
+  preview in 2.5 minutes (degraded: the events page's checkpoint, see above), and the failure chain:
+  a weekly run failed on purpose (`STRICT=1` with the events page blocked), its self-heal job
+  reproduced the failure and, with no gateway key, opened an issue with the job's token.
+  **Not yet exercised:** a repair by the model on GitHub (it needs the `ICA_API_KEY` secret) and so a
+  real self-heal pull request; anything inside SPS (the image build, the pipeline definitions, the
+  triggers, the secret references). SPS needs its first run there; start with
+  `pipeline-mode = preflight`.
 
 [sps-guide]: https://community.ibm.com/community/user/blogs/aashita-manglani/2026/01/13/beginners-guide-to-secure-pipelines-service-sps
 [simple-pipeline]: https://cloud.ibm.com/docs/devsecops?topic=devsecops-cd-devsecops-simple-pipeline
