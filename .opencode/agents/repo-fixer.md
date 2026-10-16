@@ -74,7 +74,7 @@ in `output/`) and the gate (`scripts/verify_build.py`). Slides are addressed by 
 - Inventing content. Every line of the deck must come from a public HashiCorp or IBM page that the
   fetchers read. Do not add an internal source, and do not let the deck say more about a
   vulnerability than the public release notes for that release say.
-- Touching the pipeline's own plumbing: `.pipeline-config*.yaml`, `ci/`, `.opencode/`,
+- Touching the pipeline's own plumbing: `.pipeline-config*.yaml`, `.github/`, `ci/`, `.opencode/`,
   `opencode.json`, `Dockerfile`, `.gitignore`, anything about credentials or git remotes. A fix that
   changes these is rejected automatically.
 

@@ -1,0 +1,79 @@
+# The self-heal run on GitHub Actions: the same job as the SPS self-heal pipeline (docs/pipelines.md).
+# It starts as a job of a failed weekly run (.github/workflows/weekly-deck.yml), or by hand.
+#
+# ci/self-heal.sh reproduces the failure; if it persists, the repo-fixer agent repairs the code on a
+# large model, scripts/check_fix.py judges the change, the tests and a full rebuild prove it, and the
+# repair is proposed as a pull request (never merged automatically) — or reported as an issue.
+name: Self-heal
+
+on:
+  workflow_call:
+    inputs:
+      dry-run:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Rehearse: run everything, including the repair agent, but push and report nothing."
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  TZ: Europe/Madrid
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180   # three builds and up to two agent rounds of fix-timeout (45 min) each
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The repair agent has a shell in this checkout: leave no token in .git/config.
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Reproduce, repair, prove, propose
+        env:
+          PIPELINE_MODE: self-heal
+          CI_DRY_RUN: ${{ inputs.dry-run && '1' || '0' }}
+          PIPELINE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          ICA_API_KEY: ${{ secrets.ICA_API_KEY }}
+          ICA_BASE_URL: ${{ vars.ICA_BASE_URL }}
+          ENRICH: ${{ vars.ENRICH }}
+          ENRICH_MODEL: ${{ vars.ENRICH_MODEL }}
+          FIX_MODEL: ${{ vars.FIX_MODEL }}
+          FIX_ATTEMPTS: ${{ vars.FIX_ATTEMPTS }}
+          FIX_TIMEOUT: ${{ vars.FIX_TIMEOUT }}
+          EVENT_SCOPE: ${{ vars.EVENT_SCOPE }}
+          STRICT: ${{ vars.STRICT }}
+          RELEASE_KEEP: ${{ vars.RELEASE_KEEP }}
+        run: |
+          if [[ -z "$ICA_API_KEY" ]]; then
+            echo "::warning::The ICA_API_KEY secret is not set: the repair agent cannot run, so a failure that persists becomes an issue."
+            export ENRICH="${ENRICH:-0}"
+          fi
+          bash ci/run.sh
+
+      - name: Keep the agent's logs, the verdict and the deck with this run
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: self-heal-output
+          path: |
+            output/
+            data/build-report.json
+            data/verify-report.json
+          retention-days: 30
+          if-no-files-found: ignore

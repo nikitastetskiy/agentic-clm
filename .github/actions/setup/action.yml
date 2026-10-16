@@ -1,0 +1,46 @@
+# What the Dockerfile puts in the SPS image, on a GitHub-hosted runner: Python and the requirements,
+# Chromium for the pages that need a browser, the opencode CLI for the model steps, LibreOffice for
+# the PDF preview, and the Inter font. Used by both workflows in .github/workflows/.
+name: Set up the auto-pptx runner
+description: Install the tools the weekly build and the self-heal run need.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v7
+      with:
+        python-version: "3.14"
+        cache: pip
+        cache-dependency-path: requirements.txt
+
+    - name: Python packages
+      shell: bash
+      run: python -m pip install -r requirements.txt
+
+    - name: Playwright version
+      id: playwright
+      shell: bash
+      run: echo "version=$(python -c 'import importlib.metadata as m; print(m.version("playwright"))')" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+    - name: Chromium, LibreOffice and fonts
+      shell: bash
+      run: |
+        python -m playwright install --with-deps chromium
+        sudo apt-get install -y --no-install-recommends libreoffice-impress fonts-inter
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version: "22"
+
+    - name: opencode
+      shell: bash
+      # The same version as the SPS image: the Dockerfile's OPENCODE_VERSION is the one place it is set.
+      run: |
+        version="$(sed -n 's/^ARG OPENCODE_VERSION=//p' Dockerfile)"
+        npm install -g "opencode-ai@${version:?no OPENCODE_VERSION in the Dockerfile}"
+        opencode --version

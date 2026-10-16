@@ -1,17 +1,19 @@
 # Pipelines: the weekly build and the self-heal run
 
-Two pipelines run this repository on IBM Secure Pipelines Service (SPS). Both are thin: everything
-they do is in `ci/` and `build.sh`, so the same commands run on a laptop.
+Two pipelines run this repository: the weekly build and the self-heal run. They run on GitHub
+Actions in this repository ([below](#on-github-actions)) and are also set up for IBM Secure Pipelines
+Service (SPS). Both hosts are thin: everything the pipelines do is in `ci/` and `build.sh`, so the
+same commands run on a laptop.
 
 ```mermaid
 flowchart TD
-    T(["Timed trigger<br/>Mondays 06:00"]) --> W
+    T(["Schedule<br/>Monday morning"]) --> W
     subgraph W [Weekly build · ci/weekly-build.sh]
       W1["build.sh<br/>fetch → plan → enrich (small model) → build → verify"]
     end
     W1 -->|verified| P["Publish GitHub release deck-&lt;date&gt;<br/>deck · summary · reports · PDF preview"]
     P --> S["Commit state/ back<br/>(blog history, stored wording)"]
-    W1 -->|failed| H(["Generic webhook trigger"])
+    W1 -->|failed| H(["Self-heal job of the same run (GitHub)<br/>or webhook trigger (SPS)"])
     H --> R
     subgraph R [Self-heal · ci/self-heal.sh]
       R1["1 · reproduce the failure"] --> R2["2 · repair: repo-fixer agent<br/>(large model)"]
@@ -26,11 +28,53 @@ flowchart TD
 
 | | Weekly build | Self-heal |
 |---|---|---|
-| Starts | timed trigger, once a week | webhook call from a failed weekly run (or by hand) |
+| Starts | on a schedule, once a week | when a weekly run fails (or by hand) |
 | Model | small — `enrich-model`, default `ica-gateway/claude-haiku-4-5` | large — `fix-model`, default `ica-gateway/claude-opus-5-5` |
 | The model's job | word *new* release notes and event abstracts, one line each | find and fix the code that made the build fail |
 | What the model can touch | one JSON file in a scratch directory; no shell, no network | the checkout, with a shell; not git remotes, not the tokens |
 | Result | a GitHub release with the deck | a pull request with the fix **and** the week's deck — or an issue |
+
+---
+
+## On GitHub Actions
+
+This repository runs both pipelines on GitHub Actions:
+
+| File | What it is |
+|------|------------|
+| `.github/workflows/weekly-deck.yml` | the weekly build: Mondays 05:17 UTC (06:17 in Madrid in winter, 07:17 in summer), or **Run workflow** with `mode` = `weekly` or `preflight`, optionally as a dry run |
+| `.github/workflows/self-heal.yml` | the self-heal run: a job of a failed weekly run, or **Run workflow** by hand |
+| `.github/actions/setup/` | what the Dockerfile puts in the SPS image, installed on the runner: Python and the requirements, Chromium, LibreOffice, Inter, and the opencode version the `Dockerfile` pins |
+
+What differs from SPS:
+
+- **No image to build.** The runner installs the tools at the start of each run; pip packages and
+  Chromium are cached between runs.
+- **No personal token.** Publishing, the state commit, the repair branch, the pull request and the
+  issue use the job's own `GITHUB_TOKEN`: this repository only, only the permissions the job
+  declares, and only while the job runs.
+- **No webhook.** A build failure that a code change could repair writes `self-heal=true` to the
+  step's output (`ci_trigger_selfheal` in `ci/lib.sh`), and the weekly workflow's `self-heal` job
+  then runs `self-heal.yml` in the same run. A publishing failure (exit 60) and a dry run start
+  nothing.
+- **The schedule is in UTC**, so the local time moves with daylight saving.
+- **Each run also keeps its `output/`** (the deck, the summary, the logs; for self-heal also the
+  agent's logs and the guard's verdict) as a run artifact for 30 days.
+
+Settings, under **Settings → Secrets and variables → Actions**:
+
+| Name | Kind | Value |
+|------|------|-------|
+| `ICA_API_KEY` | secret | the LLM gateway key. Without it the deck is built with the rule-based wording, and self-heal can still recover from a transient failure but cannot repair one: it opens an issue. |
+| `ICA_BASE_URL` | variable | the gateway's OpenAI-compatible base URL, ending in `/v1` |
+| `ENRICH_MODEL`, `FIX_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default |
+
+The self-heal pull request also needs **Settings → Actions → General → Workflow permissions →
+Allow GitHub Actions to create and approve pull requests**. GitHub grants "create" and "approve"
+with that one switch; nothing in these workflows approves or merges a pull request.
+
+Cost: GitHub Free includes 2,000 Actions minutes a month for private repositories, and 500 MB of
+artifact storage shared with Packages, which is why run artifacts are kept 30 days only.
 
 ---
 
@@ -199,6 +243,8 @@ Nothing secret is in this repository, in the image, or in a log.
 | `ica-api-key` | Secrets Manager → secure property | `ci/lib.sh` → environment → opencode | calling the model |
 | `git-token` | Secrets Manager → secure property | `ci/lib.sh` → environment → publish / push / PR scripts | release, state commit, repair branch, PR, issue |
 | `selfheal-webhook-*` | Secrets Manager → secure property | `ci/lib.sh` (weekly run only) | starting the self-heal pipeline |
+| `ICA_API_KEY` (GitHub) | Actions secret | the workflow's pipeline step → environment → opencode | calling the model |
+| `GITHUB_TOKEN` (GitHub) | issued per job by GitHub | the workflow's pipeline step, as `GIT_TOKEN` | release, state commit, repair branch, PR, issue |
 
 - **The gateway key** is passed to opencode as an environment variable; the provider settings are
   given inline (`OPENCODE_CONFIG_CONTENT`) with `{env:ICA_API_KEY}` in place of the key, so the key is
@@ -215,6 +261,12 @@ Nothing secret is in this repository, in the image, or in a log.
   Its permissions deny the obvious ways (`env`, `printenv`, `curl`, `wget`, `ssh`), which is a
   deterrent rather than a sandbox. Use a gateway key issued for this pipeline alone, with a spend
   limit, and rotate it if a self-heal run ever behaves unexpectedly.
+- Removing the GitHub token from the agent's environment is not a sandbox either: the agent runs as
+  the same user as the pipeline process that holds the token, and could read it from there. That is
+  why the GitHub token should be as narrow as possible. On GitHub Actions it is the job's own
+  `GITHUB_TOKEN`: this repository only, and only until the job ends. The workflows check the
+  repository out with `persist-credentials: false`, so the token is not stored in `.git/config`, and
+  they pass secrets only to the step that runs `ci/run.sh`, never to the setup steps.
 - **Sessions are never shared**: `opencode.json` sets `"share": "disabled"`.
 - SPS masks secure values in logs; the scripts additionally never trace (`set +x`) or echo them.
 
