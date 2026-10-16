@@ -163,7 +163,7 @@ These mirror how the reference deck is maintained by hand.
 | `layout` | anything extends past the slide, or a card, flag, icon, month header or blog entry is off its line, or two highlights run together |
 | `links` | a link is dangling, not http(s), or points at an internal host (w3, GitHub Enterprise, Box, Slack …) |
 | `disclosure` | the deck names a CVE that the fetched public release notes do not |
-| `formatting` | a slide uses a colour or typeface the template does not |
+| `formatting` | a slide uses a colour or typeface the template does not, or the deck embeds a font under another font's name |
 | `freshness` | the cover shows the wrong month or claims the deck is ready to publish |
 
 Every one of these has a test that hands the gate a deliberately damaged deck (`tests/test_build.py`).

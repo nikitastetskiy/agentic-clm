@@ -111,5 +111,5 @@ def write_output(filename: str, payload: dict) -> Path:
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2, ensure_ascii=False)
     os.replace(tmp, path)
-    log(f"wrote {path.relative_to(REPO_ROOT)}")
+    log(f"wrote {path.relative_to(REPO_ROOT) if path.is_relative_to(REPO_ROOT) else path}")
     return path

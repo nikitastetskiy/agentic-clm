@@ -21,7 +21,8 @@ uses, and checks it against three independent things — the plan, the fetched d
   links        every hyperlink resolves to a relationship, is http(s), and does not point at an
                internal host (w3, GitHub Enterprise, Box, Slack …) — this deck goes to customers
   disclosure   every CVE id in the deck is named by the public release notes that were fetched
-  formatting   no colour or typeface that the template does not already use
+  formatting   no colour or typeface that the template does not already use, and no embedded font
+               whose data is another font than its name
   freshness    the cover shows the build month and does not claim the deck is ready to publish
 
 Exit 0 only if every check passes. Writes data/verify-report.json (machine-readable) and prints a
@@ -41,7 +42,7 @@ from urllib.parse import urlparse
 from xml.dom import minidom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import compose, deck, layout, slides as sl, textfit  # noqa: E402
+from lib import compose, deck, fonts, layout, slides as sl, textfit  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
 from lib.common import DATA_DIR, MONTH_NAMES, REPO_ROOT, load_config, log, read_json  # noqa: E402
 from lib.textfit import EMU_PT  # noqa: E402
@@ -290,8 +291,13 @@ def check_links(c: Check, slides: list[Path]) -> None:
                 c.fail(f"{slide.name}: link points at an internal host: {url}")
 
 
-def check_formatting(c: Check, slides: list[Path], template: Path) -> None:
-    """A built slide may only use colours and typefaces the template already contains."""
+def check_formatting(c: Check, slides: list[Path], template: Path, unpacked: Path) -> None:
+    """A built slide may only use colours and typefaces the template already contains, and every font
+    the deck embeds must be the font its name says (PowerPoint draws with the embedded data when the
+    typeface is not installed, lib/fonts.py)."""
+    for f in fonts.mismatched(unpacked):
+        c.fail(f"embedded font '{f['typeface']}' ({f['slot']}) carries "
+               f"{repr(f['family']) if f['family'] else 'no readable font'} data")
     known_hex, known_fonts = set(), set()
     with zipfile.ZipFile(template) as z:
         for name in z.namelist():
@@ -381,7 +387,7 @@ def main() -> int:
             check_layout(checks["layout"], ordered, {sp["role"]: sp["kind"] for sp in plan["slides"]},
                          slide_cx, slide_cy)
             check_links(checks["links"], ordered)
-            check_formatting(checks["formatting"], ordered, REPO_ROOT / cfg["deck"]["template"])
+            check_formatting(checks["formatting"], ordered, REPO_ROOT / cfg["deck"]["template"], tmp)
             check_disclosure(checks["disclosure"], ordered, data)
         month = f"{MONTH_NAMES[int(build_date[5:7]) - 1]} {build_date[:4]}"
         if not any(sp["kind"] == "cover" for sp in plan["slides"]):

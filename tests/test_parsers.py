@@ -1,6 +1,9 @@
 """The fetchers' parsers, against small saved samples of each page structure."""
+import json
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import helpers  # noqa: F401  (puts scripts/ on the import path)
 
@@ -11,6 +14,7 @@ import fetch_hcp_changelogs
 import fetch_release_notes
 import fetch_releases
 import fetch_tfe_releases
+from lib import common
 
 
 class VaultReleaseNotes(unittest.TestCase):
@@ -266,6 +270,15 @@ class Events(unittest.TestCase):
         self.assertIn("Lessons from New York banks", [e["title"] for e in events["webinars"]["vault"]])
         self.assertEqual([e["title"] for e in events["featured"]], ["Cloud Summit - London"])
         self.assertEqual([d["title"] for d in report["dropped"]], ["Cloud Summit - Toronto"])
+
+
+
+class FetcherOutput(unittest.TestCase):
+    def test_data_can_live_outside_the_repository(self):
+        # A scratch run points AUTO_PPTX_DATA_DIR outside the checkout; writing there must not fail.
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(common, "DATA_DIR", Path(tmp)):
+            path = common.write_output("blogs.json", {"products": {}})
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["products"], {})
 
 
 if __name__ == "__main__":
