@@ -1,35 +1,37 @@
 #!/usr/bin/env python3
-"""Fetch recent stable HashiCorp release versions from the public releases API.
+"""Fetch HashiCorp release history from the public releases API (Terraform, Vault).
 
-Deterministic source for slides 7 (Terraform), 11/12 (Vault). Terraform Enterprise (slide 8)
-is NOT on this API and is handled by the deck-releases agent from the docs releases page.
+Writes data/releases.json. Per product:
 
-Writes data/releases.json. The one-line changelog highlight per version is intentionally left
-blank ("highlight": null) for the agent to summarize from changelog_url in the deck's style.
+  * ``releases`` — EVERY release in the history window (config ``releases.history_months``), newest
+    first, paging through the API (20 per page). This is what the weekly deck is built from: each
+    month column lists every release of that month, so the whole window has to be re-derivable from
+    the source on every run. Pre-releases are included when the product sets ``deck_prereleases``
+    (the Terraform Core slide lists alpha/beta/rc builds next to the stable patches). Vault publishes
+    each version as several build variants (+ent, +ent.hsm, …) which are folded into one entry.
+  * ``latest`` / ``recent`` / ``month_window`` — the stable-only view the in-place deck updater
+    (edit_release_slides.py) reads. Unchanged.
+
+Highlights are added afterwards by fetch_changelogs.py / fetch_release_notes.py. Terraform Enterprise
+is not on this API (see fetch_tfe_releases.py).
 """
 from __future__ import annotations
 
-import calendar
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib.common import http_get_json, load_config, log, write_output  # noqa: E402
+from lib.common import (http_get_json, load_config, log, month_label, window_start,  # noqa: E402
+                        write_output)
+
+PAGE_SIZE = 20   # API maximum
+MAX_PAGES = 40   # hard stop; Vault needs ~1 page per release date (4 lines x 5 build variants)
 
 
 def base_semver(version: str) -> str:
     """Strip build metadata: '2.0.3+ent.hsm.fips1403' -> '2.0.3'."""
     return version.split("+", 1)[0]
-
-
-def month_label(date: str) -> str | None:
-    """'2026-06-17' -> 'June' (bare English month name, matching the deck's column headers)."""
-    if not date or len(date) < 7:
-        return None
-    try:
-        return calendar.month_name[int(date[5:7])] or None
-    except (ValueError, IndexError):
-        return None
 
 
 def is_stable(version: str, is_prerelease: bool) -> bool:
@@ -44,63 +46,67 @@ def major_minor(version: str) -> str:
     return ".".join(base_semver(version).split(".")[:2])
 
 
-def fetch_product(
-    api_base: str,
-    slug: str,
-    *,
-    normalize: bool,
-    recent_count: int,
-    stable_only: bool = True,
-    changelog_url_template: str | None = None,
-    release_notes_url_template: str | None = None,
-) -> list[dict]:
-    # Over-fetch (API max limit is 20) because Vault returns many build variants per base version.
-    url = f"{api_base}/{slug}?limit=20"
-    raw = http_get_json(url)
-    if not isinstance(raw, list):
-        raise RuntimeError(f"unexpected response for {slug}: {raw}")
-
-    seen: set[str] = set()
+def fetch_raw(api_base: str, slug: str, since: str) -> list[dict]:
+    """Every API record created on/after `since` (ISO date), newest first. The API returns at most 20
+    records per call and continues after the ``timestamp_created`` passed as ``after``."""
     out: list[dict] = []
+    after = None
+    for _ in range(MAX_PAGES):
+        url = f"{api_base}/{slug}?limit={PAGE_SIZE}" + (f"&after={quote(after)}" if after else "")
+        page = http_get_json(url)
+        if not isinstance(page, list):
+            raise RuntimeError(f"unexpected response for {slug}: {page}")
+        if not page:
+            break
+        out.extend(page)
+        after = page[-1].get("timestamp_created") or ""
+        if len(page) < PAGE_SIZE or after[:10] < since:
+            break
+    return [r for r in out if (r.get("timestamp_created") or "")[:10] >= since]
+
+
+def to_entries(raw: list[dict], *, normalize: bool, changelog_url_template: str | None,
+               release_notes_url_template: str | None, link_template: str | None) -> list[dict]:
+    """One entry per version, newest first. With `normalize`, build variants of the same base version
+    collapse into one entry that records which variants exist."""
+    by_key: dict[str, dict] = {}
     for rel in raw:
         ver = rel.get("version", "")
-        prerelease = bool(rel.get("is_prerelease", False)) or not is_stable(ver, False)
-        if stable_only and prerelease:  # only drop alpha/beta/rc when the product is stable-only
-            continue
         key = base_semver(ver) if normalize else ver
-        if key in seen:
+        variant = ver.split("+", 1)[1] if "+" in ver else ""
+        entry = by_key.get(key)
+        if entry is not None:
+            if variant not in entry["variants"]:
+                entry["variants"].append(variant)
             continue
-        seen.add(key)
+        date = (rel.get("timestamp_created") or "")[:10]
+        prerelease = bool(rel.get("is_prerelease", False)) or not is_stable(ver, False)
         # Prefer configured PUBLIC URL templates (the API's url_changelog may point at a private
-        # repo, e.g. vault-enterprise, which the agent cannot fetch). Fall back to the API fields.
-        changelog_url = (
-            changelog_url_template.format(version=key)
-            if changelog_url_template
-            else rel.get("url_changelog")
-        )
-        release_notes_url = (
-            release_notes_url_template.format(version=key)
-            if release_notes_url_template
-            else rel.get("url_release_notes")
-        )
-        out.append(
-            {
-                "version": key,
-                "raw_version": ver,
-                "date": (rel.get("timestamp_created") or "")[:10],
-                "month": (rel.get("timestamp_created") or "")[:7],
-                "month_label": month_label((rel.get("timestamp_created") or "")[:10]),
-                "is_prerelease": prerelease,
-                "changelog_url": changelog_url,
-                "release_notes_url": release_notes_url,
-                "highlight": None,  # agent fills this in (summarized from changelog_url)
-            }
-        )
-    # NB: we intentionally collect EVERY unique stable base in the API window (no early break).
-    # main() slices the first ``recent_count`` for display and derives the same-line ``month_window``
-    # from the full list — so a same-month patch (e.g. vault 2.0.2 the week before 2.0.3) is not lost
-    # behind the LTS backports that crowd the top of the feed.
-    return out
+        # repo, e.g. vault-enterprise). Fall back to the API fields.
+        changelog_url = (changelog_url_template.format(version=key) if changelog_url_template
+                         else rel.get("url_changelog"))
+        release_notes_url = (release_notes_url_template.format(version=key)
+                             if release_notes_url_template else rel.get("url_release_notes"))
+        by_key[key] = {
+            "version": key,
+            "raw_version": ver,
+            "date": date,
+            "date_source": "releases-api",
+            "month": date[:7],
+            "month_label": month_label(date),
+            "is_prerelease": prerelease,
+            "line": major_minor(key),
+            "variants": [variant],
+            "url": link_template.format(version=key) if link_template else release_notes_url,
+            "changelog_url": changelog_url,
+            "release_notes_url": release_notes_url,
+            "highlight": None,   # filled by fetch_changelogs.py / the enrichment step
+        }
+    for entry in by_key.values():
+        # "" = the community build. Lines that only ship +ent variants are Enterprise-only (Vault LTS).
+        entry["enterprise_only"] = "" not in entry["variants"]
+        entry["variants"].sort()
+    return sorted(by_key.values(), key=lambda e: (e["date"], e["version"]), reverse=True)
 
 
 def main() -> int:
@@ -108,54 +114,52 @@ def main() -> int:
     rel_cfg = cfg["releases"]
     api_base = rel_cfg["api_base"].rstrip("/")
     recent_count = int(rel_cfg.get("recent_count", 4))
+    months = int(rel_cfg.get("history_months", 6))
+    since = window_start(months)
 
     products: dict[str, dict] = {}
     for key, pcfg in rel_cfg["products"].items():
         slug = pcfg["slug"]
-        log(f"fetching releases: {slug}")
-        full = fetch_product(
-            api_base,
-            slug,
+        log(f"fetching releases: {slug} (since {since})")
+        entries = to_entries(
+            fetch_raw(api_base, slug, since),
             normalize=bool(pcfg.get("normalize_base_semver", False)),
-            recent_count=recent_count,
-            stable_only=bool(pcfg.get("stable_only", True)),
             changelog_url_template=pcfg.get("changelog_url_template"),
             release_notes_url_template=pcfg.get("release_notes_url_template"),
+            link_template=pcfg.get("link_template"),
         )
+        stable_only = bool(pcfg.get("stable_only", True))
+        full = [e for e in entries if not (stable_only and e["is_prerelease"])]
+        deck = entries if pcfg.get("deck_prereleases") else [e for e in entries if not e["is_prerelease"]]
         recent = full[:recent_count]
         latest = full[0] if full else None
-        # month_window: every stable release in the API window on the SAME release line (major.minor)
-        # as the latest. This is the authoritative set the deck's newest-month column must show in
-        # full — it stops a same-month patch being silently dropped (e.g. vault 2.0.2 vs 2.0.3) and
-        # gives verify_deck the ground truth for its "no skipped release" gate. LTS backports on other
-        # lines (1.21.x, 1.20.x) are excluded so they never trigger a false gap.
+        # month_window: every stable release on the SAME release line (major.minor) as the latest —
+        # the set the in-place updater's newest-month column must show in full.
         line = major_minor(latest["version"]) if latest else None
         month_window = [r for r in full if line and major_minor(r["version"]) == line]
         products[key] = {
             "display": pcfg.get("display", key.title()),
             "slug": slug,
-            # The single newest stable release. The build agent uses this as the rolling window's
-            # new col3 (right-most/latest). If its month equals the current col3 month it refreshes
-            # col3 in place; if newer, the (header, entry) column pairs shift left and the oldest
-            # drops off — existing col1/col2 history is preserved (it can't be re-derived: the API
-            # caps at 20 items, which for Vault are all the same month's backports).
+            "releases": deck,
             "latest": latest,
             "recent": recent,
             "month_window": month_window,
         }
-        log(f"  {slug}: recent={[r['version'] for r in recent]} "
-            f"month_window={[r['version'] for r in month_window]}")
+        log(f"  {slug}: {len(deck)} releases in window "
+            f"({sum(1 for e in deck if e['is_prerelease'])} pre-release); latest stable "
+            f"{latest['version'] if latest else '-'}")
 
-    # Record the TFE source so the agent knows to fetch + summarize it.
     tfe = cfg.get("terraform_enterprise", {})
     write_output(
         "releases.json",
         {
+            "window": {"since": since, "months": months},
             "products": products,
             "terraform_enterprise": {
                 "display": tfe.get("display", "Terraform Enterprise"),
                 "releases_page": tfe.get("releases_page"),
-                "note": "Not on releases API. deck-releases agent must web_fetch + summarize.",
+                "note": "Not on the releases API; filled by fetch_tfe_releases.py.",
+                "releases": [],
                 "recent": [],
             },
         },

@@ -1,5 +1,10 @@
 # Copilot instructions — auto-pptx
 
+> **Legacy.** These guardrails belong to the earlier in-place updater (`run.sh`: copy a full customer
+> deck and patch its automated slides by number). The project's current path is the **weekly build**
+> (`build.sh`), which builds a deck of only the automated slides from a template — see `README.md` and
+> `AGENTS.md`. Follow those for any work on the weekly build.
+
 These rules apply to **every** Copilot session in this repo (CLI window, coding agent, or the
 pipeline's own sub-agents). They keep the assistant scoped to what it's meant to do: refresh a few
 public-data slides of the HashiCorp **CSE EMEA Customer Cadence Deck** without ever breaking the

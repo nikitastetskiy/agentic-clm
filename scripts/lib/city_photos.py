@@ -21,9 +21,8 @@ import unicodedata
 import zipfile
 from pathlib import Path
 
-from lib.common import DATA_DIR, load_config
+from lib.common import DATA_DIR, REPO_ROOT, load_config
 
-REPO_ROOT = DATA_DIR.parent
 CACHE_DIR = DATA_DIR / "event-images"
 
 

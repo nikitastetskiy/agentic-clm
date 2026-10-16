@@ -1,75 +1,103 @@
-# Data sources for the auto-pptx pipeline.
-# Used by scripts/fetch_*.py (deterministic) and by the Copilot agents (web_fetch).
+# Data sources for the auto-pptx pipeline — PUBLIC endpoints only.
+# Used by scripts/fetch_*.py (deterministic). Nothing here may point at an internal or
+# access-controlled source: every line of the deck must be traceable to a public HashiCorp page.
 
 releases:
   api_base: "https://api.releases.hashicorp.com/v1/releases"
+  # How far back the fetchers look. The weekly deck shows the 3 most recent months that HAVE
+  # releases, so the window must be wide enough to find three of them (Vault can skip a month).
+  history_months: 6
   # Products available on the public releases API.
   products:
     terraform:
       slug: terraform
       display: "Terraform"
-      # Strip pre-releases (alpha/beta/rc) and build metadata. NOTE: keeping this true is correct even
-      # though a 1.16.0-alphaYYYYMMDD ships most days — that alpha is a preview of the NEXT minor and is
-      # typically superseded the SAME day by the latest stable patch (e.g. 1.15.7 shipped ~3h after
-      # 1.16.0-alpha20260624), so the stable patch is the real "latest". (stable_only IS wired in
-      # fetch_releases now; set false only for a product whose slide should preview pre-releases.)
+      # The in-place updater's view (latest / recent / month_window) is stable-only: a 1.17.0-alpha
+      # ships most weeks and is superseded the same day by the latest stable patch.
       stable_only: true
+      # The weekly deck's "Terraform Core/CLI – GitHub Releases" slide lists EVERY GitHub release of
+      # the month, pre-releases (alpha / beta / rc) included, each tagged "Pre-release".
+      deck_prereleases: true
+      link_template: "https://github.com/hashicorp/terraform/releases/tag/v{version}"
     vault:
       slug: vault
       display: "Vault"
       stable_only: true
       # Vault publishes +ent / +ent.hsm / +ent.fips variants; normalize to base semver.
       normalize_base_semver: true
-      # The releases API points Vault changelogs at the PRIVATE hashicorp/vault-enterprise repo
-      # (404 for the agent). Per-version PUBLIC tags don't all exist either. The main-branch
-      # CHANGELOG.md is always reachable and contains a "## <version>" section for every shipped
-      # release — the agent fetches it once and greps the section for each version's highlight.
+      # The releases API points Vault changelogs at the PRIVATE hashicorp/vault-enterprise repo.
+      # The public main-branch CHANGELOG.md has a "## <version>" section for every shipped release.
       changelog_url_template: "https://github.com/hashicorp/vault/blob/main/CHANGELOG.md"
       release_notes_url_template: "https://github.com/hashicorp/vault/releases/tag/v{version}"
-  # Number of recent stable versions to surface per product. The build renders
-  # products.<product>.latest into col3 and preserves the deck's existing (hand-curated, possibly
-  # multi-entry) columns; `recent` is context for the deck-data agent (e.g. optional highlight
-  # pre-fill), so a small value is sufficient.
+      # The deck links each Vault version to its docs release-notes anchor (what the slide cites as
+      # its source). `current` covers the newest major line; older (LTS) lines have versioned pages.
+      release_notes:
+        current: "https://developer.hashicorp.com/vault/docs/updates/release-notes"
+        versioned: "https://developer.hashicorp.com/vault/docs/v{line}.x/updates/release-notes"
+  # Number of recent stable versions surfaced as `recent` for the in-place updater.
   recent_count: 4
 
 # Terraform Enterprise is NOT on the releases API. It is fetched DETERMINISTICALLY by
-# scripts/fetch_tfe_releases.py (parses the releases page's __NEXT_DATA__) with a freshness guard
-# that compares against the deck's current slide-8 dates. The deck-data agent no longer fetches it.
+# scripts/fetch_tfe_releases.py from the docs releases pages (one page per N.M.x series).
 terraform_enterprise:
   releases_page: "https://developer.hashicorp.com/terraform/enterprise/releases"
   display: "Terraform Enterprise"
 
+# Date-based product changelogs (the HCP slides). Each entry on the page is a heading whose id is
+# its date (#2026-10-02) — fetched by scripts/fetch_hcp_changelogs.py.
+changelogs:
+  hcp-terraform:
+    display: "HCP Terraform"
+    url: "https://developer.hashicorp.com/terraform/cloud-docs/changelog"
+  hcp-vault:
+    display: "HCP Vault Dedicated"
+    url: "https://developer.hashicorp.com/hcp/docs/vault/changelog"
+
 blogs:
   feed: "https://www.hashicorp.com/blog/feed.xml"
-  # Client-side filtering by keyword/url-slug since the global feed has no per-product tags.
+  # Per-product listing pages (the page each blog slide cites as its source). They list the newest
+  # posts tagged with the product; the global feed above (20 newest posts, all products) fills in the
+  # rest. Both are needed: neither alone reaches 8 posts per product.
+  product_pages:
+    terraform: "https://www.hashicorp.com/en/blog/products/terraform"
+    vault: "https://www.hashicorp.com/en/blog/products/vault"
+  # A post is filed under a product when its TITLE names that product. A title naming neither deck
+  # product (or both) falls back to the product page it was listed on, then to these keywords matched
+  # against title + slug + summary. Keep keywords specific: "sentinel" once filed a Vault post about
+  # Microsoft Sentinel under Terraform.
   filters:
     terraform:
       display: "Terraform"
-      keywords: ["terraform", "hcp terraform", "terraform enterprise", "tfe", "infrastructure as code", "stacks", "run task", "sentinel"]
+      names: ["terraform"]
+      keywords: ["terraform", "hcp terraform", "terraform enterprise", "infrastructure as code", "terraform stacks", "run task"]
     vault:
       display: "Vault"
-      keywords: ["vault", "hcp vault", "vault radar", "secrets", "pki", "encryption", "zero trust", "secrets management"]
-  recent_count: 6      # candidates per product to consider for the 8-slot blog slide (was 3 -> missed
-                       # the 4th+ most recent relevant post, e.g. the Vault "zero trust" blog). The
-                       # editor still inserts only NOT-already-present posts newest-first.
+      names: ["vault"]
+      keywords: ["vault", "hcp vault", "vault radar", "secrets management", "pki", "zero trust"]
+  recent_count: 8      # one per entry box on a blog slide
   # Feed is rate-limited (429). Retry with backoff and cache last good result.
   max_retries: 4
   retry_backoff_seconds: 3
 
 events:
-  # Geographic scope: keep only events/webinars in these macro-regions (EMEA, MENA, APAC, AMERICAS).
-  # Empty list / absent = no filter (all regions). This is the CSE EMEA deck, so EMEA + MENA.
-  # Online webinars (no location) are always kept; see scripts/lib/regions.py for the place map.
+  # Geographic scope for IN-PERSON events (EMEA, MENA, APAC, AMERICAS). Empty list / absent = no
+  # filter. This is the CSE EMEA deck, so EMEA + MENA. Webinars and workshops are online and never
+  # filtered: the events page's region tag on them is the audience time zone, not a venue.
+  # See scripts/lib/regions.py for the place map.
   # Override per run without editing this file via the EVENT_SCOPE env var, e.g.
-  #   EVENT_SCOPE="EMEA,MENA" ./run.sh   |   EVENT_SCOPE="GLOBAL" ./run.sh   |   EVENT_SCOPE="USA" ./run.sh
+  #   EVENT_SCOPE="EMEA,MENA" ./build.sh   |   EVENT_SCOPE="GLOBAL" ./build.sh
   scope_regions: [EMEA, MENA]
-  # Behind Vercel bot protection -> fetched by the deck-data agent via web_fetch, not curl.
+  # Behind Vercel bot protection -> rendered with a headless browser, not a plain HTTP client.
   pages:
     all_events: "https://www.hashicorp.com/en/events"
+  # Event types shown in the product "Upcoming Webinars" slots, labelled with their own type. Every
+  # other type (conference, summit, …) is an in-person event and goes to the featured section.
+  slot_types: ["WEBINAR", "WORKSHOP"]
+  # Hand-maintained events that are not on the public events page (e.g. a regional exchange).
+  manual: "config/featured-events.yaml"
   webinars:
     # Product bucketing of webinars is BADGE-driven in scripts/fetch_events.py (each card's product
-    # icon/sr-only label), so these `keywords` are NOT used to tag the deterministic render. They
-    # remain only as a hint for the legacy agent web_fetch fallback (when Playwright is unavailable).
+    # icon/sr-only label). `keywords` only hint the legacy agent fallback.
     terraform:
       display: "Terraform"
       keywords: ["terraform", "infrastructure", "iac"]

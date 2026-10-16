@@ -20,6 +20,10 @@ newest TFE entry already on slide 8 of the *original* deck. If the live page is 
 (e.g. 2025 calendar versions vs the deck's 2026 semver), it is stale: we write ``recent: []`` /
 ``latest: null`` / ``status: "stale_source"`` so the build leaves slide 8 unchanged.
 
+The weekly deck additionally gets ``releases``: EVERY release in the history window (with its notes
+grouped by section), independent of the freshness guard — a deck built from scratch has no previous
+slide to protect.
+
 Augments data/releases.json -> ``terraform_enterprise`` in place. Run AFTER fetch_releases.py.
 """
 from __future__ import annotations
@@ -30,7 +34,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib.common import DATA_DIR, REPO_ROOT, http_get, load_config, log  # noqa: E402
+from lib import htmldoc  # noqa: E402
+from lib.common import DATA_DIR, REPO_ROOT, http_get, load_config, log, window_start  # noqa: E402
 
 RELEASES_JSON = DATA_DIR / "releases.json"
 MONTHS = ["January", "February", "March", "April", "May", "June",
@@ -126,6 +131,28 @@ def parse_series_page(html_text: str, series: str) -> list[dict]:
     return rows
 
 
+ISO_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+SECTION_ITEMS = 8        # notes kept per section in ``sections``
+SECTION_ITEM_CHARS = 420
+
+
+def parse_series_sections(html_text: str) -> dict[str, dict[str, list[dict]]]:
+    """version -> its release notes grouped by section ("Features", "Bug Fixes", "Security", …), read
+    from the page structure: each release is a heading whose id is its version (``2-0-8``), followed
+    by one sub-heading + list per section. Complements parse_series_page (versions + dates)."""
+    doc = htmldoc.parse(html_text)
+    version_id = re.compile(r"\d+-\d+-\d+")
+    out: dict[str, dict[str, list[dict]]] = {}
+    for head in htmldoc.headings_with_id(doc, version_id.pattern):
+        body = htmldoc.entry_body(head, lambda h: bool(version_id.fullmatch(h.get("id") or "")))
+        groups = htmldoc.sections(body)
+        groups.pop("", None)  # preamble: "Last required release", container digests
+        out[head.get("id").replace("-", ".")] = {
+            name: [{**item, "text": item["text"][:SECTION_ITEM_CHARS]} for item in items[:SECTION_ITEMS]]
+            for name, items in groups.items()}
+    return out
+
+
 def parse_release_rows(html: str) -> list[dict]:
     """FALLBACK (older calendar scheme): parse /<year>/v<version> rows from __NEXT_DATA__, newest first.
 
@@ -208,6 +235,8 @@ def main() -> int:
     te = data.setdefault("terraform_enterprise", {})
     te.setdefault("display", tfe_cfg.get("display", "Terraform Enterprise"))
     te["releases_page"] = page
+    te["releases"] = []
+    since = window_start(int(cfg.get("releases", {}).get("history_months", 6)))
 
     log(f"fetching TFE releases page: {page}")
     try:
@@ -228,7 +257,7 @@ def main() -> int:
     if series:
         log(f"  semver series found: {['%d.%d.x' % s for s in series]}")
         seen_ver: set[str] = set()
-        for maj, minr in series[:3]:  # cap requests; the newest series usually covers recent_count
+        for maj, minr in series[:4]:  # cap requests
             s = f"{maj}.{minr}"
             try:
                 shtml = http_get(f"{RELEASES_BASE}/{s}.x").decode("utf-8", "replace")
@@ -236,10 +265,16 @@ def main() -> int:
                 log(f"    series {s}.x fetch failed: {exc}")
                 continue
             new = [r for r in parse_series_page(shtml, s) if r["version"] not in seen_ver]
+            notes = parse_series_sections(shtml)
+            for r in new:
+                r["sections"] = notes.get(r["version"], {})
+                r["url"] = r["release_notes_url"]
             seen_ver.update(r["version"] for r in new)
             rows.extend(new)
             log(f"    {s}.x: {[r['version'] for r in new]}")
-            if len(rows) >= recent_count:
+            # An older series is still maintained alongside the newest one (1.2.x patches ship next
+            # to 2.0.x), so keep walking until a series has nothing inside the history window.
+            if len(rows) >= recent_count and not any(r["date"] >= since for r in new):
                 break
         rows.sort(key=lambda r: r["date"], reverse=True)
     if not rows:
@@ -252,6 +287,9 @@ def main() -> int:
         te["latest"] = None
         _write(data)
         return 0
+
+    te["releases"] = [r for r in rows if r.get("scheme") == "semver" and r["date"] >= since]
+    log(f"  {len(te['releases'])} TFE release(s) in the history window (since {since})")
 
     # Freshness guard: never downgrade slide 8 to an older source scheme/date.
     deck_date = deck_latest_tfe_date(_original_pptx())

@@ -33,9 +33,14 @@ def unpack(deck: Path, dest: Path) -> None:
     subprocess.run([sys.executable, str(UNPACK), str(deck), str(dest)], check=True, capture_output=True)
 
 
-def pack(src: Path, deck: Path) -> subprocess.CompletedProcess:
-    return subprocess.run([sys.executable, str(PACK), str(src), str(deck), "--validate", "true"],
-                          capture_output=True, text=True)
+def pack(src: Path, deck: Path, original: Path | None = None) -> subprocess.CompletedProcess:
+    """Zip an unpacked deck. The skill's schema validation only runs when it has an `original` to
+    compare against (it reports errors the edit introduced, not ones the source deck already had) —
+    pass the template / reference deck to get a real validation."""
+    cmd = [sys.executable, str(PACK), str(src), str(deck), "--validate", "true"]
+    if original is not None:
+        cmd += ["--original", str(original)]
+    return subprocess.run(cmd, capture_output=True, text=True)
 
 
 def _load_add_slide():
