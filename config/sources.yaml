@@ -90,6 +90,13 @@ events:
   # Behind Vercel bot protection -> rendered with a headless browser, not a plain HTTP client.
   pages:
     all_events: "https://www.hashicorp.com/en/events"
+  # The events page's own search index (Algolia): the page fills its cards from it with this public,
+  # search-only key, which it ships to every visitor. Read directly it gives the same dated events
+  # without the bot check, so it is where the dated events come from (scripts/fetch_events.py).
+  index:
+    app_id: "YY0FFNI7MF"
+    search_key: "3615ee8741704fe3f36c18efcf248c71"
+    name: "www:prod:events-asc"
   # Event types shown in the product "Upcoming Webinars" slots, labelled with their own type. Every
   # other type (conference, summit, …) is an in-person event and goes to the featured section.
   slot_types: ["WEBINAR", "WORKSHOP"]

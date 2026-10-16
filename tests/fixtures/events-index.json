@@ -1,0 +1,298 @@
+{
+ "note": "Trimmed response of the events page's search index (Algolia, www:prod:events-asc) on 2026-10-16: the five real records, then hand-made ones for the cases the parser must skip or link differently.",
+ "results": [
+  {
+   "hits": [
+    {
+     "objectID": "Ch6mgp2aR4-BFiru3_REdQ",
+     "title": "Build, deploy, and manage everything as code ",
+     "slug": "build-deploy-and-manage-everything-as-code",
+     "type": "Webinar",
+     "eventType": {
+      "__typename": "EventWebinarRecord",
+      "id": "frGSbX9BSSCJvHejgL8pzA",
+      "hidden": false,
+      "recordingVideoUrl": "",
+      "recording": null
+     },
+     "startTime": "2026-11-04T08:00:00-08:00",
+     "endTime": null,
+     "startTimestamp": 1793808000,
+     "isHidden": false,
+     "recorded": false,
+     "badges": [
+      {
+       "slug": "terraform",
+       "name": "Terraform"
+      }
+     ],
+     "products": [
+      "Terraform"
+     ],
+     "region": "Americas",
+     "language": "English",
+     "series": null
+    },
+    {
+     "objectID": "E7ik06EKTcW_rL7ZmYeF0Q",
+     "title": "From Fragmented Workflows to Policy-Driven Hybrid Cloud Automation",
+     "slug": "from-fragmented-workflows-to-policy-driven-hybrid-cloud-automation",
+     "type": "Webinar",
+     "eventType": {
+      "__typename": "EventWebinarRecord",
+      "id": "QXbu1oQFTMq428zAtpYYdA",
+      "hidden": false,
+      "recordingVideoUrl": "",
+      "recording": null
+     },
+     "startTime": "2026-11-12T09:00:00-08:00",
+     "endTime": "2026-11-12T10:00:00-08:00",
+     "startTimestamp": 1794502800,
+     "isHidden": false,
+     "recorded": false,
+     "badges": [
+      {
+       "slug": "terraform",
+       "name": "Terraform"
+      }
+     ],
+     "products": [
+      "Terraform"
+     ],
+     "region": "Americas",
+     "language": "English",
+     "series": null
+    },
+    {
+     "objectID": "RDw5qtFSTy21dS36iwX7Gw",
+     "title": "Executive roundtable: Agentic Runtime Security",
+     "slug": "executive-roundtable-agentic-runtime-security",
+     "type": "Workshop",
+     "eventType": {
+      "__typename": "EventWorkshopRecord",
+      "id": "eGurS85gTVSfwQIK_vgZqQ",
+      "url": "https://events.hashicorp.com/AgenticRuntimeSecurity"
+     },
+     "startTime": "2026-12-08T09:00:00-08:00",
+     "endTime": null,
+     "startTimestamp": 1796749200,
+     "isHidden": false,
+     "recorded": false,
+     "badges": [
+      {
+       "slug": "vault",
+       "name": "Vault"
+      },
+      {
+       "slug": "terraform",
+       "name": "Terraform"
+      }
+     ],
+     "products": [
+      "Vault",
+      "Terraform"
+     ],
+     "region": "Americas",
+     "language": "English",
+     "series": null
+    },
+    {
+     "objectID": "UdghwpjVRCae372gA8rVtA",
+     "title": "Hands-on workshop: Cloud Foundations (Terraform)",
+     "slug": "hands-on-workshop-cloud-foundations-terraform",
+     "type": "Workshop",
+     "eventType": {
+      "__typename": "EventWorkshopRecord",
+      "id": "EnKtg4QcTfGGDjdS-_h0Dw",
+      "url": "https://events.hashicorp.com/TerraformDec"
+     },
+     "startTime": "2026-12-09T08:00:00-08:00",
+     "endTime": "2026-12-08T10:00:00-08:00",
+     "startTimestamp": 1796832000,
+     "isHidden": false,
+     "recorded": false,
+     "badges": [
+      {
+       "slug": "terraform",
+       "name": "Terraform"
+      }
+     ],
+     "products": [
+      "Terraform"
+     ],
+     "region": "Americas",
+     "language": "English",
+     "series": null
+    },
+    {
+     "objectID": "bzz3gffmSSKWR0KfE_MTGg",
+     "title": "Hands-on workshop: Vault Quickstart",
+     "slug": "hands-on-workshop-vault-quickstart-dec",
+     "type": "Workshop",
+     "eventType": {
+      "__typename": "EventWorkshopRecord",
+      "id": "D8QlzUP2RN6cXaHdkGkLkA",
+      "url": "https://events.hashicorp.com/VaultQuickstartDec"
+     },
+     "startTime": "2026-12-10T08:00:00-08:00",
+     "endTime": "2026-12-10T10:00:00-08:00",
+     "startTimestamp": 1796918400,
+     "isHidden": false,
+     "recorded": false,
+     "badges": [
+      {
+       "slug": "vault",
+       "name": "Vault"
+      }
+     ],
+     "products": [
+      "Vault"
+     ],
+     "region": "Americas",
+     "language": "English",
+     "series": null
+    },
+    {
+     "objectID": "hidden",
+     "title": "A hidden webinar",
+     "slug": "hidden",
+     "type": "Webinar",
+     "eventType": {
+      "__typename": "EventWebinarRecord",
+      "id": "frGSbX9BSSCJvHejgL8pzA",
+      "hidden": false,
+      "recordingVideoUrl": "",
+      "recording": null
+     },
+     "startTime": "2026-11-04T08:00:00-08:00",
+     "endTime": null,
+     "startTimestamp": 1793808000,
+     "isHidden": true,
+     "recorded": false,
+     "badges": [
+      {
+       "slug": "terraform",
+       "name": "Terraform"
+      }
+     ],
+     "products": [
+      "Terraform"
+     ],
+     "region": "Americas",
+     "language": "English",
+     "series": null
+    },
+    {
+     "objectID": "recorded",
+     "title": "A recorded webinar",
+     "slug": "recorded",
+     "type": "Webinar",
+     "eventType": {
+      "__typename": "EventWebinarRecord",
+      "id": "frGSbX9BSSCJvHejgL8pzA",
+      "hidden": false,
+      "recordingVideoUrl": "",
+      "recording": null
+     },
+     "startTime": "2026-11-04T08:00:00-08:00",
+     "endTime": null,
+     "startTimestamp": 1793808000,
+     "isHidden": false,
+     "recorded": true,
+     "badges": [
+      {
+       "slug": "terraform",
+       "name": "Terraform"
+      }
+     ],
+     "products": [
+      "Terraform"
+     ],
+     "region": "Americas",
+     "language": "English",
+     "series": null
+    },
+    {
+     "objectID": "past",
+     "title": "Long gone",
+     "slug": "long-gone",
+     "type": "Webinar",
+     "eventType": {
+      "__typename": "EventWebinarRecord",
+      "id": "frGSbX9BSSCJvHejgL8pzA",
+      "hidden": false,
+      "recordingVideoUrl": "",
+      "recording": null
+     },
+     "startTime": "2026-09-01T08:00:00-07:00",
+     "endTime": null,
+     "startTimestamp": 1793808000,
+     "isHidden": false,
+     "recorded": false,
+     "badges": [
+      {
+       "slug": "terraform",
+       "name": "Terraform"
+      }
+     ],
+     "products": [
+      "Terraform"
+     ],
+     "region": "Americas",
+     "language": "English",
+     "series": null
+    },
+    {
+     "objectID": "bad-date",
+     "title": "No usable date",
+     "slug": "no-date",
+     "type": "Webinar",
+     "eventType": {
+      "__typename": "EventWebinarRecord",
+      "id": "frGSbX9BSSCJvHejgL8pzA",
+      "hidden": false,
+      "recordingVideoUrl": "",
+      "recording": null
+     },
+     "startTime": "TBD",
+     "endTime": null,
+     "startTimestamp": 1793808000,
+     "isHidden": false,
+     "recorded": false,
+     "badges": [
+      {
+       "slug": "terraform",
+       "name": "Terraform"
+      }
+     ],
+     "products": [
+      "Terraform"
+     ],
+     "region": "Americas",
+     "language": "English",
+     "series": null
+    },
+    {
+     "objectID": "summit",
+     "title": "Cloud Summit - London",
+     "slug": "cloud-summit-london",
+     "type": "Conference",
+     "eventType": {
+      "__typename": "EventConferenceRecord",
+      "id": "x"
+     },
+     "startTime": "2026-11-20T09:00:00+00:00",
+     "endTime": null,
+     "startTimestamp": 1793808000,
+     "isHidden": false,
+     "recorded": false,
+     "badges": [],
+     "products": [],
+     "region": "EMEA",
+     "language": "English",
+     "series": null
+    }
+   ]
+  }
+ ]
+}

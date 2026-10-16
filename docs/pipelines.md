@@ -325,15 +325,25 @@ or the enrichment step fails (the build continues with the rule-based wording).
   the pipeline name or a failed self-heal run would re-trigger itself).
 - **Memory.** A managed worker gives a stage 4 GiB by default; headless Chromium plus LibreOffice fit.
   Build the image with `--build-arg INSTALL_OFFICE=false` to drop LibreOffice and the PDF preview.
-- **The events page** is behind a bot check. If the workers' network cannot pass it, the deck is built
-  without the event slides and marked degraded; set `strict = 1` to fail instead. **GitHub-hosted
-  runners do not pass it** (checked 2026-10-16): from that datacenter network the checkpoint turns
-  away a browser that reports itself as automated, while the same browser passes from an office or
-  home network. The blog listing pages have the same check, and the feed the blog slides fall back
-  to lags the listings and carries no product tags, so they miss posts (on 2026-10-16, both October
-  Vault posts). IBM Cloud workers are a datacenter network too, so expect the same on SPS until
-  it has been tried. A runner on a network the checkpoint accepts (a self-hosted runner) gets the
-  event slides with the code as it is.
+- **hashicorp.com's bot check.** The events page and the blog listing pages sit behind a Vercel
+  checkpoint. From a datacenter network — GitHub's runners, and IBM Cloud workers too — it turns away
+  a browser that reports itself as automated, while it lets the same browser through from an office or
+  home network (tested on a runner on 2026-10-16: every setup that reported automation was turned away,
+  every one that did not cleared in about 3 s). Two things keep the weekly deck complete on GitHub:
+  - **The dated events come from the events page's own search index** (Algolia), which the page
+    queries with a public, search-only key (`events.index` in `config/sources.yaml`). It answers plain
+    HTTPS requests, so the webinar slides do not depend on the browser at all.
+  - **The browser does not report automation to hashicorp.com** (`lib/browser.py`) — the repository
+    owner's decision of 2026-10-16. It renders the blog listings, the event abstracts and the events
+    page's undated promotions. Pages on any other site — the registration pages on
+    events.hashicorp.com, which answer an automated visitor with a CAPTCHA — are opened by a browser
+    that says it is automated, and a CAPTCHA is never worked around: those events keep their stored
+    or generic wording.
+
+  When the page still cannot be rendered, the dated events come from the index alone and the summary
+  says what is missing (abstracts, promotions); blog slides then fall back to the feed, which lags the
+  listings, and the summary says that too. Only when neither events source answers are the event
+  slides left out and the deck marked degraded; set `strict = 1` to fail instead.
 - **What has been exercised, and what has not.** On a laptop: the build and the gate; the enrichment
   step against the real gateway; the GitHub client against GitHub Enterprise (read-only calls only);
   the credential path against a stand-in gateway; and a dry-run rehearsal of both pipelines — for

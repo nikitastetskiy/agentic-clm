@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
-"""Fetch upcoming HashiCorp events by RENDERING the events page with Playwright.
+"""Fetch upcoming HashiCorp events from the events page's own data, and render the page for the rest.
 
-The events page (https://www.hashicorp.com/en/events) sits behind a **Vercel Security
-Checkpoint** (a JavaScript challenge) that returns HTTP 429 to plain HTTP clients. A headless
-Chromium passes the challenge, so this script renders the page, extracts the event cards (date, type,
-title, url, product badges) straight from the live DOM and writes `data/events.json`:
+The events page (https://www.hashicorp.com/en/events) fills its event cards from a search index
+(Algolia), which it queries from the browser with a public, search-only key. The same query, made
+directly, returns the same records (date, type, title, link, product badges) as structured data and
+without the page's **Vercel Security Checkpoint** — a JavaScript challenge that answers plain HTTP
+clients with 429. The index is therefore the source of the dated events (``dated_from``).
+
+The page itself is still rendered with a headless Chromium (lib/browser.py) for what the index does
+not hold — the undated "Featured Events" promotions and each event's abstract — and its cards are
+compared with the index: an event only the page shows is kept, and when the index does not answer
+the page's cards are the source, as they were before the index was used. Then `data/events.json`:
 
   * ``webinars`` — events whose type is one of ``events.slot_types`` (WEBINAR, WORKSHOP), bucketed by
     product. These fill the slots of the product "Upcoming Webinars" slides, each labelled with its
@@ -39,16 +45,21 @@ Each event's own page is then opened for its abstract (``abstract``, with ``abst
 is best-effort: registration pages on events.hashicorp.com sit behind a CAPTCHA, which is never
 worked around — those events simply carry no abstract and the deck uses a curated or generic line.
 
-If Playwright or its browser is unavailable, or the bot check does not clear, this writes an empty
-`data/events.json` with ``status: "unavailable"`` (the event slides are then left out of the deck —
-never faked) and exits 0. A page that renders but yields no event cards is treated as a layout
-change and exits 1.
+If the page cannot be rendered (Playwright missing, or the bot check does not clear) the dated events
+still come from the index; the week then has no abstracts and no promotions, which ``note`` says. Only
+when neither source answers is `data/events.json` written empty with ``status: "unavailable"`` (the
+event slides are left out of the deck — never faked), exit 0. A page that renders but yields no event
+card while the index did not answer is treated as a layout change and exits 1.
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
-from datetime import date, datetime
+import time
+import urllib.error
+import urllib.request
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -64,6 +75,8 @@ except ImportError:  # pragma: no cover
 
 EVENTS_URL = "https://www.hashicorp.com/en/events"
 BASE = "https://www.hashicorp.com"
+INDEX_QUERY_URL = "https://{app}-dsn.algolia.net/1/indexes/*/queries"
+WEBINAR_URL = BASE + "/events/webinars/{slug}"   # where the page links a webinar record
 DEFAULT_SLOT_TYPES = ("WEBINAR",)
 # An event page's abstract is its first substantial block of prose that is not form/legal boilerplate.
 ABSTRACT_MIN_BLOCK = 90
@@ -264,13 +277,20 @@ def fetch_abstract(ctx, url: str) -> tuple[str, str]:
         page.close()
 
 
-def attach_abstracts(ctx, events: dict) -> None:
-    """Open each kept event's page once and record its abstract on every copy of the event."""
+def event_pages(events: dict, wanted) -> dict[str, list[dict]]:
+    """url -> the copies of the event it belongs to, for the kept events whose url `wanted(url)` accepts
+    (a hand-maintained event carries its own description and is skipped)."""
     by_url: dict[str, list[dict]] = {}
     for ev in [e for bucket in events["webinars"].values() for e in bucket] + events["featured"]:
-        if ev.get("source") != "manual":  # a hand-maintained event carries its own description
+        if ev.get("source") != "manual" and wanted(ev["url"]):
             by_url.setdefault(ev["url"], []).append(ev)
-    for url, copies in by_url.items():
+    return by_url
+
+
+def attach_abstracts(ctx, events: dict, wanted=lambda url: True) -> None:
+    """Open each kept event's page once (those `wanted` accepts) and record its abstract on every copy
+    of the event."""
+    for url, copies in event_pages(events, wanted).items():
         abstract, status = fetch_abstract(ctx, url)
         log(f"   abstract [{status}] {copies[0]['title'][:60]}")
         for ev in copies:
@@ -312,6 +332,83 @@ def parse_card(card: dict, today: str) -> dict | None:
     }
 
 
+def index_hits(icfg: dict, since: int, *, attempts: int = 2) -> list[dict]:
+    """The events page's search-index records that start after `since` (epoch seconds): the query the
+    page itself makes, with the public search-only key it ships to every visitor."""
+    body = json.dumps({"requests": [{"indexName": icfg["name"], "filters": f"startTimestamp > {since}",
+                                     "hitsPerPage": 200}]}).encode()
+    req = urllib.request.Request(INDEX_QUERY_URL.format(app=icfg["app_id"].lower()), data=body, headers={
+        "X-Algolia-Application-Id": icfg["app_id"], "X-Algolia-API-Key": icfg["search_key"],
+        "Content-Type": "application/json", "User-Agent": "auto-pptx weekly build"})
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.load(resp)["results"][0]["hits"]
+        except (urllib.error.URLError, TimeoutError, KeyError, IndexError, ValueError) as exc:
+            if attempt == attempts:
+                raise
+            log(f"events index did not answer ({str(exc)[:120]}); asking again")
+            time.sleep(3)
+    return []
+
+
+def event_url(hit: dict) -> str:
+    """Where the events page links an index record: its registration page when it has one (the
+    workshops on events.hashicorp.com), a webinar's own page, otherwise the events page."""
+    kind = hit.get("eventType") or {}
+    if kind.get("url"):
+        return kind["url"]
+    if kind.get("__typename") == "EventWebinarRecord" and hit.get("slug"):
+        return WEBINAR_URL.format(slug=hit["slug"])
+    return EVENTS_URL
+
+
+def parse_hit(hit: dict, today: str) -> dict | None:
+    """An index record -> the structured event parse_card makes of a rendered card; None for a past,
+    hidden or recorded one. The date is the event's own local date, as the page prints it."""
+    if hit.get("isHidden") or (hit.get("eventType") or {}).get("hidden") or hit.get("recorded"):
+        return None
+    try:
+        start = datetime.fromisoformat(hit.get("startTime") or "")
+    except ValueError:
+        return None
+    iso, title = start.date().isoformat(), " ".join((hit.get("title") or "").split())
+    if iso < today or not title:
+        return None
+    products = {(b.get("slug") or "").lower() for b in hit.get("badges") or []}
+    products |= {str(p).lower() for p in hit.get("products") or []}
+    d = datetime.fromisoformat(iso)
+    return {
+        "date": iso,
+        "display_date": d.strftime("%b %-d, %Y"),
+        "display_date_short": d.strftime("%B %-d"),
+        "title": title,
+        "type": (hit.get("type") or "EVENT").upper(),
+        "products": sorted(products & {p.lower() for p in PRODUCTS}),
+        "url": event_url(hit),
+    }
+
+
+def event_key(e: dict) -> tuple[str, str]:
+    return e["date"], " ".join(e["title"].split()).lower()
+
+
+def reconcile(indexed: list[dict] | None, rendered: list[dict]) -> tuple[list[dict], list[str]]:
+    """The dated events for the deck, and where the two sources differ. The index is the source when
+    it answered; an event only the rendered page shows is kept too, and the page's link replaces the
+    generic one an index record without a link of its own gets. Without the index, the page's cards."""
+    if indexed is None:
+        return rendered, []
+    page = {event_key(e): e for e in rendered}
+    keys = {event_key(e) for e in indexed}
+    out = [{**e, "url": page[event_key(e)]["url"]} if e["url"] == EVENTS_URL and event_key(e) in page else e
+           for e in indexed]
+    out += [e for k, e in page.items() if k not in keys]
+    differ = ([f"only in the index: {d} {t}" for d, t in sorted(keys - set(page))] if rendered else [])
+    differ += [f"only on the page: {d} {t}" for d, t in sorted(set(page) - keys)]
+    return sorted(out, key=lambda e: e["date"]), differ
+
+
 def _slot(e: dict) -> dict:
     return {"date": e["date"], "display_date": e["display_date"], "title": e["title"],
             "url": e["url"], "description": "", "products": e["products"], "type": e["type"],
@@ -335,12 +432,21 @@ def _featured(e: dict) -> dict:
             "abstract": "", "abstract_status": "not_fetched"}
 
 
+def parse_cards(cards: list[dict], today: str) -> list[dict]:
+    """The upcoming events among the rendered page's raw cards, by date."""
+    return sorted((e for e in (parse_card(c, today) for c in cards) if e), key=lambda e: e["date"])
+
+
 def build_events(cards: list[dict], today: str, webinar_cfg: dict,
                  slot_types: tuple[str, ...] = DEFAULT_SLOT_TYPES) -> dict:
-    events = sorted(
-        (e for e in (parse_card(c, today) for c in cards) if e),
-        key=lambda e: e["date"],
-    )
+    return bucket_events(parse_cards(cards, today), today, webinar_cfg, slot_types)
+
+
+def bucket_events(events: list[dict], today: str, webinar_cfg: dict,
+                  slot_types: tuple[str, ...] = DEFAULT_SLOT_TYPES) -> dict:
+    """Structured events (from the index or the page) -> the product webinar slots and the featured
+    (in-person) events."""
+    events = sorted(events, key=lambda e: e["date"])
     # Webinars are bucketed by their PRODUCT BADGE (authoritative). A webinar tagged with several
     # products (e.g. Boundary + Vault) is placed in each bucket it belongs to. "other" keeps the FULL
     # cross-product pool — sessions whose badge isn't a deck product (or that carry no badge) — which
@@ -447,38 +553,74 @@ def unavailable(note: str) -> dict:
             "webinars": {"terraform": [], "vault": [], "other": []}, "featured": []}
 
 
+def assemble(listed: list[dict], today: str, webinar_cfg: dict, slot_types: tuple[str, ...],
+             manual: list[dict], scope: list[str]) -> dict:
+    """The dated events, the hand-maintained ones and the region scope -> the content of events.json."""
+    events = bucket_events(listed, today, webinar_cfg, slot_types)
+    merge_manual(events, manual, slot_types)
+    rep = scope_in_person(events, scope)
+    if scope:
+        log(f"region scope {scope} (in-person events; online sessions are open to all): "
+            f"kept {rep['kept']}, dropped {len(rep['dropped'])} out-of-region")
+        for d in rep["dropped"]:
+            log(f"   - dropped [{d['region']}] {d['bucket']}: {d['title']}")
+    else:
+        log("region scope: GLOBAL (no region filter)")
+    return events
+
+
 def main() -> int:
     cfg = load_config()
     ecfg = cfg["events"]
     today = run_date().isoformat()
     slot_types = tuple(t.upper() for t in ecfg.get("slot_types") or DEFAULT_SLOT_TYPES)
     manual = load_manual_events(REPO_ROOT / ecfg["manual"], today) if ecfg.get("manual") else []
+    scope = resolve_scope_regions(ecfg.get("scope_regions"))
+    bad = unknown_regions(scope)
+    if bad:
+        log(f"WARNING: unrecognized scope region(s) {bad}; known: EMEA, MENA, APAC, AMERICAS (or GLOBAL)")
+
+    indexed = None
+    if ecfg.get("index"):
+        since = int(datetime.fromisoformat(today).replace(tzinfo=timezone.utc).timestamp()) - 86400
+        try:
+            indexed = sorted((e for e in (parse_hit(h, today) for h in index_hits(ecfg["index"], since)) if e),
+                             key=lambda e: e["date"])
+            log(f"events index: {len(indexed)} upcoming event(s)")
+        except Exception as exc:  # noqa: BLE001 — the rendered page is the other source
+            log(f"events index unavailable ({str(exc).splitlines()[0][:160]}); the rendered page is the only source")
+
+    def without_page(note: str) -> dict:
+        if indexed is None:
+            log(f"events unavailable ({note})")
+            events = unavailable(note)
+            merge_manual(events, manual, slot_types)
+            return events
+        events = assemble(indexed, today, ecfg["webinars"], slot_types, manual, scope)
+        events.update(dated_from="index", unscheduled=[],
+                      note=f"events page not rendered ({note}); the dated events come from its index, "
+                           "without abstracts or the undated promotions")
+        return events
 
     try:
         with browser.session() as ctx:
             cards, promos = render_cards(ctx)
-            log(f"events page rendered; {len(cards)} candidate cards, {len(promos)} undated promotions")
-            events = build_events(cards, today, ecfg["webinars"], slot_types)
-            if not (any(events["webinars"].values()) or events["featured"]):
-                # The page rendered but no card parsed: almost certainly a layout change, which is a
-                # code problem — fail loudly rather than ship a deck that silently lost its events.
+            rendered = parse_cards(cards, today)
+            log(f"events page rendered; {len(cards)} candidate cards ({len(rendered)} upcoming), "
+                f"{len(promos)} undated promotions")
+            if indexed is None and not rendered:
+                # The page rendered, no card parsed and the index did not answer: almost certainly a
+                # layout change, which is a code problem — fail loudly rather than ship a deck that
+                # silently lost its events.
                 log("ERROR: rendered events page yielded zero upcoming events (layout change?)")
                 write_output("events.json", unavailable("events page rendered but no event card parsed"))
                 return 1
-            scope = resolve_scope_regions(ecfg.get("scope_regions"))
-            bad = unknown_regions(scope)
-            if bad:
-                log(f"WARNING: unrecognized scope region(s) {bad}; known: EMEA, MENA, APAC, AMERICAS (or GLOBAL)")
-            merge_manual(events, manual, slot_types)
-            rep = scope_in_person(events, scope)
-            if scope:
-                log(f"region scope {scope} (in-person events; online sessions are open to all): "
-                    f"kept {rep['kept']}, dropped {len(rep['dropped'])} out-of-region")
-                for d in rep["dropped"]:
-                    log(f"   - dropped [{d['region']}] {d['bucket']}: {d['title']}")
-            else:
-                log("region scope: GLOBAL (no region filter)")
-            attach_abstracts(ctx, events)
+            listed, differ = reconcile(indexed, rendered)
+            for line in differ:
+                log(f"   events page and index differ — {line}")
+            events = assemble(listed, today, ecfg["webinars"], slot_types, manual, scope)
+            events["dated_from"] = "page" if indexed is None else "index"
+            attach_abstracts(ctx, events, browser.own_site)
             events["unscheduled"] = []
             try:
                 events["unscheduled"] = unscheduled_events(
@@ -488,14 +630,21 @@ def main() -> int:
                 log(f"WARNING: undated promotions not read ({str(exc).splitlines()[0][:120]})")
             for item in events["unscheduled"]:
                 log(f"   not on a slide ({item['format']}, {item['when']}): {item['type'].title()} — {item['title']}")
+        elsewhere = lambda url: not browser.own_site(url)  # noqa: E731
+        if event_pages(events, elsewhere):
+            # Event pages on other sites (registration pages on events.hashicorp.com) are opened by a
+            # browser that says it is automated: a CAPTCHA there is never worked around.
+            try:
+                with browser.session(report_automation=True) as plain:
+                    attach_abstracts(plain, events, elsewhere)
+            except Exception as exc:  # noqa: BLE001 — abstracts are best-effort
+                log(f"WARNING: event pages on other sites not read ({str(exc).splitlines()[0][:120]})")
     except ImportError:
-        log("playwright not installed; events unavailable (run `python -m playwright install chromium`)")
-        events = unavailable("playwright unavailable")
-        merge_manual(events, manual, slot_types)
+        log("playwright not installed (run `python -m playwright install chromium`)")
+        events = without_page("playwright unavailable")
     except Exception as exc:  # noqa: BLE001 — a blocked/failed render is an environment problem
-        log(f"events render failed ({str(exc).splitlines()[0][:160]}); events unavailable")
-        events = unavailable(f"render failed: {type(exc).__name__}")
-        merge_manual(events, manual, slot_types)
+        log(f"events render failed ({str(exc).splitlines()[0][:160]})")
+        events = without_page(f"render failed: {type(exc).__name__}")
 
     events["counts"] = {"terraform_webinars": len(events["webinars"]["terraform"]),
                         "vault_webinars": len(events["webinars"]["vault"]),

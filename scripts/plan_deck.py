@@ -378,6 +378,10 @@ class Planner:
         if events_status != "ok":
             self.notes.append(f"events source: {events_status} "
                               f"({self.data['events'].get('note', 'no detail')}) — event slides left out")
+        elif self.data["events"].get("note"):
+            self.notes.append(f"events: {self.data['events']['note']}")
+        if self.data["blogs"].get("note"):
+            self.notes.append(f"blogs: {self.data['blogs']['note']}")
         status = "failed" if self.problems else ("degraded" if events_status != "ok" else "ok")
         return {"build": {"date": self.day.isoformat(), "status": status, "notes": self.notes,
                           "problems": self.problems,

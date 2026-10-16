@@ -4,29 +4,58 @@ The events page and the blog listing pages answer plain HTTP clients with a 429 
 A headless Chromium runs the challenge and receives the clearance cookie, so those pages are rendered
 with Playwright. One browser session serves every page of a run (the cookie carries over).
 
+From a datacenter network — GitHub's hosted runners, where the weekly build runs — the checkpoint
+also turns away a browser that reports itself as automated (``navigator.webdriver``), while it lets
+the same browser through from an office or home network. Tested on a runner on 2026-10-16: every
+setup that reported automation was turned away, every one that did not cleared in about 3 seconds.
+So the session does not report it: Chromium starts without its automation flag and with its own user
+agent minus "Headless". The repository owner chose this on 2026-10-16 for a build that reads a handful
+of public pages a week (docs/pipelines.md) — for hashicorp.com's own checkpoint (OWN_SITE), and for
+nothing else: a page on another host (the registration pages on events.hashicorp.com, which answer an
+automated visitor with a CAPTCHA) is opened with ``session(report_automation=True)``, a browser that
+says what it is, and a CAPTCHA there is never worked around.
+
 Playwright is imported lazily: callers catch ImportError to degrade when it is not installed.
 """
 from __future__ import annotations
 
 from contextlib import contextmanager
+from urllib.parse import urlparse
 
-UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+LAUNCH_ARGS = ("--disable-blink-features=AutomationControlled",)
 CHECKPOINT_TITLES = ("Security Checkpoint", "Just a moment")
+OWN_SITE = ("www.hashicorp.com", "hashicorp.com")   # where the session does not report automation
+
+
+def own_site(url: str) -> bool:
+    return (urlparse(url).hostname or "").lower() in OWN_SITE
 
 
 class CheckpointError(RuntimeError):
     """The bot check never cleared — an environment problem (blocked network / IP), not a parser bug."""
 
 
+def user_agent(raw: str) -> str:
+    """The browser's own user agent without the "Headless" marker."""
+    return raw.replace("HeadlessChrome/", "Chrome/")
+
+
 @contextmanager
-def session():
+def session(*, report_automation: bool = False):
+    """A browser context for hashicorp.com pages; with `report_automation`, one for any other site."""
     from playwright.sync_api import sync_playwright  # lazy so the fallback paths need no dependency
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # channel="chromium" is the full browser in its current headless mode, not the separate
+        # headless shell Playwright uses by default.
+        browser = p.chromium.launch(headless=True, channel="chromium",
+                                    args=[] if report_automation else list(LAUNCH_ARGS))
         try:
-            yield browser.new_context(user_agent=UA, viewport={"width": 1280, "height": 2000},
+            probe = browser.new_page()
+            agent = probe.evaluate("navigator.userAgent")
+            agent = agent if report_automation else user_agent(agent)
+            probe.close()
+            yield browser.new_context(user_agent=agent, viewport={"width": 1280, "height": 2000},
                                       locale="en-US")
         finally:
             browser.close()
