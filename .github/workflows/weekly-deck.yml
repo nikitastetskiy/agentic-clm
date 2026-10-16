@@ -1,0 +1,89 @@
+# The weekly deck on GitHub Actions: the same job as the IBM SPS pipeline (docs/pipelines.md).
+# ci/run.sh does all the work; this file only provides a runner, the settings and the schedule.
+#
+# A build that fails in a way a code change could repair (ci_trigger_selfheal in ci/lib.sh) starts
+# the self-heal job below, which runs .github/workflows/self-heal.yml.
+name: Weekly deck
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"   # Mondays 05:17 UTC: 06:17 in Madrid in winter, 07:17 in summer
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "weekly: build and publish the deck. preflight: only report what the runner can reach."
+        type: choice
+        options: [weekly, preflight]
+        default: weekly
+      dry-run:
+        description: "Rehearse: build for real, but publish, push and report nothing."
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-pptx-deck
+  cancel-in-progress: false
+
+env:
+  TZ: Europe/Madrid
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write   # the release and the state/ commit
+    outputs:
+      self-heal: ${{ steps.run.outputs.self-heal }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false   # pushes go through ci/askpass.sh; no token is left in .git/config
+
+      - uses: ./.github/actions/setup
+
+      - name: Build, verify and publish
+        id: run
+        env:
+          PIPELINE_MODE: ${{ inputs.mode || 'weekly' }}
+          CI_DRY_RUN: ${{ inputs.dry-run && '1' || '0' }}
+          PIPELINE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          ICA_API_KEY: ${{ secrets.ICA_API_KEY }}
+          ICA_BASE_URL: ${{ vars.ICA_BASE_URL }}
+          ENRICH: ${{ vars.ENRICH }}
+          ENRICH_MODEL: ${{ vars.ENRICH_MODEL }}
+          EVENT_SCOPE: ${{ vars.EVENT_SCOPE }}
+          STRICT: ${{ vars.STRICT }}
+          RELEASE_KEEP: ${{ vars.RELEASE_KEEP }}
+        run: |
+          # Without the gateway key there is no model to call: the deck keeps its rule-based wording.
+          if [[ -z "$ICA_API_KEY" ]]; then export ENRICH="${ENRICH:-0}"; fi
+          bash ci/run.sh
+
+      - name: Keep the deck, the summary and the logs with this run
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: weekly-output
+          path: |
+            output/
+            data/build-report.json
+            data/verify-report.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+  self-heal:
+    needs: build
+    if: failure() && needs.build.outputs.self-heal == 'true'
+    permissions:
+      contents: write        # the repair branch and the deck built from it
+      pull-requests: write   # the pull request with the repair
+      issues: write          # the issue when nothing could be repaired
+    uses: ./.github/workflows/self-heal.yml
+    secrets: inherit

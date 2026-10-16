@@ -172,7 +172,9 @@ Every one of these has a test that hands the gate a deliberately damaged deck (`
 
 ## Running it every week
 
-Two pipelines for IBM Secure Pipelines Service are set up in [`docs/pipelines.md`](docs/pipelines.md):
+Two pipelines run the build unattended — on GitHub Actions in this repository
+(`.github/workflows/`), or on IBM Secure Pipelines Service; [`docs/pipelines.md`](docs/pipelines.md)
+covers both:
 
 - **Weekly build** — on a schedule: build, verify, publish the deck as a GitHub release
   (`…/releases/latest` always opens this week's deck).
@@ -217,7 +219,8 @@ scripts/fetch_*.py       fetchers           scripts/plan_deck.py   planner
 scripts/build_deck.py    builder            scripts/verify_build.py  gate
 scripts/enrich.py        optional LLM wording, cached in state/
 scripts/lib/             slide structure finders, text fitting, paragraph composition, …
-ci/  .pipeline-config.yaml  .opencode/      the two pipelines and their agents
+ci/  .opencode/          the two pipelines and their agents
+.github/workflows/       the pipelines on GitHub Actions (.pipeline-config*.yaml: on IBM SPS)
 tests/                   offline suite: parsers, planner, text fitting, guards, end-to-end + damaged decks
 ```
 

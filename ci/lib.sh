@@ -149,11 +149,18 @@ ci_git_push() {
     git -c credential.helper= push "https://x-access-token@${host_repo}.git" "$refspec"
 }
 
-# ci_trigger_selfheal <failed step> <exit code> — start the self-heal pipeline through its generic
-# webhook trigger. Returns non-zero when no webhook is configured or the call fails.
+# ci_trigger_selfheal <failed step> <exit code> — start the self-heal pipeline: on GitHub Actions
+# through a step output that the weekly workflow's self-heal job waits for, elsewhere through the
+# self-heal pipeline's generic webhook trigger. Returns non-zero when neither is available or the
+# webhook call fails.
 ci_trigger_selfheal() {
   if [[ "${CI_DRY_RUN:-0}" == "1" ]]; then echo "  [dry-run] would trigger the self-heal pipeline ($1, exit $2)"; return 0; fi
-  if [[ -z "$SELFHEAL_WEBHOOK_URL" ]]; then
+  if [[ "${GITHUB_ACTIONS:-}" == "true" && -n "${GITHUB_OUTPUT:-}" ]]; then
+    printf 'self-heal=true\nfailed-step=%s\nfailed-code=%s\n' "$1" "$2" >> "$GITHUB_OUTPUT"
+    echo "  self-heal job requested (.github/workflows/weekly-deck.yml)"
+    return 0
+  fi
+  if [[ -z "${SELFHEAL_WEBHOOK_URL:-}" ]]; then
     ci_warn "no selfheal-webhook-url configured; start the self-heal pipeline by hand"
     return 1
   fi

@@ -84,7 +84,8 @@ class FixGuard(unittest.TestCase):
 
     def test_the_pipeline_s_own_plumbing_is_off_limits(self):
         for path in ("ci/self-heal.sh", ".pipeline-config.yaml", ".opencode/agents/repo-fixer.md", "opencode.json",
-                     "scripts/check_fix.py", "templates/cadence-template.pptx", "Dockerfile", ".env.example"):
+                     "scripts/check_fix.py", "templates/cadence-template.pptx", "Dockerfile", ".env.example",
+                     ".github/workflows/self-heal.yml", ".github/actions/setup/action.yml"):
             v = check_fix.judge([("M", path)], 3, self.SUMMARY, 600)
             self.assertEqual(v["verdict"], "rejected", path)
 
