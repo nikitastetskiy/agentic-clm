@@ -329,8 +329,9 @@ or the enrichment step fails (the build continues with the rule-based wording).
   without the event slides and marked degraded; set `strict = 1` to fail instead. **GitHub-hosted
   runners do not pass it** (checked 2026-10-16): from that datacenter network the checkpoint turns
   away a browser that reports itself as automated, while the same browser passes from an office or
-  home network. The blog listing pages have the same check; the blog slides fall back to the feed
-  and lose nothing. IBM Cloud workers are a datacenter network too, so expect the same on SPS until
+  home network. The blog listing pages have the same check, and the feed the blog slides fall back
+  to lags the listings and carries no product tags, so they miss posts (on 2026-10-16, both October
+  Vault posts). IBM Cloud workers are a datacenter network too, so expect the same on SPS until
   it has been tried. A runner on a network the checkpoint accepts (a self-hosted runner) gets the
   event slides with the code as it is.
 - **What has been exercised, and what has not.** On a laptop: the build and the gate; the enrichment
