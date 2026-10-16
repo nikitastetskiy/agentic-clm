@@ -11,7 +11,9 @@ Rejected outright:
     it read must not be able to widen its own permissions;
   * a deleted test;
   * a change larger than FIX_MAX_LINES (default 600) changed lines — a repair is small; anything
-    bigger needs a person.
+    bigger needs a person;
+  * a change or fix summary that contains the value of one of the pipeline's secrets (lib/redact.py)
+    — the agent works next to the gateway key, and nothing it writes may carry it out.
 
 Allowed but flagged for the reviewer: any change to the gate (scripts/verify_build.py, the layout rules it
 shares with the builder in scripts/lib/layout.py, tests/).
@@ -30,12 +32,14 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib import redact  # noqa: E402
 from lib.common import REPO_ROOT  # noqa: E402
 
 PROTECTED = ("ci/", ".opencode/", ".github/", "templates/", "opencode.json", "Dockerfile",
              "docker-compose.yml", ".gitignore", ".dockerignore", ".env", ".pipeline-config",
              "scripts/check_fix.py", "scripts/report_fix.py", "scripts/publish_release.py",
-             "scripts/lib/agent.py", "scripts/lib/github.py")
+             "scripts/scrub_secrets.py", "scripts/lib/agent.py", "scripts/lib/github.py",
+             "scripts/lib/redact.py")
 GENERATED = ("data/", "output/", "state/")
 GATE = ("scripts/verify_build.py", "scripts/lib/layout.py", "tests/")
 SUMMARY = REPO_ROOT / "output" / "fix-summary.md"
@@ -71,9 +75,23 @@ def changed_lines(files: list[tuple[str, str]]) -> int:
     return total
 
 
-def judge(files: list[tuple[str, str]], lines: int, summary: str, limit: int) -> dict:
+def changed_text(files: list[tuple[str, str]]) -> list[str]:
+    """What the change adds: the diff of tracked files and the content of new ones."""
+    texts = [git("diff", "HEAD", "--", ".", *(f":!{g}" for g in GENERATED))]
+    for status, path in files:
+        if status == "??":
+            try:
+                texts.append((REPO_ROOT / path).read_text(encoding="utf-8", errors="replace"))
+            except OSError:
+                pass
+    return texts
+
+
+def judge(files: list[tuple[str, str]], lines: int, summary: str, limit: int,
+          leaks: list[str] = ()) -> dict:
     """The verdict on a change: `files` are (git status, path) pairs with generated paths already
-    left out, `lines` the changed-line count, `summary` the agent's fix summary."""
+    left out, `lines` the changed-line count, `summary` the agent's fix summary, `leaks` the names
+    of the secrets whose value the change or the summary contains."""
     headline = summary.strip().splitlines()[0].strip() if summary.strip() else ""
     verdict = {"verdict": "ok", "headline": headline, "files": [p for _s, p in files], "lines": lines,
                "touches_gate": any(p.startswith(GATE) for _s, p in files), "reasons": []}
@@ -86,6 +104,7 @@ def judge(files: list[tuple[str, str]], lines: int, summary: str, limit: int) ->
         return verdict
     verdict["reasons"] += [f"protected path changed: {p}" for _s, p in files if p.startswith(PROTECTED)]
     verdict["reasons"] += [f"test deleted: {p}" for s, p in files if "D" in s and p.startswith("tests/")]
+    verdict["reasons"] += [f"the change contains the value of the secret {name}" for name in leaks]
     if lines > limit:
         verdict["reasons"].append(f"{lines} changed lines exceeds the limit of {limit}")
     if not headline:
@@ -98,8 +117,10 @@ def judge(files: list[tuple[str, str]], lines: int, summary: str, limit: int) ->
 def main() -> int:
     files = changed_files()
     summary = SUMMARY.read_text(encoding="utf-8") if SUMMARY.exists() else ""
+    leaks = redact.found_in([summary, *changed_text(files)]) if files or summary else []
     verdict = judge(files, changed_lines(files) if files else 0, summary,
-                    int(os.environ.get("FIX_MAX_LINES", "600")))
+                    int(os.environ.get("FIX_MAX_LINES", "600")), leaks)
+    verdict["headline"] = redact.scrub(verdict["headline"])   # it becomes the commit message
     print(json.dumps(verdict, indent=2))
     return {"ok": 0, "no-fix": 3, "no-change": 3, "rejected": 4}[verdict["verdict"]]
 

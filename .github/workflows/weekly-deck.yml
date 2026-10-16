@@ -61,10 +61,18 @@ jobs:
           EVENT_SCOPE: ${{ vars.EVENT_SCOPE }}
           STRICT: ${{ vars.STRICT }}
           RELEASE_KEEP: ${{ vars.RELEASE_KEEP }}
+          BASE_BRANCH: ${{ vars.BASE_BRANCH || github.ref_name }}
         run: |
           # Without the gateway key there is no model to call: the deck keeps its rule-based wording.
           if [[ -z "$ICA_API_KEY" ]]; then export ENRICH="${ENRICH:-0}"; fi
           bash ci/run.sh
+
+      - name: Remove secret values from the files kept with this run
+        if: always()
+        env:
+          ICA_API_KEY: ${{ secrets.ICA_API_KEY }}
+          GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/scrub_secrets.py output data
 
       - name: Keep the deck, the summary and the logs with this run
         if: always()

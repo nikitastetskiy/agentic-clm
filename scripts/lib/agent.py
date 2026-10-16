@@ -15,6 +15,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from lib import redact
 from lib.common import REPO_ROOT, log
 
 AGENT_DIR = REPO_ROOT / ".opencode"
@@ -45,6 +46,7 @@ def run(agent: str, message: str, *, model: str, cwd: Path, timeout: int = 900,
         output += f"\n[timeout after {timeout}s]"
         code = 124
     if log_file is not None:
+        # The transcript is kept with the run, outside the CI's log masking: no secret value in it.
         log_file.parent.mkdir(parents=True, exist_ok=True)
-        log_file.write_text(output, encoding="utf-8")
+        log_file.write_text(redact.scrub(output), encoding="utf-8")
     return code

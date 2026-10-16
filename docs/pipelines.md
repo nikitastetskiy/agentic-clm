@@ -29,7 +29,7 @@ flowchart TD
 | | Weekly build | Self-heal |
 |---|---|---|
 | Starts | on a schedule, once a week | when a weekly run fails (or by hand) |
-| Model | small — `enrich-model`, default `ica-gateway/claude-haiku-4-5` | large — `fix-model`, default `ica-gateway/claude-opus-5-5` |
+| Model | small — `enrich-model`, default `ica-gateway/claude-haiku-5-5` | large — `fix-model`, default `ica-gateway/claude-opus-5-5` |
 | The model's job | word *new* release notes and event abstracts, one line each | find and fix the code that made the build fail |
 | What the model can touch | one JSON file in a scratch directory; no shell, no network | the checkout, with a shell; not git remotes, not the tokens |
 | Result | a GitHub release with the deck | a pull request with the fix **and** the week's deck — or an issue |
@@ -67,7 +67,8 @@ Settings, under **Settings → Secrets and variables → Actions**:
 |------|------|-------|
 | `ICA_API_KEY` | secret | the LLM gateway key. Without it the deck is built with the rule-based wording, and self-heal can still recover from a transient failure but cannot repair one: it opens an issue. |
 | `ICA_BASE_URL` | variable | the gateway's OpenAI-compatible base URL, ending in `/v1` |
-| `ENRICH_MODEL`, `FIX_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default |
+| `ENRICH_MODEL`, `FIX_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, Opus 5.5 for repairs) |
+| `BASE_BRANCH` | variable, optional | where the state commit goes and what a repair is proposed against; unset means the branch the run was started on |
 
 The self-heal pull request also needs **Settings → Actions → General → Workflow permissions →
 Allow GitHub Actions to create and approve pull requests**. GitHub grants "create" and "approve"
@@ -138,7 +139,7 @@ definition source, set these **environment properties**:
 | `ibmcloud-api-key` | **secure** | required by the pipeline definitions |
 | `ica-base-url` | text | the LLM gateway's OpenAI-compatible base URL (ends in `/v1`) |
 | `ica-api-key` | **secure** | the gateway API key |
-| `enrich-model` | text | `ica-gateway/claude-haiku-4-5` |
+| `enrich-model` | text | `ica-gateway/claude-haiku-5-5` |
 | `fix-model` | text | `ica-gateway/claude-opus-5-5` |
 | `selfheal-webhook-url` | **secure** | the self-heal trigger's webhook URL (step 3) |
 | `selfheal-webhook-token` | **secure** | the secret of that trigger |
@@ -266,7 +267,16 @@ Nothing secret is in this repository, in the image, or in a log.
   why the GitHub token should be as narrow as possible. On GitHub Actions it is the job's own
   `GITHUB_TOKEN`: this repository only, and only until the job ends. The workflows check the
   repository out with `persist-credentials: false`, so the token is not stored in `.git/config`, and
-  they pass secrets only to the step that runs `ci/run.sh`, never to the setup steps.
+  they pass secrets only to the repository's own scripts (`ci/run.sh`, `scripts/scrub_secrets.py`),
+  never to the setup steps or to a third-party action.
+- **Nothing the pipeline publishes carries a secret** (`scripts/lib/redact.py`). The CI masks secrets
+  in its logs, but not in a pull request, an issue, release notes, a commit or the files saved with a
+  run — and in self-heal a model with a shell wrote some of those. So the value of every secret the
+  run has (gateway key, GitHub token, webhook secret) is replaced by `[<NAME> removed]` in everything
+  sent to GitHub (`lib/github.py`), in the agent transcripts (`lib/agent.py`) and in the run's saved
+  files (`scripts/scrub_secrets.py`, a workflow step before the upload); and the guard rejects a
+  repair whose change or summary contains one (`check_fix.py`). The match is verbatim: this stops a
+  pasted key, not one the model encoded first — hence the dedicated key with a spend limit.
 - **Sessions are never shared**: `opencode.json` sets `"share": "disabled"`.
 - SPS masks secure values in logs; the scripts additionally never trace (`set +x`) or echo them.
 
@@ -301,6 +311,11 @@ make test                                        # what the self-heal pipeline u
 leaves the machine: no push, no release, no pull request, no issue, no webhook; each is printed
 instead, and the checkout's history is not touched. Without it, `ci/run.sh` is the pipeline: it
 publishes and it commits `state/`.
+
+On a laptop opencode uses its own login and only calls models its config lists. In a pipeline the
+model list is written from `ENRICH_MODEL` and `FIX_MODEL`; locally, add the models to the
+`ica-gateway` provider's `models` in your opencode config (`claude-haiku-5-5`, `claude-opus-5-5`),
+or the enrichment step fails (the build continues with the rule-based wording).
 
 ## Notes and alternatives
 
