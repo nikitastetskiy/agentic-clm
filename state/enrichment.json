@@ -159,6 +159,13 @@
       ],
       "source": "reference-deck"
     },
+    "hcp-terraform/2026-10-15": {
+      "bullets": [
+        "For Flex 1.0 billing accounts, the **Premium plan now appears as a locked card** beside Essentials and Standard, so it cannot be selected. Other organizations can still select Premium."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-10-16"
+    },
     "hcp-vault/2026-07-07": {
       "bullets": [
         "**Vault 2.0.3 is now available for HCP Vault** Dedicated clusters on AWS and Azure. Refer to the Vault 2.0.3 release notes to learn more about the new features, enhancements, and fixes included in Vault 2.0.3"
@@ -182,6 +189,13 @@
         "**Data plane account details:** HCP Vault Dedicated clusters on AWS and Azure now expose the data plane account details directly.."
       ],
       "source": "reference-deck"
+    },
+    "hcp-vault/2026-10-14": {
+      "bullets": [
+        "**Vault 2.1.2 addresses CVE-2026-105818**, a PKI secrets engine vulnerability that could allow unverified identities in certificates issued through the default ACME directory policy. Manual-upgrade clusters should upgrade as soon as possible."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-10-16"
     },
     "terraform-enterprise/1.2.4": {
       "bullets": [
@@ -272,6 +286,13 @@
         "The release also **expands PKI flexibility** by supporting additional CSR subject attributes, while delivering security patches and fixes across Secrets Sync, Agent Registry, leases, and the Vault UI."
       ],
       "source": "reference-deck"
+    },
+    "vault/2.2.0": {
+      "bullets": [
+        "**Vault 2.2.0 adds OAuth2 access tokens for Azure static roles** and generally available SCIM provisioning. It also includes KV v2 snapshot recovery, EdDSA support and a public beta of Vault Client, along with bug fixes."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-10-16"
     }
   }
 }
