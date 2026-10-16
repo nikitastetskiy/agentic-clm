@@ -342,9 +342,13 @@ or the enrichment step fails (the build continues with the rule-based wording).
   the gateway host reachable), a weekly run that published release `deck-2026-10-16` with its PDF
   preview in 2.5 minutes (degraded: the events page's checkpoint, see above), and the failure chain:
   a weekly run failed on purpose (`STRICT=1` with the events page blocked), its self-heal job
-  reproduced the failure and, with no gateway key, opened an issue with the job's token.
-  **Not yet exercised:** a repair by the model on GitHub (it needs the `ICA_API_KEY` secret) and so a
-  real self-heal pull request; anything inside SPS (the image build, the pipeline definitions, the
+  reproduced the failure and, with no gateway key, opened an issue with the job's token. With the
+  key: Haiku 5.5 worded the week's three new items from GitHub's runner (all accepted, committed to
+  `state/` by the workflow); and a full repair — a parser fault injected on a throwaway branch made
+  the weekly build fail, Opus 5.5 found the cause and fixed it with a test in about five minutes, the
+  guard, the tests and a full rebuild passed, and the pull request was opened against that branch.
+  Neither the pull request nor any of the 26 files saved with the run contained the key.
+  **Not yet exercised:** anything inside SPS (the image build, the pipeline definitions, the
   triggers, the secret references). SPS needs its first run there; start with
   `pipeline-mode = preflight`.
 
