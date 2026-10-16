@@ -1,0 +1,430 @@
+{
+ "generated_at": "2026-10-13T16:14:20.058165+00:00",
+ "window": {
+  "since": "2026-05-01"
+ },
+ "products": {
+  "hcp-terraform": {
+   "display": "HCP Terraform",
+   "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog",
+   "status": "ok",
+   "entries": [
+    {
+     "date": "2026-10-02",
+     "month": "2026-10",
+     "month_label": "October",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-10-02",
+     "items": [
+      {
+       "title": "",
+       "text": "HCP Terraform now supports Azure DevOps Org scoped Personal Access Tokens, allowing users to connect using tokens scoped to a specific organization, rather than globally. This change enables users to migrate their VCS connections before Microsoft retires global PATs on December 1, 2026."
+      }
+     ]
+    },
+    {
+     "date": "2026-10-01",
+     "month": "2026-10",
+     "month_label": "October",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-10-01",
+     "items": [
+      {
+       "title": "",
+       "text": "SCIM provisioning is now available in HCP Terraform under the security tab of the organization settings page, allowing administrators to automate user provisioning and deprovisioning for their organizations. This addition streamlines user lifecycle management through IdPs such as Microsoft Entra ID and Okta. Refer to SCIM Provisioning (https://developer.hashicorp.com/terraform/cloud-docs/scim) for more details."
+      },
+      {
+       "title": "",
+       "text": "Token deletion audit events now include the token type (token_type) and expiration time (expired_at) for organization, team, and user tokens, providing more detailed information for audit purposes. This change ensures that all relevant metadata is captured during deletion events, enhancing traceability and accountability."
+      },
+      {
+       "title": "",
+       "text": "Audit events for deleted user and team tokens now include owner metadata for identifying the token owner. The new attributes are owner_id, owner_name and owner_type which provide the owner's external ID, name, and type."
+      },
+      {
+       "title": "",
+       "text": "Added token_type and expired_at to the resource_meta payload on authentication token create audit events, covering org, team, and user tokens. This provides more detailed information about the tokens created."
+      },
+      {
+       "title": "",
+       "text": "Token create audit events for a team or user authentication token now records owner_id, owner_name, and owner_type to identify the owner of the token."
+      },
+      {
+       "title": "",
+       "text": "HCP TF SAML configuration update audit events now include changed attributes in resource_meta under changes, allowing internal reviewers to see what changed. This change is limited to update actions and does not affect create, enable, disable, or destroy audit behavior."
+      }
+     ]
+    },
+    {
+     "date": "2026-09-17",
+     "month": "2026-09",
+     "month_label": "September",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-09-17",
+     "items": [
+      {
+       "title": "",
+       "text": "An optional description field has been added to teams in Organization Settings, allowing users to add context and documentation to their teams. The description field is visible in both the team list and team detail pages, with a limit of 300 characters."
+      },
+      {
+       "title": "",
+       "text": "The create_organization audit event now includes organization_name, creator_email, creator_username, and plan in resource_meta, ensuring historical records remain reliable even if the organization or user is later deleted."
+      },
+      {
+       "title": "",
+       "text": "The delete_varset audit event now includes varset_name, organization_name, workspace_count, project_count, and stack_count in resource_meta, preserving complete context even after the variable set and its relationships are removed."
+      },
+      {
+       "title": "",
+       "text": "The create_team audit event now includes team_name, visibility, and organization_access permissions in resource_meta, ensuring team configuration details are preserved for security audits even if the team is later modified or deleted."
+      },
+      {
+       "title": "",
+       "text": "The destroy_team audit event now includes team_name, visibility, organization_access permissions, member_count, sso_team_id, and project_count in resource_meta, providing a complete snapshot of the team's state and impact at the time of deletion."
+      },
+      {
+       "title": "",
+       "text": "The update_organization_access audit event now includes a permissions hash in resource_meta mapping each changed permission to its before and after values (e.g., \"manage_workspaces\": {\"before\": false, \"after\": true}), capturing only actual changes while omitting unchanged permissions for clearer security reviews."
+      },
+      {
+       "title": "",
+       "text": "The add_member audit event now includes team_name, user_email, and user_id in resource_meta during both existing-user and invite flows, ensuring new organization owners are audited regardless of how they're added to the team."
+      },
+      {
+       "title": "",
+       "text": "The add_member audit event now includes team_name, user_email, and user_id in resource_meta, ensuring the audit record remains complete even if the user or team is later deleted or renamed."
+      },
+      {
+       "title": "",
+       "text": "The destroy_organization_membership audit event now includes user_external_id and user_email in resource_meta, preserving user identity information even after the membership and user account are removed."
+      },
+      {
+       "title": "",
+       "text": "The update_project_access audit event now includes team_name, project_name, and a permissions hash in resource_meta mapping each changed permission to its before and after values, ensuring historical records remain reliable even if the team or project is later renamed or deleted."
+      }
+     ]
+    },
+    {
+     "date": "2026-09-16",
+     "month": "2026-09",
+     "month_label": "September",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-09-16",
+     "items": [
+      {
+       "title": "",
+       "text": "The Teams page now includes an \"ID\" copy link, allowing you to easily copy the team ID for use in other workflows. This addition enhances the usability of the Teams page by providing a quick and convenient way to access the team ID."
+      }
+     ]
+    },
+    {
+     "date": "2026-09-10",
+     "month": "2026-09",
+     "month_label": "September",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-09-10",
+     "items": [
+      {
+       "title": "",
+       "text": "Terraform policy can now evaluate policies against Stacks. Evaluations are triggered during a deployment run, and occur post-plan."
+      }
+     ]
+    },
+    {
+     "date": "2026-09-05",
+     "month": "2026-09",
+     "month_label": "September",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-09-05",
+     "items": [
+      {
+       "title": "",
+       "text": "Tags are now a valid scope for a policy set. Use matching logic of 'And'/'Or' to specify whether all or just one of the specified tags should be present on a workspace for it to be targeted by a policy set."
+      }
+     ]
+    },
+    {
+     "date": "2026-08-25",
+     "month": "2026-08",
+     "month_label": "August",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-08-25",
+     "items": [
+      {
+       "title": "",
+       "text": "An Actions dropdown is now available on the Team Tokens section of the HCP Terraform API Tokens page, providing options for Select All, Reset Selection, and Bulk Delete. A warning message and delete confirmation modal have also been added to help prevent accidental deletions. Refer to Delete team tokens for more information."
+      },
+      {
+       "title": "",
+       "text": "The Team Tokens section now also supports filtering tokens by expiration status, including Active, Expired, Expiring in 7 days, Expiring in 30 days, and No expiration."
+      }
+     ]
+    },
+    {
+     "date": "2026-08-20",
+     "month": "2026-08",
+     "month_label": "August",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-08-20",
+     "items": [
+      {
+       "title": "",
+       "text": "The add_team and remove_team project audit events now include team_id, team_name, permissions, and project_name, ensuring historical records remain reliable even if team names change."
+      }
+     ]
+    },
+    {
+     "date": "2026-08-13",
+     "month": "2026-08",
+     "month_label": "August",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-08-13",
+     "items": [
+      {
+       "title": "",
+       "text": "Fixed the display of workspace and project counts in policy set summaries and indexes when the policy set is not a Terraform Policy VCS policy set."
+      }
+     ]
+    },
+    {
+     "date": "2026-08-06",
+     "month": "2026-08",
+     "month_label": "August",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-08-06",
+     "items": [
+      {
+       "title": "",
+       "text": "HCP Terraform sends notification emails at 30 days and seven days before a user, team, or organization token expires. The expiration window is intended to give you sufficient time to rotate or renew tokens before they expire."
+      }
+     ]
+    },
+    {
+     "date": "2026-07-31",
+     "month": "2026-07",
+     "month_label": "July",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-07-31",
+     "items": [
+      {
+       "title": "",
+       "text": "HCP Terraform Metrics. HCP Terraform metrics now includes a new metric, terraform_concurrent_remote_run_count. Refer to HCP Terraform Metrics for more information."
+      }
+     ]
+    },
+    {
+     "date": "2026-07-29",
+     "month": "2026-07",
+     "month_label": "July",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-07-29",
+     "items": [
+      {
+       "title": "",
+       "text": "API tokens with month-based expiration presets now correctly create when Max TTL policies are enabled, resolving a mismatch between calendar-based calculations and policy storage. This allows successful creation of tokens using these presets when corresponding Max TTL policies are set."
+      }
+     ]
+    },
+    {
+     "date": "2026-07-25",
+     "month": "2026-07",
+     "month_label": "July",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-07-25",
+     "items": [
+      {
+       "title": "",
+       "text": "HCP Terraform Usage Page: We've expanded our Usage Insights for paid billing plans on HCP Terraform with more granular visibility into your consumption, making it easier to understand your billable managed resources across projects, workspaces, and stacks. Included is a new tag-based filtering capability as well as setting custom alerts when your usage threshold has been met. These changes allow you to better manage your HCP Terraform organization."
+      }
+     ]
+    },
+    {
+     "date": "2026-07-16",
+     "month": "2026-07",
+     "month_label": "July",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-07-16",
+     "items": [
+      {
+       "title": "",
+       "text": "HCP Terraform now evaluates policies written for Terraform policy (beta): Terraform policy is an HCL-based policy-as-code framework that integrates with HCP Terraform and helps platform teams enforce policies at each stage of the infrastructure lifecycle, including the initialization phase. Refer to Terraform policy for more information."
+      }
+     ]
+    },
+    {
+     "date": "2026-07-10",
+     "month": "2026-07",
+     "month_label": "July",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-07-10",
+     "items": [
+      {
+       "title": "",
+       "text": "The confirmation page for the OPA automated flow no longer shows parameters, aligning with the current OPA capabilities. This change removes the parameters page and related stepper elements, ensuring the user interface reflects the actual functionality."
+      }
+     ]
+    },
+    {
+     "date": "2026-06-24",
+     "month": "2026-06",
+     "month_label": "June",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-06-24",
+     "items": [
+      {
+       "title": "",
+       "text": "HCP Terraform metrics. HCP Terraform metrics now include new metrics such as workspace count, organization team token age, project count, billable resource count, workspace current run status, and workspace current run status count. Refer to Metrics reference for more information."
+      }
+     ]
+    },
+    {
+     "date": "2026-06-10",
+     "month": "2026-06",
+     "month_label": "June",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-06-10",
+     "items": [
+      {
+       "title": "",
+       "text": "HCP Terraform now provides a dedicated Actions page that shows actions declared in your Terraform configuration. You can view action invocation history and statuses and invoke or re-invoke actions directly from the UI. Refer to Manage Terraform actions for more information."
+      },
+      {
+       "title": "",
+       "text": "Stack deployment runs now display action invocations in the structured run output. You can view lifecycle action invocations alongside standard run steps, including their status, timing, and resource association. Refer to Review deployment runs for more information."
+      }
+     ]
+    },
+    {
+     "date": "2026-06-08",
+     "month": "2026-06",
+     "month_label": "June",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-06-08",
+     "items": [
+      {
+       "title": "",
+       "text": "Project-level run tasks. HCP Terraform now supports project-level run tasks, enabling organizations to apply security, compliance, and operational guardrails consistently across groups of workspaces while reducing manual overhead. Refer to HCP Terraform run tasks for more information."
+      }
+     ]
+    },
+    {
+     "date": "2026-05-28",
+     "month": "2026-05",
+     "month_label": "May",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-05-28",
+     "items": [
+      {
+       "title": "",
+       "text": "HCP Terraform Metrics. HCP Terraform now provides an API endpoint that you can use to gather metrics related to your HCP Terraform organization. Refer to HCP Terraform Metrics for more information."
+      }
+     ]
+    },
+    {
+     "date": "2026-05-14",
+     "month": "2026-05",
+     "month_label": "May",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-05-14",
+     "items": [
+      {
+       "title": "",
+       "text": "Delegated Policy Overrides. Organization owners can now delegate policy override permissions to specific teams. Teams with this permission can override failed soft-mandatory policy evaluations on the projects and workspaces they manage. Refer to Delegate policy overrides for more information."
+      }
+     ]
+    },
+    {
+     "date": "2026-05-13",
+     "month": "2026-05",
+     "month_label": "May",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-05-13",
+     "items": [
+      {
+       "title": "",
+       "text": "HCP Account Linking in SSO. The SSO sign-in flow now links a standalone TFC account to an HCP account and authorizes the SSO organization in a single step. Refer to HCP account linking for more information."
+      }
+     ]
+    },
+    {
+     "date": "2026-05-06",
+     "month": "2026-05",
+     "month_label": "May",
+     "url": "https://developer.hashicorp.com/terraform/cloud-docs/changelog#2026-05-06",
+     "items": [
+      {
+       "title": "",
+       "text": "Stacks Plan Diagnostics While Awaiting Approval. Plan-step warning diagnostics are now visible on the deployment run timeline while the plan is pending approval, so reviewers can act on them before approving. Refer to Review deployment runs for more information."
+      }
+     ]
+    }
+   ]
+  },
+  "hcp-vault": {
+   "display": "HCP Vault Dedicated",
+   "url": "https://developer.hashicorp.com/vault/cloud/changelog",
+   "status": "ok",
+   "entries": [
+    {
+     "date": "2026-10-07",
+     "month": "2026-10",
+     "month_label": "October",
+     "url": "https://developer.hashicorp.com/vault/cloud/changelog#2026-10-07",
+     "items": [
+      {
+       "title": "Port 443 access",
+       "text": "HCP Vault Dedicated clusters can now be configured to listen on port 443. Refer to the Configure cluster port documentation to learn more."
+      }
+     ]
+    },
+    {
+     "date": "2026-09-23",
+     "month": "2026-09",
+     "month_label": "September",
+     "url": "https://developer.hashicorp.com/vault/cloud/changelog#2026-09-23",
+     "items": [
+      {
+       "title": "Data plane account details",
+       "text": "HCP Vault Dedicated clusters on AWS and Azure now expose the data plane account details directly. Refer to the Data plane account details documentation to learn more."
+      }
+     ]
+    },
+    {
+     "date": "2026-09-11",
+     "month": "2026-09",
+     "month_label": "September",
+     "url": "https://developer.hashicorp.com/vault/cloud/changelog#2026-09-11",
+     "items": [
+      {
+       "title": "Vault 2.0.4",
+       "text": "Vault 2.0.4 is now available for HCP Vault Dedicated clusters on AWS and Azure. Refer to the Vault 2.0.4 release notes to learn more about the new features, enhancements, and fixes included in Vault 2.0.4"
+      }
+     ]
+    },
+    {
+     "date": "2026-08-24",
+     "month": "2026-08",
+     "month_label": "August",
+     "url": "https://developer.hashicorp.com/vault/cloud/changelog#2026-08-24",
+     "items": [
+      {
+       "title": "Connectivity Tester",
+       "text": "HCP Vault Dedicated clusters on AWS and Azure now support a connectivity tester that validates network connectivity between the cluster and external endpoints. Refer to the Connectivity Tester documentation to learn more."
+      }
+     ]
+    },
+    {
+     "date": "2026-07-07",
+     "month": "2026-07",
+     "month_label": "July",
+     "url": "https://developer.hashicorp.com/vault/cloud/changelog#2026-07-07",
+     "items": [
+      {
+       "title": "Vault 2.0.3",
+       "text": "Vault 2.0.3 is now available for HCP Vault Dedicated clusters on AWS and Azure. Refer to the Vault 2.0.3 release notes to learn more about the new features, enhancements, and fixes included in Vault 2.0.3"
+      }
+     ]
+    },
+    {
+     "date": "2026-06-14",
+     "month": "2026-06",
+     "month_label": "June",
+     "url": "https://developer.hashicorp.com/vault/cloud/changelog#2026-06-14",
+     "items": [
+      {
+       "title": "Vault 2.0 feature availability",
+       "text": "We're bringing a number of Vault 2.0 capabilities to HCP Vault to help teams simplify identity management, reduce operational overhead, and improve security across cloud environments. The following Vault 2.0 features are now available in HCP Vault:"
+      },
+      {
+       "title": "Added",
+       "text": "Envelope encryption - Use Transit for in-place encryption workflows where Vault protects data encryption keys and your applications encrypt and decrypt local data. Visual policy generator - Create policies faster and reduce manual policy authoring by generating ACL policy snippets from the Vault GUI. Public CA integration - Use Vault to interface to public CAs in order to issue certificates. Namespace onboarding workflow - Answer a few key questions in the Vault GUI to create new namespaces then continue in the GUI, CLI, or Terraform. AWS KMS multi-region keys - Create and replicate managed keys across AWS regions so you can support multi-region encryption and disaster recovery workflows. SPIFFE JWT-SVID support - Let authenticated workloads request JWT-SVIDs from Vault so they can participate in SPIFFE-based identity workflows. SCIM identity provisioning - Automate identity lifecycle ma"
+      },
+      {
+       "title": "Platform changelog",
+       "text": "For changes, removals, and security, see the Vault 2.0 release notes For general changes related to the HashiCorp Cloud Platform (HCP), refer to the HCP platform changelog."
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

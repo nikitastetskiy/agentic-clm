@@ -1,0 +1,15 @@
+# IBM Secure Pipelines Service (IBM Cloud DevSecOps) — Simple Automation Pipeline configuration,
+# "v11" format (`version: '2'`). Same job as .pipeline-config.yaml; see that file and
+# docs/pipelines.md. Select it with the pipeline property  pipeline-config = .pipeline-config.v11.yaml
+version: '2'
+
+tasks:
+  simple-execute:
+    steps:
+      - name: execute
+        image: icr.io/REPLACE-WITH-YOUR-NAMESPACE/auto-pptx:1
+        script: |
+          #!/usr/bin/env bash
+          cd "${WORKSPACE:-.}/${PIPELINE_CONFIG_REPO_PATH:-}" 2>/dev/null || true
+          [ -f ci/run.sh ] || { echo "auto-pptx checkout not found (looked in $(pwd))"; exit 2; }
+          exec bash ci/run.sh

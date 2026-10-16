@@ -28,3 +28,6 @@ thumbnails*.jpg
 # Bring-your-own: drop your .pptx in the repo root locally, or set SOURCE_PPTX=/path/to/deck.pptx
 *.pptx
 ~$*.pptx
+# …except the slim weekly-build template (only the automated slides, cut by scripts/make_template.py):
+# the pipeline builds every deck from it, so it has to travel with the code.
+!/templates/*.pptx

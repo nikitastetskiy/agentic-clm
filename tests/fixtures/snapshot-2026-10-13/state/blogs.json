@@ -1,0 +1,91 @@
+{
+  "terraform": [
+    {
+      "date": "2026-09-28",
+      "title": "Terraform 1.16 completes Actions lifecycles and brings imports into child modules",
+      "url": "https://www.hashicorp.com/blog/terraform-116-completes-actions-lifecycles-and-brings-imports-into-child-modules"
+    },
+    {
+      "date": "2026-09-22",
+      "title": "Terraform provider for Google Cloud 8.0 now generally available",
+      "url": "https://www.hashicorp.com/blog/terraform-provider-for-google-cloud-80-now-generally-available"
+    },
+    {
+      "date": "2026-09-17",
+      "title": "Simplify compliance with the native pre-written policy experience in HCP Terraform",
+      "url": "https://www.hashicorp.com/blog/simplify-compliance-with-a-native-pre-written-policy-experience-in-terraform"
+    },
+    {
+      "date": "2026-09-15",
+      "title": "Simplifying Terraform for IBM Z with intent-driven workflows",
+      "url": "https://www.hashicorp.com/blog/simplifying-terraform-for-ibm-z-with-intent-driven-workflows"
+    },
+    {
+      "date": "2026-09-03",
+      "title": "Introducing HCP Terraform Metrics: operational visibility at scale",
+      "url": "https://www.hashicorp.com/blog/introducing-hcp-terraform-metrics-operational-visibility-at-scale"
+    },
+    {
+      "date": "2026-08-05",
+      "title": "HCP Terraform is the control plane for AI-driven infrastructure",
+      "url": "https://www.hashicorp.com/blog/hcp-terraform-is-the-control-plane-for-ai-driven-infrastructure"
+    },
+    {
+      "date": "2026-07-28",
+      "title": "Terraform AzureRM provider 5.0 now generally available",
+      "url": "https://www.hashicorp.com/blog/terraform-azurerm-provider-50-now-generally-available"
+    },
+    {
+      "date": "2026-07-23",
+      "title": "Terraform Stacks, explained",
+      "url": "https://www.hashicorp.com/blog/terraform-stacks-explained"
+    },
+    {
+      "date": "2026-07-23",
+      "title": "Terraform introduces workspaces and Stacks restore, and more",
+      "url": "https://www.hashicorp.com/blog/terraform-introduces-workspaces-and-stacks-restore-and-more"
+    }
+  ],
+  "vault": [
+    {
+      "date": "2026-09-03",
+      "title": "The common security controls behind India's regulatory wave",
+      "url": "https://www.hashicorp.com/blog/the-common-security-controls-behind-indias-regulatory-wave"
+    },
+    {
+      "date": "2026-09-01",
+      "title": "HashiCorp Vault agentic IAM is now generally available",
+      "url": "https://www.hashicorp.com/blog/hashicorp-vault-agentic-iam-is-now-generally-available"
+    },
+    {
+      "date": "2026-08-27",
+      "title": "Stream HCP Vault Dedicated audit logs to Microsoft Sentinel",
+      "url": "https://www.hashicorp.com/blog/hcp-vault-dedicated-audit-logs-microsoft-sentinel"
+    },
+    {
+      "date": "2026-07-21",
+      "title": "AI speeds software development. Is your secret security keeping up?",
+      "url": "https://www.hashicorp.com/en/blog/ai-speeds-software-development-is-your-secret-security-keeping-up"
+    },
+    {
+      "date": "2026-07-16",
+      "title": "Understanding Vault performance: Benchmarks from real-world workloads",
+      "url": "https://www.hashicorp.com/en/blog/understanding-vault-performance-benchmarks-from-real-world-workloads"
+    },
+    {
+      "date": "2026-07-13",
+      "title": "Preparing for the post-quantum era: Discover and prioritize now",
+      "url": "https://www.hashicorp.com/en/blog/preparing-for-the-post-quantum-era-discover-and-prioritize-now"
+    },
+    {
+      "date": "2026-07-10",
+      "title": "Announcing the public beta of Vault Kubernetes key management",
+      "url": "https://www.hashicorp.com/en/blog/announcing-the-public-beta-of-vault-kubernetes-key-management"
+    },
+    {
+      "date": "2026-06-24",
+      "title": "HCP Vault Dedicated introduces cluster disaster recovery (public preview)",
+      "url": "https://www.hashicorp.com/en/blog/hcp-vault-dedicated-introduces-cluster-disaster-recovery-public-preview"
+    }
+  ]
+}

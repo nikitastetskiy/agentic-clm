@@ -1,0 +1,98 @@
+# deck.yaml — the WEEKLY deck: which slides it has, how each one is recognised in a reference deck
+# when the template is cut (scripts/make_template.py), and what fills it (scripts/plan_deck.py).
+#
+# Slides are addressed by ROLE, never by number. make_template.py stamps each kept slide with its role
+# and the builder looks slides up by that stamp, so reordering or inserting slides in the reference deck
+# cannot silently retarget an automation. To automate another slide: add an entry here, re-cut the
+# template, and teach plan_deck.py what goes on it.
+
+deck:
+  title: "HashiCorp Product Updates"           # document title and output file stem
+  template: templates/cadence-template.pptx
+  columns: 3                                   # month columns on the release / changelog slides
+  cover_status: "AUTO-GENERATED: REVIEW BEFORE SHARING"
+
+# Output order. `detect` is a case-insensitive regex matched against the text of each shape on a
+# reference-deck slide. Roles are looked for in this order, each one after the previous role's slide
+# (an agenda slide that merely lists a section title is therefore not mistaken for the section), and
+# anywhere in the deck only if that finds nothing.
+#   within_first: N   only the first N slides are considered
+#   optional: true    cutting a template does not fail when the reference deck has no such slide
+slides:
+  - role: cover
+    kind: cover
+    detect: '^(January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$'
+    within_first: 3
+    optional: true
+
+  - role: terraform-core-releases
+    kind: columns
+    detect: 'terraform core.*releases'
+    source: {type: releases, product: terraform}
+    style:
+      prerelease_label: "Pre-release"          # every alpha / beta / rc build gets this line
+      # The reference deck describes each Terraform release by category ("Bug fixes"), which is what
+      # keeps seven releases a month readable. Remove this line to show a sentence per release instead
+      # wherever it fits.
+      wording: label
+      seed: false                              # labels are derived, not curated
+
+  - role: terraform-enterprise-releases
+    kind: columns
+    detect: 'terraform enterprise (upgrades|releases)'
+    source: {type: releases, product: terraform-enterprise}
+    style:
+      heading_prefix: "Terraform Enterprise "
+
+  - role: hcp-terraform-changelog
+    kind: columns
+    detect: 'hcp terraform (upgrades|changelog|releases)'
+    source: {type: changelog, product: hcp-terraform}
+
+  - role: terraform-blogs
+    kind: blogs
+    detect: 'terraform recent blogs'
+    source: {type: blogs, product: terraform}
+
+  - role: terraform-webinars
+    kind: webinars
+    detect: 'terraform upcoming webinars'
+    source: {type: webinars, product: terraform}
+    slots: 3                                   # the soonest N events; later ones are listed in the summary
+
+  - role: vault-enterprise-releases
+    kind: columns
+    detect: 'vault enterprise release'
+    source: {type: releases, product: vault}
+    style:
+      group_same_day: true                     # one entry per release day: "v2.1.2 / v1.21.12 / … (date)"
+      lts_label: "Bug fixes and improvements"  # shown for an entry that only ships LTS patches
+
+  - role: hcp-vault-changelog
+    kind: columns
+    detect: 'hcp vault release'
+    source: {type: changelog, product: hcp-vault}
+
+  - role: vault-blogs
+    kind: blogs
+    detect: 'vault recent blogs'
+    source: {type: blogs, product: vault}
+
+  - role: vault-webinars
+    kind: webinars
+    detect: 'vault upcoming webinars'
+    source: {type: webinars, product: vault}
+    slots: 3
+
+  - role: featured-event
+    kind: featured
+    detect: '^Event\s*\|'
+    source: {type: featured}
+    optional: true                             # one slide per featured event; none -> no slide
+
+# Static slides (section dividers, an agenda) can be carried along too:
+#   - role: divider-product-updates
+#     kind: static
+#     detect: '^Product Updates$'
+# They are left out by default: the divider layout alone embeds ~7 MB of background artwork, and the
+# weekly deck's slides are meant to be dropped into a customer deck that already has its own.

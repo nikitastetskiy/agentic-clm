@@ -14,3 +14,5 @@ venv/
 !.env.example
 .DS_Store
 *.thumbnails.jpg
+# Root-level decks (bring-your-own reference decks) stay out of the image; a build only needs templates/.
+/*.pptx

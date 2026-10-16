@@ -1,0 +1,3853 @@
+{
+ "generated_at": "2026-10-13T16:14:19.924883+00:00",
+ "window": {
+  "since": "2026-05-01",
+  "months": 6
+ },
+ "products": {
+  "terraform": {
+   "display": "Terraform",
+   "slug": "terraform",
+   "releases": [
+    {
+     "version": "1.17.0-rc1",
+     "date": "2026-10-07",
+     "date_source": "releases-api",
+     "month": "2026-10",
+     "month_label": "October",
+     "is_prerelease": true,
+     "line": "1.17",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.17.0-rc1",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.5",
+     "date": "2026-09-30",
+     "date_source": "changelog",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.5",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Fixed a crash that happens when a tainted instance state is seen without a valid status",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "resource-identity: fixed an issue where resource identity could be nil during delete",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.17.0-beta2",
+     "date": "2026-09-23",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": true,
+     "line": "1.17",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.17.0-beta2",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.4",
+     "date": "2026-09-23",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.4",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Fixed an issue where Terraform fails when rendering policy evaluation outcomes for older versions of Terraform Enterprise",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "stacks: Fix invalid deferred error triggered by provider returning a deferral when a resource also has an unknown count/for_each.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.16.3",
+     "date": "2026-09-16",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.3",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Fix handling of destroy=false around create_before_destroy instances",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fix function result comparison when there are multiple marks",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Filter logic for marks could cause values with multiple marks to erroneously fail validations",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fix issue with import provider resolution",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.17.0-beta1",
+     "date": "2026-09-09",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": true,
+     "line": "1.17",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.17.0-beta1",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.2",
+     "date": "2026-09-09",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.2",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Fix panic in module installation when encoutering invalid module calls",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.16.1",
+     "date": "2026-09-02",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.1",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "cloud: Fixed a bug causing the CLI to pause indefinitely after a run task failure with pending policy evaluations",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Support referencing modules containing dynamic sources in Terraform Test",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "stacks: Fixed validation to ensure the provider versions in the lock file and configuration are compatible.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fix panic when import identity references sensitive value",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "import: Fixed a bug where import blocks would be ignored when multiple imports targeted different instances of a resource config using for_each or count.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "state show: Fix a panic when given an attribute path instead of a resource instance address",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fix create_before_destroy ordering in some combinations of changes",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.17.0-alpha20260827",
+     "date": "2026-08-27",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": true,
+     "line": "1.17",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.17.0-alpha20260827",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.0",
+     "date": "2026-08-26",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": false,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0",
+     "enterprise_only": false,
+     "sections": {
+      "NEW FEATURES": [
+       {
+        "lead": "",
+        "text": "Terraform now stores planned private data for providers, allowing provider-specific state to be preserved across plan and apply.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "terraform_data: The new store block can hold ephemeral and sensitive values across plan and apply.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Providers can now use nested blocks as computed values",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "import: import blocks inside modules are now supported.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Terraform is now available as a pre-built binary for Linux s390x (zLinux).",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Resource action triggers can now use on_failure modes of halt, taint, or continue.",
+        "enterprise": false
+       }
+      ],
+      "ENHANCEMENTS": [
+       {
+        "lead": "",
+        "text": "state show: The state show command can now produce machine-readable output when supplied with the -json flag",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "workspace: The workspace list command can now produce machine-readable output when supplied with the -json flag",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "test: Terraform now reports which resources were left behind when skip_cleanup is set.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "stacks: Action configurations now have access to a caller symbol containing the object value of the calling resource.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Actions can now use before_destroy and after_destroy events.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "cloud: Terraform now displays a summary of policy evaluation outcomes for plan and apply runs against HCP Terraform.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "policy: Terraform now resolves policy plugin credentials from the configured cloud or remote backend during init, plan, and apply, rather than requiring the plugin to read credentials itself.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "graph: The terraform graph command can now output graphs in Mermaid format using the -format=mermaid flag.",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "import blocks now correctly respect provider local names.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "terraform apply no longer panics when the plan contains a no-op change for a deposed resource that has lifecycle.precondition or lifecycle.postcondition blocks.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "workspace: Terraform now raises an error if an invalid workspace name becomes selected due to out-of-band changes.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "test: Terraform now raises a warning when a file referenced via the -filter flag does not exist.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "init: Terraform no longer removes locks from the dependency lock file for providers configured as dev_override.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "init: Terraform now warns when unmanaged providers are in use and may impact provider installation.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Actions are now invoked with respect to all resource dependencies.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Terraform now returns the correct error when an import target exists in state but has no corresponding configuration.",
+        "enterprise": false
+       }
+      ],
+      "NOTES": [
+       {
+        "lead": "",
+        "text": "init: Errors due to incompatible -upgrade and -lockfile=readonly flags are now raised earlier in the init process.",
+        "enterprise": false
+       }
+      ],
+      "UPGRADE NOTES": [
+       {
+        "lead": "",
+        "text": "bastion_host_key is now correctly applied by provisioners. Review your provisioner configurations to verify the configured key is correct before upgrading.",
+        "enterprise": false
+       }
+      ],
+      "EXPERIMENTS": [
+       {
+        "lead": "",
+        "text": "The experimental \"deferred actions\" feature, enabled by passing the -allow-deferral option to terraform plan, permits count and for_each arguments in module, resource, and data blocks to have unknown values and allows providers to react more flexibly to unknown values.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "terraform test cleanup: The experimental test cleanup command. In experimental builds of Terraform, a manifest file and state files for each failed cleanup operation during test operations are saved within the .terraform local directory. The test cleanup command will attempt to clean up the local state files left behin",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "terraform test: backend blocks and skip_cleanup attributes:",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Test authors can now specify backend blocks within run blocks in Terraform Test files. Run blocks with backend blocks will load state from the specified backend instead of starting from empty state on every execution. This allows test authors to keep long-running test infrastructure alive between test operations, savin",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Test authors can now specify skip_cleanup attributes within test files and within run blocks. The skip_cleanup attribute tells terraform test not to clean up state files produced by run blocks with this attribute set to true. The state files for affected run blocks will be written to disk within the .terraform director",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "terraform query: The experimental -policies flag permits specifying one or more policy set directory paths to evaluate policies against resources discovered by list blocks during a query operation.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.16.0-rc2",
+     "date": "2026-08-19",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-rc2",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.15.9",
+     "date": "2026-08-19",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": false,
+     "line": "1.15",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.15.9",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "validate: Child module validation has been fixed and will now raise errors or warning diagnostics for invalid blocks. (list, import, backend, and cloud)",
+        "enterprise": false
+       }
+      ],
+      "NOTES": [
+       {
+        "lead": "",
+        "text": "Update go-slug to v0.18.3 to mitigate CVE-2026-14978, which is a Unicode normalization issue that could lead to files not being correctly excluded via .terraformignore from upload to a Terraform Enterprise or HCP Terraform during a run",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.17.0-alpha20260812",
+     "date": "2026-08-12",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": true,
+     "line": "1.17",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.17.0-alpha20260812",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.0-rc1",
+     "date": "2026-08-12",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-rc1",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.0-beta2",
+     "date": "2026-08-05",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-beta2",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.17.0-alpha20260729",
+     "date": "2026-07-29",
+     "date_source": "releases-api",
+     "month": "2026-07",
+     "month_label": "July",
+     "is_prerelease": true,
+     "line": "1.17",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.17.0-alpha20260729",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.0-beta1",
+     "date": "2026-07-23",
+     "date_source": "releases-api",
+     "month": "2026-07",
+     "month_label": "July",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-beta1",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.0-alpha20260715",
+     "date": "2026-07-15",
+     "date_source": "releases-api",
+     "month": "2026-07",
+     "month_label": "July",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-alpha20260715",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.0-alpha20260708",
+     "date": "2026-07-08",
+     "date_source": "releases-api",
+     "month": "2026-07",
+     "month_label": "July",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-alpha20260708",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.15.8",
+     "date": "2026-07-08",
+     "date_source": "releases-api",
+     "month": "2026-07",
+     "month_label": "July",
+     "is_prerelease": false,
+     "line": "1.15",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.15.8",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Fix terraform init error when installing providers sourced from a service-discovery alias advertised by the configured backend (such as localterraform.com)",
+        "enterprise": false
+       }
+      ],
+      "NOTES": [
+       {
+        "lead": "",
+        "text": "command/init: Provider installation was changed to enable future enhancements in the area. This effectively reverses the log message changes from v1.15. initializing_provider_plugin_message is being re-introduced to replace the short-lived two message types initializing_provider_plugin_from_config_message & initializin",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "command/init: Provider installation was changed to enable future enhancements in the area. This partially reverses the init event order changes from v1.15; module installation will now occur after the backend is initialized. The change should not have any significant end-user impact aside from the command output.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.16.0-alpha20260706",
+     "date": "2026-07-06",
+     "date_source": "releases-api",
+     "month": "2026-07",
+     "month_label": "July",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-alpha20260706",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.0-alpha20260701",
+     "date": "2026-07-01",
+     "date_source": "releases-api",
+     "month": "2026-07",
+     "month_label": "July",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-alpha20260701",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.0-alpha20260626",
+     "date": "2026-06-26",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-alpha20260626",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.16.0-alpha20260624",
+     "date": "2026-06-24",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-alpha20260624",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.15.7",
+     "date": "2026-06-24",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": false,
+     "line": "1.15",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.15.7",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Add concurrency safety to configs.Parser and SourceBundleParser",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fix submodule variable validation during init",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.16.0-alpha20260617",
+     "date": "2026-06-17",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-alpha20260617",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.15.6",
+     "date": "2026-06-10",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": false,
+     "line": "1.15",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.15.6",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Fixed an issue where resources being removed from state via removed block were incorrectly listed under planned_values in json representations of the plan file.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "console: Fixed a panic caused by evaluating an expression involving deprecated values",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fix exit code for plan, query, and refresh commands for variable-related errors",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fix two module installation edge cases with null and sensitive/ephemeral module sources",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.16.0-alpha20260603",
+     "date": "2026-06-03",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-alpha20260603",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.15.5",
+     "date": "2026-05-27",
+     "date_source": "releases-api",
+     "month": "2026-05",
+     "month_label": "May",
+     "is_prerelease": false,
+     "line": "1.15",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.15.5",
+     "enterprise_only": false,
+     "sections": {
+      "ENHANCEMENTS": [
+       {
+        "lead": "",
+        "text": "Support for module version evaluating to null (in the context of dynamic module sources)",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Fix crash on init for modules with empty source",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.15.4",
+     "date": "2026-05-20",
+     "date_source": "releases-api",
+     "month": "2026-05",
+     "month_label": "May",
+     "is_prerelease": false,
+     "line": "1.15",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.15.4",
+     "enterprise_only": false,
+     "sections": {
+      "NEW FEATURES": [
+       {
+        "lead": "",
+        "text": "We now produce builds for Linux s390x (zLinux)",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "init: Prevent provider binaries from being installed into symlinked directories",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.16.0-alpha20260513",
+     "date": "2026-05-13",
+     "date_source": "releases-api",
+     "month": "2026-05",
+     "month_label": "May",
+     "is_prerelease": true,
+     "line": "1.16",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.16.0-alpha20260513",
+     "enterprise_only": false
+    },
+    {
+     "version": "1.15.3",
+     "date": "2026-05-13",
+     "date_source": "releases-api",
+     "month": "2026-05",
+     "month_label": "May",
+     "is_prerelease": false,
+     "line": "1.15",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.15.3",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "stacks: Fixed a bug that prevented migrating resources under multiple layers of module nesting with implicit provider configuration.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "cloud backend will now forward -generate-config-out flag usage to query create request",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fix crash during provider installation when there is no config",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.15.2",
+     "date": "2026-05-06",
+     "date_source": "releases-api",
+     "month": "2026-05",
+     "month_label": "May",
+     "is_prerelease": false,
+     "line": "1.15",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.15.2",
+     "enterprise_only": false,
+     "sections": {
+      "ENHANCEMENTS": [
+       {
+        "lead": "",
+        "text": "stacks: add ouput values to plan component instance change description",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Avoid printing warnings from 'terraform output -json'",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.15.1",
+     "date": "2026-05-01",
+     "date_source": "releases-api",
+     "month": "2026-05",
+     "month_label": "May",
+     "is_prerelease": false,
+     "line": "1.15",
+     "variants": [
+      ""
+     ],
+     "url": "https://github.com/hashicorp/terraform/releases/tag/v1.15.1",
+     "enterprise_only": false,
+     "sections": {
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Fixed crash when configuration has an invalid action_trigger nested block in data or ephemeral lifecycle blocks",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "validate: Removed validation of attributes inside backend blocks due to incompatibility with workflows using the -backend-config flag.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fix non-const variable checks on init",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Avoid warnings in 'terraform output -raw'",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Ignore undeclared variable values from the cloud backend",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fix panic for types modules with no expanded instances",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fixed \"unknown provider function\" errors occurring during init",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "init: Fixed a bug that impacted use of provider pre-releases during init",
+        "enterprise": false
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "vault": {
+   "display": "Vault",
+   "slug": "vault",
+   "releases": [
+    {
+     "version": "2.1.2",
+     "date": "2026-10-07",
+     "date_source": "releases-api",
+     "month": "2026-10",
+     "month_label": "October",
+     "is_prerelease": false,
+     "line": "2.1",
+     "variants": [
+      "",
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/updates/release-notes#vault-2-1-2",
+     "enterprise_only": false,
+     "sections": {
+      "Bug fixes and security patches": [
+       {
+        "lead": "",
+        "text": "Fixed: PKI ACME issues certificate With unvalidated SANs",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fixed: Vulnerability to arbitrary code execution via plugin catalog entries restored from raft snapshots",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fixed: ACL policy cache vulnerable to cross-namespace policy resolution",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Fixed: Inconsistent ACL policy evaluation may allow bypass of deny restrictions",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.21.12",
+     "date": "2026-10-07",
+     "date_source": "releases-api",
+     "month": "2026-10",
+     "month_label": "October",
+     "is_prerelease": false,
+     "line": "1.21",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.21.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "pki: ACME finalization with the default sign-verbatim directory policy now rejects CSRs that contain URI SANs, email SANs, or Other SANs. ACME challenges only verify DNS names and IP addresses; those SAN types are never validated and must not appear in issued certificates. Operators who require the previous behaviour c",
+        "enterprise": false
+       }
+      ],
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "core (enterprise): Prevent policy-name canonicalization bypasses in ACL parameter restrictions.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/plugin: Fix plugin catalog entries restored from a raft snapshot, written through sys/raw, or replicated being able to run a binary outside plugin_directory.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/policy: Harden request-time ACL construction to ignore malformed legacy policy references containing path-navigation segments (. or ..) so traversal-style names are never resolved or applied.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Fixed a bypass of exact-deny ACL policies where case-variant AppRole, AWS, Azure, GCP, Kubernetes, SCEP, or TPM role names, GitHub team or user policy mapping keys, certificate or CRL names, ACL/RGP/EGP policy names, or userpass usernames could evade the deny and be resolved by the backend to the same protected r",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "core/plugin: Plugin catalog entries are now checked against plugin_directory whenever they are used, not only at registration. An entry whose command resolves outside the directory, including through a symlink, is refused with plugin command is outside of configured plugin directory, and mounts that use it are skipped ",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/policy: Vault now validates policy names with segment-aware checks. Empty names and names containing . or .. path segments are rejected for new policy writes and assignments, while names containing / and \\ remain supported. During request-time ACL construction, legacy traversal-style policy references are not appl",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: ACL and Sentinel EGP rule paths targeting a specific AppRole, AWS, Azure, GCP, Kubernetes, SCEP, or TPM role, GitHub team or user policy mapping key, certificate or CRL name, ACL/RGP/EGP policy name, or userpass username are now matched against the lowercased resource name, since these backends resolve those name",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Remove HCP Link status indicator following deprecation of HCP Link.",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "auth/spiffe (enterprise): Add SPIFFE login cli handler.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "token: Add debug logging for foreign server side consistent token handling",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Remove unused Vercel Storybook artifacts (vercel.json, metadata.json) left over from the Storybook removal in 2022",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Upgrade Path Analyzer selects latest available version by default and shows state message when the user is already up-to-date.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Upgrade Path Analyzer surfaces API errors",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "identity/entity: Fixed an issue where the from_entity's entity aliases were not properly deleted during entity merges.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: Fix duplicate member_entity_ids entries in external groups when a JWT/OIDC login token carries repeated group-name entries in the groups claim.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets-sync (enterprise): Fix destinations configured with allowed_ipv4_addresses or allowed_ipv6_addresses failing with INTERNAL_VAULT_ERROR after a leadership change, until the destination configuration was reapplied.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/database (enterprise): Fix cleanup of database plugin sub processes and resources when initialization of the database connection fails.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/database: Fix missing-credentials error for Database types without self-managed support incorrectly suggesting the self-managed option.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/transit: fix CSR re-signing to preserve extension Critical flags and prevent malformed ASN.1 output when Subject Alternative Names and extra extensions are both present",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Fixed an issue where enabling a KV secrets engine from a performance standby or performance secondary displayed an error even though the mount was created successfully. The UI now waits for the request to be forwarded and the mount to become available before loading the new engine.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.20.17",
+     "date": "2026-10-07",
+     "date_source": "releases-api",
+     "month": "2026-10",
+     "month_label": "October",
+     "is_prerelease": false,
+     "line": "1.20",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.20.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "pki: ACME finalization with the default sign-verbatim directory policy now rejects CSRs that contain URI SANs, email SANs, or Other SANs. ACME challenges only verify DNS names and IP addresses; those SAN types are never validated and must not appear in issued certificates. Operators who require the previous behaviour c",
+        "enterprise": false
+       }
+      ],
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "core (enterprise): Prevent policy-name canonicalization bypasses in ACL parameter restrictions.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/plugin: Fix plugin catalog entries restored from a raft snapshot, written through sys/raw, or replicated being able to run a binary outside plugin_directory.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/policy: Harden request-time ACL construction to ignore malformed legacy policy references containing path-navigation segments (. or ..) so traversal-style names are never resolved or applied.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Fixed a bypass of exact-deny ACL policies where case-variant AppRole, AWS, Azure, GCP, Kubernetes, SCEP, or TPM role names, GitHub team or user policy mapping keys, certificate or CRL names, ACL/RGP/EGP policy names, or userpass usernames could evade the deny and be resolved by the backend to the same protected r",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "core/plugin: Plugin catalog entries are now checked against plugin_directory whenever they are used, not only at registration. An entry whose command resolves outside the directory, including through a symlink, is refused with plugin command is outside of configured plugin directory, and mounts that use it are skipped ",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/policy: Vault now validates policy names with segment-aware checks. Empty names and names containing . or .. path segments are rejected for new policy writes and assignments, while names containing / and \\ remain supported. During request-time ACL construction, legacy traversal-style policy references are not appl",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: ACL and Sentinel EGP rule paths targeting a specific AppRole, AWS, Azure, GCP, Kubernetes, SCEP, or TPM role, GitHub team or user policy mapping key, certificate or CRL name, ACL/RGP/EGP policy name, or userpass username are now matched against the lowercased resource name, since these backends resolve those name",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Remove HCP Link status indicator following deprecation of HCP Link.",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "token: Add debug logging for foreign server side consistent token handling",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Remove unused Vercel Storybook artifacts (vercel.json, metadata.json) left over from the Storybook removal in 2022",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Upgrade Path Analyzer selects latest available version by default and shows state message when the user is already up-to-date.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Upgrade Path Analyzer surfaces API errors",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "identity/entity: Fixed an issue where the from_entity's entity aliases were not properly deleted during entity merges.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: Fix duplicate member_entity_ids entries in external groups when a JWT/OIDC login token carries repeated group-name entries in the groups claim.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets-sync (enterprise): Fix destinations configured with allowed_ipv4_addresses or allowed_ipv6_addresses failing with INTERNAL_VAULT_ERROR after a leadership change, until the destination configuration was reapplied.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/database (enterprise): Fix cleanup of database plugin sub processes and resources when initialization of the database connection fails.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/database: Fix missing-credentials error for Database types without self-managed support incorrectly suggesting the self-managed option.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/transit: fix CSR re-signing to preserve extension Critical flags and prevent malformed ASN.1 output when Subject Alternative Names and extra extensions are both present",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.19.23",
+     "date": "2026-10-07",
+     "date_source": "releases-api",
+     "month": "2026-10",
+     "month_label": "October",
+     "is_prerelease": false,
+     "line": "1.19",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.19.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "pki: ACME finalization with the default sign-verbatim directory policy now rejects CSRs that contain URI SANs, email SANs, or Other SANs. ACME challenges only verify DNS names and IP addresses; those SAN types are never validated and must not appear in issued certificates. Operators who require the previous behaviour c",
+        "enterprise": false
+       }
+      ],
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "core (enterprise): Prevent policy-name canonicalization bypasses in ACL parameter restrictions.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/plugin: Fix plugin catalog entries restored from a raft snapshot, written through sys/raw, or replicated being able to run a binary outside plugin_directory.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/policy: Harden request-time ACL construction to ignore malformed legacy policy references containing path-navigation segments (. or ..) so traversal-style names are never resolved or applied.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Fixed a bypass of exact-deny ACL policies where case-variant AppRole, AWS, Azure, GCP, Kubernetes, SCEP, or TPM role names, GitHub team or user policy mapping keys, certificate or CRL names, ACL/RGP/EGP policy names, or userpass usernames could evade the deny and be resolved by the backend to the same protected r",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "core/plugin: Plugin catalog entries are now checked against plugin_directory whenever they are used, not only at registration. An entry whose command resolves outside the directory, including through a symlink, is refused with plugin command is outside of configured plugin directory, and mounts that use it are skipped ",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/policy: Vault now validates policy names with segment-aware checks. Empty names and names containing . or .. path segments are rejected for new policy writes and assignments, while names containing / and \\ remain supported. During request-time ACL construction, legacy traversal-style policy references are not appl",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: ACL and Sentinel EGP rule paths targeting a specific AppRole, AWS, Azure, GCP, Kubernetes, SCEP, or TPM role, GitHub team or user policy mapping key, certificate or CRL name, ACL/RGP/EGP policy name, or userpass username are now matched against the lowercased resource name, since these backends resolve those name",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Remove HCP Link status indicator following deprecation of HCP Link.",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "token: Add debug logging for foreign server side consistent token handling",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Remove unused Vercel Storybook artifacts (vercel.json, metadata.json) left over from the Storybook removal in 2022",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Upgrade Path Analyzer selects latest available version by default and shows state message when the user is already up-to-date.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Upgrade Path Analyzer surfaces API errors",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "identity/entity: Fixed an issue where the from_entity's entity aliases were not properly deleted during entity merges.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: Fix duplicate member_entity_ids entries in external groups when a JWT/OIDC login token carries repeated group-name entries in the groups claim.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets-sync (enterprise): Fix destinations configured with allowed_ipv4_addresses or allowed_ipv6_addresses failing with INTERNAL_VAULT_ERROR after a leadership change, until the destination configuration was reapplied.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/database (enterprise): Fix cleanup of database plugin sub processes and resources when initialization of the database connection fails.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/database: Fix missing-credentials error for Database types without self-managed support incorrectly suggesting the self-managed option.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/transit: fix CSR re-signing to preserve extension Critical flags and prevent malformed ASN.1 output when Subject Alternative Names and extra extensions are both present",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "2.1.1",
+     "date": "2026-09-16",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "2.1",
+     "variants": [
+      "",
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/updates/release-notes#vault-2-1-1",
+     "enterprise_only": false,
+     "sections": {
+      "Bug fixes and security patches": [
+       {
+        "lead": "Secrets sync",
+        "text": "Fixed the total secrets count on the secrets sync overview page, which was bound to the wrong key in the API response and displayed an incorrect total.",
+        "enterprise": true
+       },
+       {
+        "lead": "Login page",
+        "text": "Fixed a flickering issue on the login page that occurred when a trailing slash was present in the namespace field.",
+        "enterprise": false
+       },
+       {
+        "lead": "Vault Agent registry",
+        "text": "Fixed ceiling policies not displaying on the Vault Agent registry page due to an incorrect property name.",
+        "enterprise": true
+       },
+       {
+        "lead": "Leases",
+        "text": "Pagination controls now render regardless of whether a filter/search term is applied to the leases list.",
+        "enterprise": false
+       },
+       {
+        "lead": "Dependency update",
+        "text": "Vulnerability patch for dompurify.",
+        "enterprise": false
+       }
+      ],
+      "Improvements and behavior changes": [
+       {
+        "lead": "Secrets import",
+        "text": "AWS Secrets Manager and Azure Key Vault import sources support allowed_ipv4_cidrs to allow trusted private endpoints while blocking other RFC 1918 private addresses by default.",
+        "enterprise": true
+       },
+       {
+        "lead": "JWT/OIDC Auth Plugin",
+        "text": "Added a new Okta provider that fetches groups from the Okta Admin API when fetch_groups=true and Vault detects group truncation.",
+        "enterprise": false
+       },
+       {
+        "lead": "PKI secrets engine",
+        "text": "Added extra_names_from_csr to PKI roles. When set to a list of dotted-decimal OIDs, Vault passes matching non-standard Subject attributes from a caller-supplied CSR through to the issued certificate instead of silently discarding them. Effective on /sign and enrollment protocols (CMPv2, SCEP, EST); silently ignored on /issue.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.21.11",
+     "date": "2026-09-16",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.21",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.21.x/updates/release-notes#vault-1-21-11",
+     "enterprise_only": true,
+     "sections": {
+      "New features": [
+       {
+        "lead": "Navigation",
+        "text": "Added a \"Submit feedback\" button to the sidebar navigation and the Help and Support dropdown, linking to an external feedback survey.",
+        "enterprise": false
+       }
+      ],
+      "Bug fixes and security patches": [
+       {
+        "lead": "Secrets sync",
+        "text": "Fixed the total secrets count on the secrets sync overview page, which was bound to the wrong key in the API response and displayed an incorrect total.",
+        "enterprise": true
+       },
+       {
+        "lead": "Login page",
+        "text": "Fixed a flickering issue on the login page that occurred when a trailing slash was present in the namespace field.",
+        "enterprise": false
+       },
+       {
+        "lead": "JSON editor",
+        "text": "Fixed the JSON editor (used in the create-secret flow) rendering blank under Vault's CSP policy.",
+        "enterprise": false
+       },
+       {
+        "lead": "Dependency update",
+        "text": "Vulnerability patch for dompurify.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.20.16",
+     "date": "2026-09-16",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.20",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.20.x/updates/release-notes#vault-1-20-16",
+     "enterprise_only": true,
+     "sections": {
+      "New features": [
+       {
+        "lead": "Navigation",
+        "text": "Added a \"Submit feedback\" button to the sidebar navigation and the Help and Support dropdown, linking to an external feedback survey.",
+        "enterprise": false
+       }
+      ],
+      "Bug fixes and security patches": [
+       {
+        "lead": "JSON editor",
+        "text": "Fixed the JSON editor (used in the create-secret flow) rendering blank under Vault's CSP policy.",
+        "enterprise": false
+       },
+       {
+        "lead": "Dependency update",
+        "text": "Vulnerability patch for dompurify.",
+        "enterprise": false
+       },
+       {
+        "lead": "Dependency update",
+        "text": "Vulnerability patch for markdown-it.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.19.22",
+     "date": "2026-09-16",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.19",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.19.x/updates/release-notes#vault-1-19-22",
+     "enterprise_only": true,
+     "sections": {
+      "New features": [
+       {
+        "lead": "Navigation",
+        "text": "Added a \"Submit feedback\" button to the sidebar navigation and the Help and Support dropdown, linking to an external feedback survey.",
+        "enterprise": false
+       }
+      ],
+      "Bug fixes and security patches": [
+       {
+        "lead": "Dependency update",
+        "text": "Vulnerability patch for dompurify.",
+        "enterprise": false
+       },
+       {
+        "lead": "Dependency update",
+        "text": "Vulnerability patch for markdown-it.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "2.1.0",
+     "date": "2026-09-01",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "2.1",
+     "variants": [
+      "",
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/updates/release-notes#vault-2-1-0",
+     "enterprise_only": false,
+     "sections": {
+      "New features": [
+       {
+        "lead": "Native support for securing agentic workflows",
+        "text": "Out of beta and Generally Available. The Agentic IAM no longer requires an activation flag to use.",
+        "enterprise": false
+       }
+      ],
+      "Bug fixes and security patches": [
+       {
+        "lead": "OAuth resource server",
+        "text": "Vault treats an empty authorization_details array in Rich Authorization Requests the same as an omitted array.",
+        "enterprise": false
+       },
+       {
+        "lead": "OAuth resource server",
+        "text": "Vault now correctly normalizes issuers before looking up the OAuth resource server profile during alias creation.",
+        "enterprise": false
+       }
+      ],
+      "Improvements and behavior changes": [
+       {
+        "lead": "Agent registry",
+        "text": "Ceiling policies can now include policies containing deny statements without requests for those registered agents failing.",
+        "enterprise": false
+       },
+       {
+        "lead": "OAuth resource server",
+        "text": "Revocation of OAuth 2.0 JWTs now available using token revoke APIs. Note that, as JWTs are immutable, revocation prevents them from being used with Vault, even if you continue to use them elsewhere.You no longer need an activation flag to use the OAuth resource server API.issuer_id is now immutable once you create a profile and cannot be modified during profile updates.Vault now supports templated paths in Rich Autho",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.21.10",
+     "date": "2026-09-01",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.21",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.21.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "core: Update go.etcd.io/etcd/client/pkg/v3 to v3.6.14 to fix security vulnerability GO-2026-6107.",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.14.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/azure: Update plugin to v0.25.5+ent",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "core/seal (enterprise): Update Oracle Cloud library to enable seal integration with newer regions.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Automatically write a goroutine dump to a temp directory on shutdown (SIGTERM/SIGINT). The output directory can be overridden with VAULT_STACKTRACE_FILE_PATH, and the dump can be suppressed with the config field disable_goroutine_trace_dump.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Bump dompurify from 3.4.6 to 3.4.13.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Bump shell-quote from 1.8.4 to 1.9.0.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Exposing the RSA Private Key field in the UI when generating credentials with the snowflake database secrets engine. Previously, this field was only shown in the cli.",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "api: Account for the HTTP Age header when calculating a lease's remaining lifetime, so that leases read or renewed through a caching proxy such as Vault Agent are renewed before they expire.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Fix a data race and potential panic during seal/unseal",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Fix a data race and potential panic during seal/unseal",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Fix panic in collectOperatorImportMetrics when router.Route returns a nil response with no error during KVv2 metadata reads on performance secondary nodes. This condition occurs during the WAL-stream partial-sync phase of an initial join.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/login: Fix panic on malformed login requests. Vault now returns an error for malformed login payloads instead of dropping the client connection (no data loss).",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/metrics: Fixed a bug where log_format = \"json\" had no effect on telemetry sink errors from statsd and statsite backends.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/wrapping: sys/wrapping/wrap now enforces uuid-format wrapping tokens, ignoring any caller-requested wrap format.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Fix vault operator migrate -start command when migrating to raft integrated storage.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.20.15",
+     "date": "2026-09-01",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.20",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.20.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "core: Update go.etcd.io/etcd/client/pkg/v3 to v3.6.14 to fix security vulnerability GO-2026-6107.",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "core/raft: Limited concurrent retry-join workers to 20. Any further retry-join attempts while 20 are in progress will result in an error (too many concurrent raft retry joins in progress).",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.14.",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "core/seal (enterprise): Update Oracle Cloud library to enable seal integration with newer regions.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Automatically write a goroutine dump to a temp directory on shutdown (SIGTERM/SIGINT). The output directory can be overridden with VAULT_STACKTRACE_FILE_PATH, and the dump can be suppressed with the config field disable_goroutine_trace_dump.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Exposing the RSA Private Key field in the UI when generating credentials with the snowflake database secrets engine. Previously, this field was only shown in the cli.",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "api: Account for the HTTP Age header when calculating a lease's remaining lifetime, so that leases read or renewed through a caching proxy such as Vault Agent are renewed before they expire.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Fix a data race and potential panic during seal/unseal",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Fix a data race and potential panic during seal/unseal",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Fix panic in collectOperatorImportMetrics when router.Route returns a nil response with no error during KVv2 metadata reads on performance secondary nodes. This condition occurs during the WAL-stream partial-sync phase of an initial join.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/login: Fix panic on malformed login requests. Vault now returns an error for malformed login payloads instead of dropping the client connection (no data loss).",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/metrics: Fixed a bug where log_format = \"json\" had no effect on telemetry sink errors from statsd and statsite backends.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/wrapping: sys/wrapping/wrap now enforces uuid-format wrapping tokens, ignoring any caller-requested wrap format.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Fix vault operator migrate -start command when migrating to raft integrated storage.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.19.21",
+     "date": "2026-09-01",
+     "date_source": "releases-api",
+     "month": "2026-09",
+     "month_label": "September",
+     "is_prerelease": false,
+     "line": "1.19",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.19.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "core: Update go.etcd.io/etcd/client/pkg/v3 to v3.6.14 to fix security vulnerability GO-2026-6107.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: entity/name updates now reject mismatched id or external_id selectors to prevent retargeting updates to a different entity",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "core/raft: Limited concurrent retry-join workers to 20. Any further retry-join attempts while 20 are in progress will result in an error (too many concurrent raft retry joins in progress).",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.14.",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "core/seal (enterprise): Update Oracle Cloud library to enable seal integration with newer regions.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Automatically write a goroutine dump to a temp directory on shutdown (SIGTERM/SIGINT). The output directory can be overridden with VAULT_STACKTRACE_FILE_PATH, and the dump can be suppressed with the config field disable_goroutine_trace_dump.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Exposing the RSA Private Key field in the UI when generating credentials with the snowflake database secrets engine. Previously, this field was only shown in the cli.",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "api: Account for the HTTP Age header when calculating a lease's remaining lifetime, so that leases read or renewed through a caching proxy such as Vault Agent are renewed before they expire.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Fix a data race and potential panic during seal/unseal",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Fix a data race and potential panic during seal/unseal",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/login: Fix panic on malformed login requests. Vault now returns an error for malformed login payloads instead of dropping the client connection (no data loss).",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/metrics: Fixed a bug where log_format = \"json\" had no effect on telemetry sink errors from statsd and statsite backends.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/wrapping: sys/wrapping/wrap now enforces uuid-format wrapping tokens, ignoring any caller-requested wrap format.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Fix vault operator migrate -start command when migrating to raft integrated storage.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Standby clusters now populate the cluster: field when sys/metrics is called.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "2.0.4",
+     "date": "2026-08-04",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": false,
+     "line": "2.0",
+     "variants": [
+      "",
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/updates/release-notes#vault-2-0-4",
+     "enterprise_only": false,
+     "sections": {
+      "Bug fixes and security patches": [
+       {
+        "lead": "Fix",
+        "text": "Fixed key_info output when querying the list of agent registrations by name with the API endpoint /agent-registry/registration/display-name.",
+        "enterprise": false
+       },
+       {
+        "lead": "SCIM guardrails",
+        "text": "Manual entity merges now respect SCIM ownership rules and can no longer use the identity merge API to bypass SCIM-managed resource boundaries.",
+        "enterprise": true
+       }
+      ],
+      "Improvements and behavior changes": [
+       {
+        "lead": "Agent registry",
+        "text": "Added the entity_id field to key_info in the output of /agent-registry/registration/id and /agent-registry/registration/display-name.",
+        "enterprise": false
+       },
+       {
+        "lead": "SCIM filtering",
+        "text": "The SCIM /Users and /Groups list endpoints now support limited filtering for reconciliation and delta-sync workflows.",
+        "enterprise": true
+       },
+       {
+        "lead": "SCIM User.groups",
+        "text": "SCIM user responses now include the read-only groups field for direct memberships in groups that the same SCIM client manages.",
+        "enterprise": true
+       },
+       {
+        "lead": "License Utilization Metrics",
+        "text": "High watermark tracking of service account library sets managed by LDAP and OpenLDAP secrets engines: ldap_library_max_set_count.current_month_estimateldap_library_max_set_count.previous_month_completeopenldap_library_max_set_count.current_month_estimateopenldap_library_max_set_count.previous_month_complete",
+        "enterprise": false
+       },
+       {
+        "lead": "Product Usage Metrics",
+        "text": "Added a count of service account library sets managed by LDAP and OpenLDAP secrets engine mounts across all namespaces: vault.secret.engine.ldap.library.set.countvault.secret.engine.openldap.library.set.count",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.21.9",
+     "date": "2026-08-04",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": false,
+     "line": "1.21",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.21.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "containers: The following packages have been removed from UBI based container images: gnupg, openssl, procps.",
+        "enterprise": false
+       }
+      ],
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "acl: Fix privilege-escalation vulnerability where a denied_parameters constraint on the policies request field could be bypassed by submitting a mixed-case policy name (e.g. \"Super-Admin\" instead of \"super-admin\"). Vault now normalizes the policies parameter to lowercase before evaluating allowed_parameters/denied_para",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: Prevent the entity batch-delete endpoint (identity/entity/batch-delete) from deleting the underlying storage of entities that belong to another namespace.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: entity/name updates now reject mismatched id or external_id selectors to prevent retargeting updates to a different entity",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "auth/oci: Update plugin to v0.20.3",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.12.",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "auth/cert: Support login via x-forwarded cert headers even with tls disabled on the vault listener.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (entreprise): Ameriolate sealwrap lock contention for core paths.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/acl: Adds a global deny_slash_in_templated_path configuration option to reject the presence of slashes in rendered identity templates in policies, defaulting to false.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/identity: Adds a global deny_slash_in_templated_path configuration option to reject the presence of slashes in rendered identity templates in policies, defaulting to false.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/managed-keys/PKCS#11 (enterprise): Providing a non-empty value for one field while the other is already saved is rejected. To switch addressing modes, you must explicitly clear the old field by sending it as an empty string (\"\") in the same request alongside the new value.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/managed-keys/PKCS#11 (enterprise): slot and token_label are now strictly enforced as mutually exclusive identifiers for an HSM token",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "events: Add VAULT_EVENT_NOTIFICATIONS_BOUNDED_QUEUE_SIZE environment variable to configure bounded event queues for event notification subscribers. Set to a positive integer (e.g., 16) to enable buffered channels of that size (maximum 1000). This prevents resource exhaustion in deployments with high subscriber counts, ",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: Bump pnpm.overrides entry for tmp from 0.2.6 to 0.2.7.",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Proxy/Agent: Fixed a bug where auth method headers accumulated on the shared API client across re-auth cycles.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Proxy: Fixed a bug where the Vault token header accumulated duplicate values across WebSocket reconnects in the static secret cache updater.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Secrets Recovery (enterprise): Do not redirect to the active node for list requests to sys/storage/raft/snapshot-load or read/delete requests to sys/storage/raft/snapshot-load/{id}. If possible, handle these requests on the performance standby, otherwise forward the requests to the active node.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "audit: Fix a regression from CVE-2025-6000 that broke enabling audit devices on Windows when a plugin directory was configured.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "audit: make file and socket audit sink serialization context-aware so canceled or expired requests stop waiting behind blocked audit writes, reducing buildup of goroutines, memory, connections, and file descriptors during audit sink contention",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "auth/cert: Add support for x-forwarded cert headers coming from AWS ALBs.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "auth/spiffe (enterprise): Use the full peer certificate chain when verifying certificates.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "aws/auth: Redact EC2 instance metadata values from AWS auth error messages.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.20.14",
+     "date": "2026-08-04",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": false,
+     "line": "1.20",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.20.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "containers: The following packages have been removed from UBI based container images: gnupg, openssl, procps.",
+        "enterprise": false
+       }
+      ],
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "acl: Fix privilege-escalation vulnerability where a denied_parameters constraint on the policies request field could be bypassed by submitting a mixed-case policy name (e.g. \"Super-Admin\" instead of \"super-admin\"). Vault now normalizes the policies parameter to lowercase before evaluating allowed_parameters/denied_para",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: Prevent the entity batch-delete endpoint (identity/entity/batch-delete) from deleting the underlying storage of entities that belong to another namespace.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: entity/name updates now reject mismatched id or external_id selectors to prevent retargeting updates to a different entity",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "auth/oci: Update plugin to v0.19.3",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.12.",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "auth/cert: Support login via x-forwarded cert headers even with tls disabled on the vault listener.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (entreprise): Ameriolate sealwrap lock contention for core paths.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/acl: Adds a global deny_slash_in_templated_path configuration option to reject the presence of slashes in rendered identity templates in policies, defaulting to false.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/identity: Adds a global deny_slash_in_templated_path configuration option to reject the presence of slashes in rendered identity templates in policies, defaulting to false.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/managed-keys/PKCS#11 (enterprise): Providing a non-empty value for one field while the other is already saved is rejected. To switch addressing modes, you must explicitly clear the old field by sending it as an empty string (\"\") in the same request alongside the new value.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/managed-keys/PKCS#11 (enterprise): slot and token_label are now strictly enforced as mutually exclusive identifiers for an HSM token",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "events: Add VAULT_EVENT_NOTIFICATIONS_BOUNDED_QUEUE_SIZE environment variable to configure bounded event queues for event notification subscribers. Set to a positive integer (e.g., 16) to enable buffered channels of that size (maximum 1000). This prevents resource exhaustion in deployments with high subscriber counts, ",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Proxy/Agent: Fixed a bug where auth method headers accumulated on the shared API client across re-auth cycles.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Proxy: Fixed a bug where the Vault token header accumulated duplicate values across WebSocket reconnects in the static secret cache updater.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Secrets Recovery (enterprise): Do not redirect to the active node for list requests to sys/storage/raft/snapshot-load or read/delete requests to sys/storage/raft/snapshot-load/{id}. If possible, handle these requests on the performance standby, otherwise forward the requests to the active node.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "audit: Fix a regression from CVE-2025-6000 that broke enabling audit devices on Windows when a plugin directory was configured.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "audit: make file and socket audit sink serialization context-aware so canceled or expired requests stop waiting behind blocked audit writes, reducing buildup of goroutines, memory, connections, and file descriptors during audit sink contention",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "auth/cert: Add support for x-forwarded cert headers coming from AWS ALBs.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "aws/auth: Redact EC2 instance metadata values from AWS auth error messages.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Fix a bug that causes unnecessary seal rewrapping.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.19.20",
+     "date": "2026-08-04",
+     "date_source": "releases-api",
+     "month": "2026-08",
+     "month_label": "August",
+     "is_prerelease": false,
+     "line": "1.19",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.19.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "containers: The following packages have been removed from UBI based container images: gnupg, openssl, procps.",
+        "enterprise": false
+       }
+      ],
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "acl: Fix privilege-escalation vulnerability where a denied_parameters constraint on the policies request field could be bypassed by submitting a mixed-case policy name (e.g. \"Super-Admin\" instead of \"super-admin\"). Vault now normalizes the policies parameter to lowercase before evaluating allowed_parameters/denied_para",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: Prevent the entity batch-delete endpoint (identity/entity/batch-delete) from deleting the underlying storage of entities that belong to another namespace.",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "auth/oci: Update plugin to v0.18.3",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.12",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "auth/cert: Support login via x-forwarded cert headers even with tls disabled on the vault listener.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (entreprise): Ameriolate sealwrap lock contention for core paths.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/acl: Adds a global deny_slash_in_templated_path configuration option to reject the presence of slashes in rendered identity templates in policies, defaulting to false.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/identity: Adds a global deny_slash_in_templated_path configuration option to reject the presence of slashes in rendered identity templates in policies, defaulting to false.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/managed-keys/PKCS#11 (enterprise): Providing a non-empty value for one field while the other is already saved is rejected. To switch addressing modes, you must explicitly clear the old field by sending it as an empty string (\"\") in the same request alongside the new value.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/managed-keys/PKCS#11 (enterprise): slot and token_label are now strictly enforced as mutually exclusive identifiers for an HSM token",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "events: Add VAULT_EVENT_NOTIFICATIONS_BOUNDED_QUEUE_SIZE environment variable to configure bounded event queues for event notification subscribers. Set to a positive integer (e.g., 16) to enable buffered channels of that size (maximum 1000). This prevents resource exhaustion in deployments with high subscriber counts, ",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "Proxy/Agent: Fixed a bug where auth method headers accumulated on the shared API client across re-auth cycles.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Proxy: Fixed a bug where the Vault token header accumulated duplicate values across WebSocket reconnects in the static secret cache updater.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "audit: make file and socket audit sink serialization context-aware so canceled or expired requests stop waiting behind blocked audit writes, reducing buildup of goroutines, memory, connections, and file descriptors during audit sink contention",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "auth/cert: Add support for x-forwarded cert headers coming from AWS ALBs.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "aws/auth: Redact EC2 instance metadata values from AWS auth error messages.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Fix a bug that causes unnecessary seal rewrapping.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Preserve wrapping metadata when Control Group unwrap replays an approved request that returns a wrapped response.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (enterprise): Update state checking of Sever-Side Consistent Token (SSCT) when used on performance secondary clusters. 403 response codes will be preferred over 412 for invalid, cross cluster token requests to secondary active nodes.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "2.0.3",
+     "date": "2026-06-17",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": false,
+     "line": "2.0",
+     "variants": [
+      "",
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/updates/release-notes#vault-2-0-3",
+     "enterprise_only": false,
+     "sections": {
+      "New features": [
+       {
+        "lead": "Native support for AI agents",
+        "text": "Available to all customers in public beta.",
+        "enterprise": false
+       }
+      ],
+      "Bug fixes and security patches": [
+       {
+        "lead": "Fix",
+        "text": "Fixed stuck dropdowns in the Transit secrets engine Vault GUI.",
+        "enterprise": false
+       }
+      ],
+      "Improvements and behavior changes": [
+       {
+        "lead": "Azure secrets engine: Improved reliability for dynamic roles using ephemeral service principals",
+        "text": "Vault now uses a single Microsoft Graph API request to create the application and its initial client secret, significantly reducing Azure eventual consistency delays that could cause newly generated secrets to be temporarily rejected as invalid.",
+        "enterprise": false
+       },
+       {
+        "lead": "Cloud Foundry auth plugin",
+        "text": "Lazy CF client initialization: The CF auth plugin no longer calls the CF API during plugin initialization. Vault now creates the CF client lazily and only when a configuration write or login request requires it.force_new_client flag: Added a new force_new_client configuration flag. When enabled, the plugin creates a new CF client for every login request instead of using the shared cached client.",
+        "enterprise": false
+       },
+       {
+        "lead": "Charts",
+        "text": "Migrated charts from Lineal to Carbon Charts in the Client usage overview and Vault usage dashboards for a more polished and consistent visual experience.",
+        "enterprise": false
+       },
+       {
+        "lead": "Donut chart tooltips",
+        "text": "Refined tooltip styling and functionality on donut charts for better clarity and consistency.",
+        "enterprise": false
+       },
+       {
+        "lead": "ember-basic-dropdown",
+        "text": "Bumped to ~8.9.0 to satisfy a peer dependency requirement with @hashicorp/design-system-components.",
+        "enterprise": false
+       },
+       {
+        "lead": "Babel preset",
+        "text": "Reinstalled @babel/preset-env at ~7.29.5 to stay current with the JavaScript build ecosystem.",
+        "enterprise": false
+       },
+       {
+        "lead": "Dependency overrides",
+        "text": "Removed stale dependency overrides from ui/package.json to reduce unnecessary version constraints.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.21.8",
+     "date": "2026-06-17",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": false,
+     "line": "1.21",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.21.x/updates/release-notes#vault-1-21-8",
+     "enterprise_only": true,
+     "sections": {
+      "Bug fixes and security patches": [
+       {
+        "lead": "Fix",
+        "text": "Fixed stuck dropdowns in the Transit secrets engine Vault GUI.",
+        "enterprise": false
+       }
+      ],
+      "Improvements and behavior changes": [
+       {
+        "lead": "Azure secrets engine: Improved reliability for dynamic roles using ephemeral service principals",
+        "text": "Vault now uses a single Microsoft Graph API request to create the application and its initial client secret, significantly reducing Azure eventual consistency delays that could cause newly generated secrets to be temporarily rejected as invalid.",
+        "enterprise": false
+       },
+       {
+        "lead": "Charts",
+        "text": "Migrated charts from Lineal to Carbon Charts in the Client usage overview and Vault usage dashboards for a more polished and consistent visual experience.",
+        "enterprise": false
+       },
+       {
+        "lead": "Vault Reporting Dashboard",
+        "text": "Migrated the Vault Reporting Dashboard from a shared package into Vault Enterprise.",
+        "enterprise": true
+       },
+       {
+        "lead": "Babel preset",
+        "text": "Reinstalled @babel/preset-env at ~7.29.5 to stay current with the JavaScript build ecosystem.",
+        "enterprise": false
+       }
+      ],
+      "Executive summary": [
+       {
+        "lead": "",
+        "text": "Vault Enterprise 1.21 minimizes operational burden, improves pricing visibility, and provides increased pricing support.",
+        "enterprise": false
+       }
+      ],
+      "Highlights": [
+       {
+        "lead": "",
+        "text": "Static role support for Azure enabled workflows that require managed, long-lived Azure credentials.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Smoother integration with bring-your-own DNS, AWS, AWS Privatelink, and custom domains.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Expanded Terraform Vault Provider support for provisioning and resource management with Terraform.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Emerging security policy management with IBM Z RACF passphrase support.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Enhanced logging and auditing that increases traceability and compliance.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Machine identity and authentication support for SPIFFE frameworks.",
+        "enterprise": false
+       }
+      ],
+      "Bug fixes": [
+       {
+        "lead": "",
+        "text": "None.",
+        "enterprise": false
+       }
+      ],
+      "Feature deprecations and EOL": [
+       {
+        "lead": "",
+        "text": "Please refer to the deprecation notices for up-to-date information on feature deprecations and plans.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.20.13",
+     "date": "2026-06-17",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": false,
+     "line": "1.20",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.20.x/updates/release-notes#vault-1-20-13",
+     "enterprise_only": true,
+     "sections": {
+      "Bug fixes and security patches": [
+       {
+        "lead": "Fix",
+        "text": "Fixed stuck dropdowns in the Transit secrets engine Vault GUI.",
+        "enterprise": false
+       }
+      ],
+      "Improvements and behavior changes": [
+       {
+        "lead": "Azure secrets engine: Improved reliability for dynamic roles using ephemeral service principals",
+        "text": "Vault now uses a single Microsoft Graph API request to create the application and its initial client secret, significantly reducing Azure eventual consistency delays that could cause newly generated secrets to be temporarily rejected as invalid.",
+        "enterprise": false
+       },
+       {
+        "lead": "Charts",
+        "text": "Migrated charts from Lineal to Carbon Charts in the Client usage overview and Vault usage dashboards for a more polished and consistent visual experience.",
+        "enterprise": false
+       },
+       {
+        "lead": "Donut chart tooltips",
+        "text": "Refined tooltip styling and functionality on donut charts for better clarity and consistency.",
+        "enterprise": false
+       },
+       {
+        "lead": "Vault Reporting Dashboard",
+        "text": "Migrated the Vault Reporting Dashboard from a shared package into Vault Enterprise.",
+        "enterprise": true
+       },
+       {
+        "lead": "Babel preset",
+        "text": "Reinstalled @babel/preset-env at ~7.29.5 to stay current with the JavaScript build ecosystem.",
+        "enterprise": false
+       }
+      ],
+      "Executive summary": [
+       {
+        "lead": "",
+        "text": "Vault Enterprise 1.20.0 streamlines the user experience, and improves visibility and transparency around billing, auditing, and Vault usage. The latest version of Vault also introduces new capabilities related to cryptography, secret recovery, and provides enhanced ecosystem integrations for centralizing secrets.",
+        "enterprise": false
+       }
+      ],
+      "Highlights": [
+       {
+        "lead": "",
+        "text": "Improves support for chargeback and showback with enhanced visibility into the underlying source of costs.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Simplifies and enhances the user experience by improving namespace navigation, providing a customizable login function, and releasing a new secret recovery function.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Enhances and expands secure integrations by reducing friction on plugin distribution and supporting key-value-compatible secret import from AWS, Azure, and GCP.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Adds SCEP protocol support in Vault PKI for certificate automation and reduces IT footprint by eliminating the need for alternate PKI solutions explictly for SCEP integration.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Verified Vault PKI SCEP integrations with Azure Intune and JAMF for certificate automation reduce operational burdens such as outages or security breachs due to certificate expiry.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Enhances resilience by providing reliability improvements, control over traffic flows, and the ability to ensure fairness of Vault consumption across users and applications.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "Better auditability and visibility into audit logs, certificates, Vault feature usage, and opinionated suggestions for improving Vault usage, including benchmarking that supports migrating from Consul to integrated storage.",
+        "enterprise": false
+       }
+      ],
+      "Feature deprecations and EOL": [
+       {
+        "lead": "",
+        "text": "Please refer to the deprecation notices for up-to-date information on feature deprecations and plans.",
+        "enterprise": false
+       }
+      ],
+      "Manage 3rd-party secrets": [
+       {
+        "lead": "",
+        "text": "Integrate Vault with the other elements of your development environment. Generate and revoke on-demand credentials for database systems and cloud providers like AWS, and control access to external information like encryption keys and cloud credentials.",
+        "enterprise": false
+       }
+      ],
+      "Manage certificates": [
+       {
+        "lead": "",
+        "text": "Configure Vault to work with certificate authorities like KMIP and PKI to manage certificate life cycles and authenticate clients.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.19.19",
+     "date": "2026-06-17",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": false,
+     "line": "1.19",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.19.x/updates/release-notes#vault-1-19-19",
+     "enterprise_only": true,
+     "sections": {
+      "Bug fixes and security patches": [
+       {
+        "lead": "Fix",
+        "text": "Fixed stuck dropdowns in the Transit secrets engine Vault GUI.",
+        "enterprise": false
+       }
+      ],
+      "Improvements and behavior changes": [
+       {
+        "lead": "Azure secrets engine: Improved reliability for dynamic roles using ephemeral service principals",
+        "text": "Vault now uses a single Microsoft Graph API request to create the application and its initial client secret, significantly reducing Azure eventual consistency delays that could cause newly generated secrets to be temporarily rejected as invalid.",
+        "enterprise": false
+       },
+       {
+        "lead": "Charts",
+        "text": "Migrated charts from Lineal to Carbon Charts, including tooltip enhancements for better clarity and usability.",
+        "enterprise": false
+       }
+      ],
+      "Feature deprecations and EOL": [
+       {
+        "lead": "",
+        "text": "Please refer to the deprecation notices for up-to-date information on feature deprecations and plans.",
+        "enterprise": false
+       }
+      ],
+      "Vault companion updates": [
+       {
+        "lead": "",
+        "text": "Companion updates are Vault updates that live outside the main Vault binary.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "None.",
+        "enterprise": false
+       }
+      ],
+      "Community updates": [
+       {
+        "lead": "",
+        "text": "Follow the learn more links for more information, or browse the list of Vault tutorials updated to highlight changes for the most recent GA release.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "2.0.2",
+     "date": "2026-06-04",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": false,
+     "line": "2.0",
+     "variants": [
+      "",
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/updates/release-notes#vault-2-0-2",
+     "enterprise_only": false,
+     "sections": {
+      "Bug fixes and security patches": [
+       {
+        "lead": "Fix",
+        "text": "Local account update failure. Vault failed to complete account rotation with the error: Error writing data to <path>: context deadline exceeded.",
+        "enterprise": false
+       },
+       {
+        "lead": "Fix",
+        "text": "Enterprise Azure Secrets Engine credential failure. Vault intermittently failed during credential creation with the error: Resource does not exisit.",
+        "enterprise": false
+       },
+       {
+        "lead": "Go update",
+        "text": "Vulerability patch for golang.org/x/crypto.",
+        "enterprise": false
+       },
+       {
+        "lead": "Go update",
+        "text": "Vulerability patch for golang.org/x/net.",
+        "enterprise": false
+       }
+      ],
+      "Improvements and behavior changes": [
+       {
+        "lead": "",
+        "text": "Removed the IPC_LOCK capability for official OCI container images while preserving the non-root vault user runtime model.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.21.7",
+     "date": "2026-06-04",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": false,
+     "line": "1.21",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.21.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "containers: Remove cap_ipc_lock capability on vault at build time to allow running Vault in common container runtimes. Vault in containers will no longer be able to call mlock() to lock memory. Operators should set disable_mlock = true in Vault's configuration. Runtime operators are advised to disable swapping to guara",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/ssh: RSA key sizes are now limited to a maximum size of 8192 bits addressing CVE-2026-39829",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.11",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/azure (enterprise): Update plugin to v0.25.3+ent",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "plugins: Fix plugin signature verification failure with expired pgp key when registering a plugin.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui/transit: Fix key version dropdown selected state when editing a transit key.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secret-sync (enterprise): Fix a panic when creating Secrets Sync destinations if fetch_identity_token callback fields are present in store configuration.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.20.12",
+     "date": "2026-06-04",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": false,
+     "line": "1.20",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.20.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "containers: Remove cap_ipc_lock capability on vault at build time to allow running Vault in common container runtimes. Vault in containers will no longer be able to call mlock() to lock memory. Operators should set disable_mlock = true in Vault's configuration. Runtime operators are advised to disable swapping to guara",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/ssh: RSA key sizes are now limited to a maximum size of 8192 bits addressing CVE-2026-39829",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.11",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "plugins: Fix plugin signature verification failure with expired pgp key when registering a plugin.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secret-sync (enterprise): Fix a panic when creating Secrets Sync destinations if fetch_identity_token callback fields are present in store configuration.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.19.18",
+     "date": "2026-06-04",
+     "date_source": "releases-api",
+     "month": "2026-06",
+     "month_label": "June",
+     "is_prerelease": false,
+     "line": "1.19",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.19.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "containers: Remove cap_ipc_lock capability on vault at build time to allow running Vault in common container runtimes. Vault in containers will no longer be able to call mlock() to lock memory. Operators should set disable_mlock = true in Vault's configuration. Runtime operators are advised to disable swapping to guara",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/ssh: RSA key sizes are now limited to a maximum size of 8192 bits addressing CVE-2026-39829",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.11",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "plugins: Fix plugin signature verification failure with expired pgp key when registering a plugin.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui/transit: Fix key version dropdown selected state when editing a transit key.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "2.0.1",
+     "date": "2026-05-19",
+     "date_source": "releases-api",
+     "month": "2026-05",
+     "month_label": "May",
+     "is_prerelease": false,
+     "line": "2.0",
+     "variants": [
+      "",
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/updates/release-notes#vault-2-0-1",
+     "enterprise_only": false,
+     "sections": {
+      "Bug fixes and security patches": [
+       {
+        "lead": "Fix",
+        "text": "MSSQL database secrets engine bug. Fixed lease revocation to work without sysadmin privileges by replacing the undocumented sp_msloginmappings procedure with a metadata query. The plugin now functions with VIEW ANY DEFINITION and VIEW SERVER STATE permissions instead of requiring full sysadmin access.",
+        "enterprise": false
+       }
+      ],
+      "Improvements and behavior changes": [
+       {
+        "lead": "License utilization dashboard",
+        "text": "New UI dashboard for /sys/billing/overview data.",
+        "enterprise": false
+       },
+       {
+        "lead": "/sys/billing/overview",
+        "text": "Now retains 37 months of usage data and adds start_month and end_month query parameters.",
+        "enterprise": false
+       },
+       {
+        "lead": "License utilization metrics",
+        "text": "Added census and billing metrics.GCP KMS operation counts for data protection API calls: gcp_kms_operation_count.current_month_estimate and gcp_kms_operation_count.previous_month_completeOIDC token units for duration-adjusted OIDC token issuance: normalized_oidc_tokens_issued.current_month_estimate and normalized_oidc_tokens_issued.previous_month_completeSPIFFE JWT token units for duration-adjusted SPIFFE JWT token i",
+        "enterprise": false
+       },
+       {
+        "lead": "Product usage metrics",
+        "text": "Added a count of local account static roles managed by mounts of OS secrets engine across all namespaces (secret.engine.os.local.account.static.role.count).Added a count of agent registrations across all namespaces (vault.agentregistry.agent.registrations.count).Added a count of agent registrations with RAR toggled off across all namespaces (vault.agentregistry.agent.registrations.with_rar_off.count).Added a count of",
+        "enterprise": false
+       },
+       {
+        "lead": "JWT/OIDC auth plugin - Added multi-JWKS key ID cache",
+        "text": "JWT authentication with multiple JWKS URLs (jwks_pairs) now uses a key ID cache so Vault skips unnecessary JWKS endpoint refreshes during login. The plugin first checks all in-memory caches for the token's key ID before making any network calls. Remote JWKS endpoints are only re-fetched when no cache contains the key ID, such as after a key rotation.",
+        "enterprise": false
+       },
+       {
+        "lead": "Wildcards and globs no longer permitted in templated policy paths",
+        "text": "Vault now returns a \"permission denied\" error if you include wildcards and globs in the rendered output for identity templates. Refer to the Important changes entry for more details.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.21.6",
+     "date": "2026-05-19",
+     "date_source": "releases-api",
+     "month": "2026-05",
+     "month_label": "May",
+     "is_prerelease": false,
+     "line": "1.21",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.21.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "containers: set cap_ipc_lock capability on vault at build time. Container runtimes will need to add IPC_LOCK capabilities when running the vault container.",
+        "enterprise": false
+       }
+      ],
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "api: Update golang.org/x/net to resolve GO-2026-4918\"",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/identity: reject wildcards in rendered identity templates",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Resolve GHSA-j88v-2chj-qfwx by removing our dependency on github.com/jackc/pgx/v3 and github.com/jackc/pgx/v4",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update github.com/Azure/go-ntlmssp to fix security vulnerability v0.1.1.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update github.com/apache/thrift to fix security vulnerability GHSA-wf45-q9ch-q8gh",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update github.com/jackc/pgx/v5 to fix security vulnerability GHSA-j88v-2chj-qfwx.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update golang.org/x/net to resolve GO-2026-4918\"",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Validate both path and file_path cannot be empty for requests to sys/audit/{path}",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "auth/jwt: Update plugin to v0.25.1",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.10",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: Require sudo capability to invoke the identity entity merge API endpoint (identity/entity/merge).",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/azure: Update plugin to v0.25.2+ent",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "api: Add migration_done_at_epoch to sys/seal-status response.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (Enterprise): Sanitized config now shows kms_library config.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/seal (enterprise): Make it possible for new nodes to join a cluster configured with Seal High Availability.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "sdk: Expand support for docker test cluster options like seals, kms libraries, and entropy augmentation. DockerClusterNode.UpdateConfig now takes a full set of cluster options instead of just node config.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/pki (enterprise): Allow SCEP to use an issuer that is backed by an RSA based PKCS#11 managed key",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: unsafe-inline is no longer included in the style-src CSP directive.",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "client/ocsp: Adds a grace period to renew the cached entry for OCSP response.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database/mssql: Fix \"sysadmin\" requirement during lease revocation by replacing the undocumented sp_msloginmappings procedure with a granular metadata query. This allows the plugin to function with VIEW ANY DEFINITION instead of full sysadmin privileges.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database/mssql: Fix dynamic secret revocation by executing custom statements as a single batch instead of splitting on semicolons",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database/snowflake: Fix WAL rollback issue for key-pair root credential rotation.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database: prevent static role rotation and connection init from hanging indefinitely when database calls block by adding timeouts around UpdateUser and Initialize",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "go-plugin: Upgrade go-plugin to fix a bug where file descriptors could be leaked when spawning external plugins",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: fixed a rare but possible data race issue with identities.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "plugins/database/hana: Fixed a SQL injection risk in the default DeleteUser revoke path by safely quoting usernames as SQL identifiers before ALTER USER and DROP USER statements. plugins/database/redshift: Fixed a SQL injection risk in the default DeleteUser revoke path by safely quoting usernames as SQL string literal",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.20.11",
+     "date": "2026-05-19",
+     "date_source": "releases-api",
+     "month": "2026-05",
+     "month_label": "May",
+     "is_prerelease": false,
+     "line": "1.20",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.20.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "containers: set cap_ipc_lock capability on vault at build time. Container runtimes will need to add IPC_LOCK capabilities when running the vault container.",
+        "enterprise": false
+       }
+      ],
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "api: Update golang.org/x/net to resolve GO-2026-4918\"",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/identity: reject wildcards in rendered identity templates",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Resolve GHSA-j88v-2chj-qfwx by removing our dependency on github.com/jackc/pgx/v3 and github.com/jackc/pgx/v4",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update github.com/Azure/go-ntlmssp to fix security vulnerability v0.1.1.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update github.com/apache/thrift to fix security vulnerability GHSA-wf45-q9ch-q8gh",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update github.com/jackc/pgx/v5 to fix security vulnerability GHSA-j88v-2chj-qfwx.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update golang.org/x/net to resolve GO-2026-4918\"",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Validate both path and file_path cannot be empty for requests to sys/audit/{path}",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "auth/jwt: Update plugin to v0.24.2",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.10",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: Require sudo capability to invoke the identity entity merge API endpoint (identity/entity/merge).",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "api: Add migration_done_at_epoch to sys/seal-status response.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (Enterprise): Sanitized config now shows kms_library config.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/seal (enterprise): Make it possible for new nodes to join a cluster configured with Seal High Availability.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "sdk: Expand support for docker test cluster options like seals, kms libraries, and entropy augmentation. DockerClusterNode.UpdateConfig now takes a full set of cluster options instead of just node config.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "secrets/pki (enterprise): Allow SCEP to use an issuer that is backed by an RSA based PKCS#11 managed key",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "ui: unsafe-inline is no longer included in the style-src CSP directive.",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "client/ocsp: Adds a grace period to renew the cached entry for OCSP response.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Fix failure to detect errors during storage writes of totp keys.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database/mssql: Fix \"sysadmin\" requirement during lease revocation by replacing the undocumented sp_msloginmappings procedure with a granular metadata query. This allows the plugin to function with VIEW ANY DEFINITION instead of full sysadmin privileges.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database/mssql: Fix dynamic secret revocation by executing custom statements as a single batch instead of splitting on semicolons",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database/snowflake: Fix WAL rollback issue for key-pair root credential rotation.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database: prevent static role rotation and connection init from hanging indefinitely when database calls block by adding timeouts around UpdateUser and Initialize",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "go-plugin: Upgrade go-plugin to fix a bug where file descriptors could be leaked when spawning external plugins",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: fixed a rare but possible data race issue with identities.",
+        "enterprise": false
+       }
+      ]
+     }
+    },
+    {
+     "version": "1.19.17",
+     "date": "2026-05-19",
+     "date_source": "releases-api",
+     "month": "2026-05",
+     "month_label": "May",
+     "is_prerelease": false,
+     "line": "1.19",
+     "variants": [
+      "ent",
+      "ent.fips1403",
+      "ent.hsm",
+      "ent.hsm.fips1403"
+     ],
+     "url": "https://developer.hashicorp.com/vault/docs/v1.19.x/updates/release-notes",
+     "enterprise_only": true,
+     "sections": {
+      "BREAKING CHANGES": [
+       {
+        "lead": "",
+        "text": "containers: set cap_ipc_lock capability on vault at build time. Container runtimes will need to add IPC_LOCK capabilities when running the vault container.",
+        "enterprise": false
+       }
+      ],
+      "SECURITY": [
+       {
+        "lead": "",
+        "text": "api: Update golang.org/x/net to resolve GO-2026-4918\"",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/identity: reject wildcards in rendered identity templates",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Resolve GHSA-j88v-2chj-qfwx by removing our dependency on github.com/jackc/pgx/v3 and github.com/jackc/pgx/v4",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update github.com/Azure/go-ntlmssp to fix security vulnerability v0.1.1.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update github.com/apache/thrift to fix security vulnerability GHSA-wf45-q9ch-q8gh",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update github.com/jackc/pgx/v5 to fix security vulnerability GHSA-j88v-2chj-qfwx.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Update golang.org/x/net to resolve GO-2026-4918\"",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Validate both path and file_path cannot be empty for requests to sys/audit/{path}",
+        "enterprise": false
+       }
+      ],
+      "CHANGES": [
+       {
+        "lead": "",
+        "text": "auth/jwt: Update plugin to v0.23.3",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Bump Go version to 1.25.10",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: secondary DR requests can now be authenticated using a root token generated on the primary.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: sys/generate-root and sys/replication/dr/secondary/generate-operation-token endpoints are now authenticated by default, with the old unauthenticated behaviour enabled by setting the new HCL config key enable_unauthenticated_access to include the value \"generate-root\" or \"generate-operation-token\" respectively.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: sys/rekey endpoints are now authenticated by default, with the old unauthenticated behaviour enabled by setting the new HCL config key enable_unauthenticated_access to include the value \"rekey\".",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: Require sudo capability to invoke the identity entity merge API endpoint (identity/entity/merge).",
+        "enterprise": false
+       }
+      ],
+      "IMPROVEMENTS": [
+       {
+        "lead": "",
+        "text": "api: Add migration_done_at_epoch to sys/seal-status response.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core (Enterprise): Sanitized config now shows kms_library config.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core/seal (enterprise): Make it possible for new nodes to join a cluster configured with Seal High Availability.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "sdk: Expand support for docker test cluster options like seals, kms libraries, and entropy augmentation. DockerClusterNode.UpdateConfig now takes a full set of cluster options instead of just node config.",
+        "enterprise": false
+       }
+      ],
+      "BUG FIXES": [
+       {
+        "lead": "",
+        "text": "client/ocsp: Adds a grace period to renew the cached entry for OCSP response.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "core: Fix failure to detect errors during storage writes of totp keys.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database/mssql: Fix \"sysadmin\" requirement during lease revocation by replacing the undocumented sp_msloginmappings procedure with a granular metadata query. This allows the plugin to function with VIEW ANY DEFINITION instead of full sysadmin privileges.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database/mssql: Fix dynamic secret revocation by executing custom statements as a single batch instead of splitting on semicolons",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database/snowflake: Fix WAL rollback issue for key-pair root credential rotation.",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "database: prevent static role rotation and connection init from hanging indefinitely when database calls block by adding timeouts around UpdateUser and Initialize",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "go-plugin: Upgrade go-plugin to fix a bug where file descriptors could be leaked when spawning external plugins",
+        "enterprise": false
+       },
+       {
+        "lead": "",
+        "text": "identity: fixed a rare but possible data race issue with identities.",
+        "enterprise": false
+       }
+      ]
+     }
+    }
+   ]
+  }
+ },
+ "terraform_enterprise": {
+  "display": "Terraform Enterprise",
+  "releases": [
+   {
+    "version": "2.0.8",
+    "date": "2026-09-23",
+    "month": "2026-09",
+    "month_label": "September",
+    "sections": {
+     "Bug Fixes": [
+      {
+       "lead": "",
+       "text": "Sidekiq now starts correctly when Terraform Enterprise uses a separate Redis instance with mutual TLS (mTLS) and password authentication. Previously, Sidekiq could fail to start with this configuration.",
+       "enterprise": false
+      }
+     ]
+    },
+    "url": "https://developer.hashicorp.com/terraform/enterprise/releases/2.0.x#2-0-8"
+   },
+   {
+    "version": "2.0.7",
+    "date": "2026-09-18",
+    "month": "2026-09",
+    "month_label": "September",
+    "sections": {
+     "Bug Fixes": [
+      {
+       "lead": "",
+       "text": "You can now configure GitHub App integrations for version control systems (VCS) to use your instance’s dedicated VCS hostname for setup and webhook traffic. This lets you complete GitHub App setup when your primary hostname is not reachable from GitHub. Existing GitHub App registrations are not updated automatically. Review their webhook, post-installation, and callback URLs, or recreate the integration, after changi",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "GitHub App VCS integration setup for GitHub Enterprise Cloud (GHE.com) tenants now honors configured proxy settings, allowing setup in environments without direct internet egress.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "The Terraform Enterprise private module registry now accepts Terraform 1.15 module source and version expressions that reference const input variables or local values. Publishing those modules previously failed ingress with \"Variables not allowed\" / \"value must be known\". See the module block documentation.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "When you run terraform apply -replace=ADDRESS with no configuration changes, health assessment no longer incorrectly reports drift.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "When Terraform Enterprise connects to a Bitbucket Cloud VCS provider, webhook-creation API calls no longer fail with HTTP 415 Unsupported Media Type errors.",
+       "enterprise": false
+      }
+     ],
+     "Security": [
+      {
+       "lead": "",
+       "text": "Security vulnerabilities have been addressed and resolved in this update to enhance overall system protection.",
+       "enterprise": false
+      }
+     ]
+    },
+    "url": "https://developer.hashicorp.com/terraform/enterprise/releases/2.0.x#2-0-7"
+   },
+   {
+    "version": "2.0.6",
+    "date": "2026-09-01",
+    "month": "2026-09",
+    "month_label": "September",
+    "sections": {
+     "Features": [
+      {
+       "lead": "",
+       "text": "Redis mTLS connections now support password authentication. You can now enable both certificate-based mutual TLS and Redis ACL credentials at the same time.",
+       "enterprise": false
+      }
+     ],
+     "Improvements": [
+      {
+       "lead": "",
+       "text": "Task worker logs now include project_name and a destroy run indicator in their metadata. Operators who consume task worker log output can now identify which project a run belongs to and whether the run is a terraform destroy operation.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Two new configuration options, TFE_OBJECT_STORAGE_AZURE_UPLOAD_PART_SIZE and TFE_OBJECT_STORAGE_AZURE_UPLOAD_CONCURRENCY, are now available for Azure Blob Storage. These options bring Azure upload configuration to parity with the existing AWS S3 options, allowing operators to tune upload performance for large artifacts. Refer to the configuration reference for details.",
+       "enterprise": false
+      }
+     ],
+     "Bug Fixes": [
+      {
+       "lead": "",
+       "text": "Terraform Enterprise now reaps zombie processes left behind by VCS operations. When Terraform Enterprise runs as PID 1 and performs Git-based operations such as VCS-triggered runs, child Git processes could accumulate as zombie processes and never be cleaned up. This issue has been resolved.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Background migrations now correctly handle workspaces that have non-standard Terraform version strings. Previously, a database migration used to populate Explorer data could fail when encountering version strings that do not follow standard versioning, causing Explorer data to stop being updated. This issue has been resolved.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Terraform Stacks now respects the no_proxy environment variable configuration. Previously, some Stacks runs were ignoring no_proxy configuration, causing all traffic to be routed through the configured proxy. If you use external HCP Terraform agents, you must upgrade to tfc-agent:1.31.0 or later for this fix to take effect. If you use the default tfe-agent image provided with Terraform Enterprise, no action is requir",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Terraform Enterprise now dispatches global agents with a Terraform version matching its host architecture. Previously the architecture of these internal agents was inferred. On the first run of a new install amd64 would always be chosen, even when using Arm64. When using a disk volume cache this would cause the first run to fail due to the cache missing the expected architecture.",
+       "enterprise": false
+      }
+     ],
+     "Security": [
+      {
+       "lead": "",
+       "text": "Security vulnerabilities have been addressed and resolved in this update to enhance overall system protection.",
+       "enterprise": false
+      }
+     ]
+    },
+    "url": "https://developer.hashicorp.com/terraform/enterprise/releases/2.0.x#2-0-6"
+   },
+   {
+    "version": "2.0.5",
+    "date": "2026-08-06",
+    "month": "2026-08",
+    "month_label": "August",
+    "sections": {
+     "Known Issues": [
+      {
+       "lead": "",
+       "text": "When an http_proxy or https_proxy is configured for a provider in a Terraform Stacks component file along with a no_proxy configuration, the no_proxy configuration has no effect. The configured proxies are used for all hosts.",
+       "enterprise": false
+      }
+     ],
+     "Improvements": [
+      {
+       "lead": "",
+       "text": "Agent logs no longer report unnecessary \"Agent token invalid\" messages during routine status checks. Previously, non-critical agent status checks could generate benign 401 Unauthorized messages in agent logs, resulting in misleading \"Agent token invalid\" entries despite agents continuing to operate normally. This issue has been resolved, reducing unnecessary log noise and making it easier to identify genuine authenti",
+       "enterprise": false
+      }
+     ],
+     "Bug Fixes": [
+      {
+       "lead": "",
+       "text": "SCIM updates from Microsoft Entra ID now correctly apply changes to primary email addresses when sent via SCIM PATCH value-path expression (for example, emails[type eq \"work\"].value). Previously, Terraform Enterprise could ignore primary email address updates sent through SCIM synchronization from Microsoft Entra ID. This issue has been resolved, and supported email address updates are now applied correctly during SC",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "GitHub App installation workflows now provide a more reliable user experience on GitHub Enterprise Cloud (GHE.com). Terraform Enterprise now directs users to the correct GitHub App installation page on GHE.com, validates installation callbacks to improve security, and allows users without app installation permissions to request access from an organization owner. Additionally, users with an expired Enterprise Managed ",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "(Updated 8/20/2026) Private registry module versions that get stuck in a pending status due to concurrent upload requests are now correctly processed and made available. Previously, when multiple module versions were uploaded in rapid succession using branch-based modules, a subset of versions could remain indefinitely in a pending state and never become available for use. This issue has been resolved.",
+       "enterprise": false
+      }
+     ],
+     "Security": [
+      {
+       "lead": "",
+       "text": "Security vulnerabilities have been addressed and resolved in this update to enhance overall system protection.",
+       "enterprise": false
+      }
+     ]
+    },
+    "url": "https://developer.hashicorp.com/terraform/enterprise/releases/2.0.x#2-0-5"
+   },
+   {
+    "version": "1.2.4",
+    "date": "2026-07-06",
+    "month": "2026-07",
+    "month_label": "July",
+    "sections": {
+     "Security": [
+      {
+       "lead": "",
+       "text": "Security vulnerabilities have been addressed and resolved in this update to enhance overall system protection.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Terraform Enterprise now correctly enforces content boundaries during VCS-based module ingestion, addressing CVE-2026-14468. For additional details, refer to the HashiCorp security bulletin and the IBM Support advisory.",
+       "enterprise": false
+      }
+     ]
+    },
+    "url": "https://developer.hashicorp.com/terraform/enterprise/releases/1.2.x#1-2-4"
+   },
+   {
+    "version": "2.0.4",
+    "date": "2026-06-23",
+    "month": "2026-06",
+    "month_label": "June",
+    "sections": {
+     "Known Issues": [
+      {
+       "lead": "",
+       "text": "On Kubernetes and OpenShift deployments that use a least-privilege RBAC role, the Diagnostics API and tfectl app diagnostics may report the task worker as unhealthy with an HTTP 503 status and a permission denied to create/delete jobs error. This is a false positive caused by the task worker health check evaluating the jobs permission against the wrong Kubernetes API group, so a correctly configured role is incorrect",
+       "enterprise": false
+      }
+     ],
+     "Bug Fixes": [
+      {
+       "lead": "",
+       "text": "Vault‑dependent services now start reliably in multi‑node deployments. Previously, Terraform Enterprise could start services that depend on Vault before the Vault cluster had elected a leader, which could cause startup failures or crashes in multi‑node environments. This issue has been resolved by ensuring services wait until Vault is fully ready before starting.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Terraform Enterprise now prevents tasks from being orphaned in \"executing\" status when the database is slow to respond, which previously caused associated runs to get stuck indefinitely.",
+       "enterprise": false
+      }
+     ],
+     "Security": [
+      {
+       "lead": "",
+       "text": "Security vulnerabilities have been addressed and resolved in this update to enhance overall system protection.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Terraform Enterprise now correctly enforces content boundaries during VCS-based module ingestion, addressing CVE-2026-14468. For additional details, refer to the HashiCorp security bulletin and the IBM Support advisory.",
+       "enterprise": false
+      }
+     ]
+    },
+    "url": "https://developer.hashicorp.com/terraform/enterprise/releases/2.0.x#2-0-4"
+   },
+   {
+    "version": "2.0.3",
+    "date": "2026-06-03",
+    "month": "2026-06",
+    "month_label": "June",
+    "sections": {
+     "Known Issues": [
+      {
+       "lead": "",
+       "text": "On Kubernetes and OpenShift deployments that use a least-privilege RBAC role, the Diagnostics API and tfectl app diagnostics may report the task worker as unhealthy with an HTTP 503 status and a permission denied to create/delete jobs error. This is a false positive caused by the task worker health check evaluating the jobs permission against the wrong Kubernetes API group, so a correctly configured role is incorrect",
+       "enterprise": false
+      }
+     ],
+     "Bug Fixes": [
+      {
+       "lead": "",
+       "text": "Readiness checks now behave correctly when a node is draining. In previous releases, readiness checks returned an HTTP 503 status during node drain, which could cause load balancers in some non‑Kubernetes environments to remove draining nodes from service unintentionally. This issue has been resolved, and readiness checks now return a successful HTTP 200 response while indicating the draining state so nodes are handl",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Terraform Enterprise now supports PostgreSQL extensions installed in non-default schemas. Previously, Terraform Enterprise could fail to start or operate correctly in environments where PostgreSQL extensions are installed in database-managed schemas, leading to initialization errors. This release introduces new configuration option (TFE_DATABASE_EXTRA_SCHEMAS) that let you include additional schemas in the connection",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Terraform Enterprise now supports deployments with pre-provisioned PostgreSQL schemas without requiring database-level CREATE permissions. Previously, startup checks required database-level CREATE privileges even when all required Terraform Enterprise schemas already existed, which could prevent deployments in DBA-managed PostgreSQL environments. This update improves the validation logic to check for existing schemas",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Terraform Enterprise now handles deployments with long or complex hostnames reliably. Previously, Terraform Enterprise could fail to start in environments with long hostnames due to Nginx limitations when building the server names hash. This issue has been resolved by increasing the supported hash bucket size, preventing startup failures.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "You can now allow Terraform Enterprise to start even if expired certificates are present in the CA bundle. Previously, Terraform Enterprise failed to start if any expired certificates were detected in the CA certificate bundle, which could delay restarts in environments where certificate management is handled externally. This release introduces the TFE_STARTUP_CHECKS_IGNORE_FAILURES configuration option, allowing you",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Explorer now includes remote modules, such as those sourced from GitHub. Previously, modules sourced directly from version control were not shown in Explorer, limiting visibility into module usage across your organization. This update ensures non‑registry modules are included, giving you a more complete view of the modules used in your Terraform Enterprise deployment.",
+       "enterprise": false
+      }
+     ],
+     "Security": [
+      {
+       "lead": "",
+       "text": "Security vulnerabilities have been addressed and resolved in this update to enhance overall system protection.",
+       "enterprise": false
+      }
+     ]
+    },
+    "url": "https://developer.hashicorp.com/terraform/enterprise/releases/2.0.x#2-0-3"
+   },
+   {
+    "version": "2.0.2",
+    "date": "2026-05-15",
+    "month": "2026-05",
+    "month_label": "May",
+    "sections": {
+     "Known Issues": [
+      {
+       "lead": "",
+       "text": "When a Terraform Enterprise node enters a draining state, readiness checks return an HTTP 503 status. In some non‑Kubernetes cloud environments, checks for load balancers may interpret this as an unhealthy node and remove it from service, even though the node is intentionally draining and not accepting new requests. When draining nodes in your Terraform Enterprise installation, consider disabling readiness checks and",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "On Kubernetes and OpenShift deployments that use a least-privilege RBAC role, the Diagnostics API and tfectl app diagnostics may report the task worker as unhealthy with an HTTP 503 status and a permission denied to create/delete jobs error. This is a false positive caused by the task worker health check evaluating the jobs permission against the wrong Kubernetes API group, so a correctly configured role is incorrect",
+       "enterprise": false
+      }
+     ],
+     "Bug Fixes": [
+      {
+       "lead": "",
+       "text": "Policy evaluations could fail to complete in some cases, particularly in workspaces with a large number of configured policies, causing runs to remain in progress. This issue has been resolved, and policy checks now execute and complete as expected. If you applied the workaround described in the support knowledge base article (https://www.ibm.com/support/pages/node/7272682), you can re‑enable policy checks and evalua",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Product usage reports were not created successfully, which prevented usage reports from receiving up‑to‑date data. This issue has been resolved.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "The Diagnostics API returned an HTTP 503 status for the task worker due to the diagnostics check requiring cluster-level Kubernetes API permissions that are not granted by the standard Helm chart. This resulted in a false unhealthy status, which this release resolves. A related residual issue still affects deployments that use a least-privilege RBAC role, where the check evaluates the jobs permission against the wron",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "Explorer now includes remote (non-registry) modules, such as those sourced from GitHub.",
+       "enterprise": false
+      }
+     ]
+    },
+    "url": "https://developer.hashicorp.com/terraform/enterprise/releases/2.0.x#2-0-2"
+   },
+   {
+    "version": "1.2.3",
+    "date": "2026-05-06",
+    "month": "2026-05",
+    "month_label": "May",
+    "sections": {
+     "Known Issues": [
+      {
+       "lead": "",
+       "text": "Terraform Enterprise readiness endpoint /api/v1/health/readiness respond with an HTTP 503 status when a node is in a draining state. This can cause readiness probes in cloud environments to treat the node as unhealthy and remove it from service, even though the node is draining and intentionally not accepting new requests. As a workaround, use the /_health_check endpoint instead of the readiness endpoint.",
+       "enterprise": false
+      },
+      {
+       "lead": "",
+       "text": "(Updated 5/7/2026) The Diagnostics API may report the task worker as unhealthy with an HTTP 503 status on Kubernetes and OpenShift deployments. This is a false positive caused by the diagnostics check requiring cluster-level Kubernetes API permissions that are not typically granted in these environments. The standard Terraform Enterprise Helm chart does not grant these permissions. This error status does not reflect ",
+       "enterprise": false
+      }
+     ],
+     "Bug Fixes": [
+      {
+       "lead": "",
+       "text": "Since v202507-1, Terraform Enterprise would lose database connectivity after restarting certain Terraform Enterprise components when database monitoring was enabled. This mainly affected the task-worker, which would result in stuck plan and apply operations. These components now refresh correctly when a database monitor triggers a restart.",
+       "enterprise": false
+      }
+     ],
+     "Security": [
+      {
+       "lead": "",
+       "text": "Security vulnerabilities have been addressed and resolved in this update to enhance overall system protection.",
+       "enterprise": false
+      }
+     ]
+    },
+    "url": "https://developer.hashicorp.com/terraform/enterprise/releases/1.2.x#1-2-3"
+   }
+  ]
+ }
+}

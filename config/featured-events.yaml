@@ -1,0 +1,33 @@
+# Hand-maintained featured / in-person events that are NOT on the public events page
+# (https://www.hashicorp.com/en/events) — e.g. a regional exchange promoted through the field team.
+# Events listed on the public page are picked up automatically and must not be repeated here.
+#
+# Each event gets a slide of its own in the "Featured / In Person Events" section — except a webinar
+# or workshop (type: Webinar / Workshop), which becomes a card on the webinar slide of each product it
+# lists. The weekly summary names events the public page promotes WITHOUT a date; once a date is known,
+# add them here. Entries whose date has passed are ignored, so this file never needs pruning.
+#
+#   title               slide title (card title for a webinar / workshop)
+#   type                Event (default), Webinar or Workshop
+#   date                YYYY-MM-DD
+#   location            city — selects the hero photo (config/city-photos.yaml) and the region scope
+#   products            product icons shown on the slide: terraform, vault
+#   links               the registration link(s) after "Event | <date> |"; one or several tracks
+#   description_points  1-3 short paragraphs; **double asterisks** mark a bold phrase
+#   visuals: template   keep the template slide's own pictures instead of a city photo. Use it only
+#                       for the event the template slide was made for (its pictures show that event).
+
+events:
+  - title: "Agentic Runtime Security Exchange Frankfurt"
+    date: 2026-11-10
+    location: Frankfurt
+    products: [vault]
+    links:
+      - label: "Business Track"
+        url: "https://www.ibm.com/events/reg/flow/ibm/xn301hmb/landing/page/landing"
+      - label: "Practitioner Track"
+        url: "http://events.hashicorp.com/agentic-runtime-sec-exch-fra/hashi-sales"
+    description_points:
+      - "Join industry peers at this thought leadership event as we explore how **agentic AI, non-human identities, IAM gaps, and runtime security risks** are reshaping real-world deployments."
+      - "Gain practical insights into securing the agentic runtime and aligning identity, access, and governance models to safely scale AI-driven initiatives."
+    visuals: template

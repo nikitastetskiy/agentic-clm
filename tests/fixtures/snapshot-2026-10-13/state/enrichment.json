@@ -1,0 +1,277 @@
+{
+  "blog_titles": {
+    "hashicorp.com/blog/advancing-ai-agent-security-in-vault": {
+      "source": "reference-deck",
+      "title_markup": "Preparing for the **post-quantum era**: Discover and prioritize now"
+    },
+    "hashicorp.com/blog/ai-speeds-software-development-is-your-secret-security-keeping-up": {
+      "source": "reference-deck",
+      "title_markup": "**AI speeds software development**. Is your secret security keeping up?"
+    },
+    "hashicorp.com/blog/announcing-the-public-beta-of-vault-kubernetes-key-management": {
+      "source": "reference-deck",
+      "title_markup": "Announcing the public beta of **Vault Kubernetes key management**"
+    },
+    "hashicorp.com/blog/hashicorp-vault-agentic-iam-is-now-generally-available": {
+      "source": "reference-deck",
+      "title_markup": "HashiCorp Vault **agentic IAM** is now generally available"
+    },
+    "hashicorp.com/blog/hcp-terraform-is-the-control-plane-for-ai-driven-infrastructure": {
+      "source": "reference-deck",
+      "title_markup": "HCP Terraform is the **control plane for AI-driven infrastructure**"
+    },
+    "hashicorp.com/blog/hcp-vault-dedicated-audit-logs-microsoft-sentinel": {
+      "source": "reference-deck",
+      "title_markup": "Stream HCP Vault Dedicated **audit logs to Microsoft Sentinel**"
+    },
+    "hashicorp.com/blog/hcp-vault-dedicated-introduces-cluster-disaster-recovery-public-preview": {
+      "source": "reference-deck",
+      "title_markup": "HCP Vault Dedicated introduces **cluster disaster recovery** (public preview)"
+    },
+    "hashicorp.com/blog/introducing-hcp-terraform-metrics-operational-visibility-at-scale": {
+      "source": "reference-deck",
+      "title_markup": "Introducing **HCP Terraform Metrics**: operational visibility at scale"
+    },
+    "hashicorp.com/blog/simplify-compliance-with-a-native-pre-written-policy-experience-in-terraform": {
+      "source": "reference-deck",
+      "title_markup": "Simplify compliance with the **native pre-written policy** experience in HCP TF"
+    },
+    "hashicorp.com/blog/simplifying-terraform-for-ibm-z-with-intent-driven-workflows": {
+      "source": "reference-deck",
+      "title_markup": "Simplify Terraform for IBM Z with **intent-driven workflows**"
+    },
+    "hashicorp.com/blog/terraform-116-completes-actions-lifecycles-and-brings-imports-into-child-modules": {
+      "source": "reference-deck",
+      "title_markup": "**Terraform 1.16** completes **Actions lifecycles** and brings imports into child modules"
+    },
+    "hashicorp.com/blog/terraform-azurerm-provider-50-now-generally-available": {
+      "source": "reference-deck",
+      "title_markup": "Terraform **AzureRM provider 5.0** now generally available"
+    },
+    "hashicorp.com/blog/terraform-provider-for-google-cloud-80-now-generally-available": {
+      "source": "reference-deck",
+      "title_markup": "**Terraform provider for Google Cloud 8.0** now generally available"
+    },
+    "hashicorp.com/blog/terraform-stacks-explained": {
+      "source": "reference-deck",
+      "title_markup": "Terraform **Stacks**, explained"
+    },
+    "hashicorp.com/blog/the-common-security-controls-behind-indias-regulatory-wave": {
+      "source": "reference-deck",
+      "title_markup": "The common security controls behind **India's regulatory wave**"
+    },
+    "hashicorp.com/blog/understanding-vault-performance-benchmarks-from-real-world-workloads": {
+      "source": "reference-deck",
+      "title_markup": "Understanding Vault performance: **Benchmarks from real-world workloads**"
+    }
+  },
+  "events": {
+    "events.hashicorp.com/AgenticRuntimeSecurity": {
+      "description": "Join fellow security, identity, and technology leaders for an executive discussion on the emerging risks associated with agentic AI and the practical strategies organizations can adopt to securely enable AI-driven innovation.",
+      "source": "reference-deck"
+    },
+    "events.hashicorp.com/TerraformDec": {
+      "description": "Join us for an immersive 2-hour hands-on session demonstrating the gold standard for provisioning and managing enterprise cloud infrastructure.",
+      "source": "reference-deck"
+    },
+    "events.hashicorp.com/VaultQuickstartDec": {
+      "description": "Join us at the Vault Quickstart workshop, an immersive learning experience designed to demonstrate how to get started with Vault to secure applications, identities and protect sensitive data.",
+      "source": "reference-deck"
+    },
+    "hashicorp.com/events/webinars/build-deploy-and-manage-everything-as-code": {
+      "description": "Automation has grown from simple scripts on servers to the deployment and management of entire environments including everything from applications, networking, infrastructure, security, and even people. In this webinar learn how both HashiCorp Terraform and the HashiCorp Cloud Platform can be used to create and administer all areas of a modern public cloud environment as code.",
+      "source": "reference-deck"
+    },
+    "hashicorp.com/events/webinars/from-fragmented-workflows-to-policy-driven-hybrid-cloud-automation": {
+      "description": "Learn how platform and infrastructure teams standardize provisioning, enforce governance, and scale operations across hybrid environments using policy-driven automation.",
+      "source": "llm:ica-gateway/claude-haiku-4-5",
+      "written": "2026-10-13"
+    },
+    "ibm.webcasts.com/starthere.jsp?ei=1774310&tp_key=c4a79edc06": {
+      "description": "Get ready for Atlanta! Learn how to maximize your TechXchange experience with onsite certification exams. Get the first look of our new certifications launching in October (or at the conference), including an exciting new AI credential. We'll also explore IBM and HashiCorp certifications that tailors to your career path/growth.",
+      "source": "reference-deck"
+    }
+  },
+  "highlights": {
+    "hcp-terraform/2026-08-06": {
+      "bullets": [
+        "HCP Terraform now sends notification emails when API tokens are nearing expiration (30 days and 7 days."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-terraform/2026-08-13": {
+      "bullets": [
+        "Fixed the display of workspace and project counts in policy set summaries and indexes when the policy set is not a Terraform Policy VCS policy set."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-terraform/2026-08-20": {
+      "bullets": [
+        "The add_team and remove_team project audit events now include team_id, team_name, permissions, and project_name, ensuring historical records remain reliable even if team names change."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-terraform/2026-08-25": {
+      "bullets": [
+        "An Actions dropdown is now available, providing options for Select All, Reset Selection, and Bulk Delete. A warning message and delete confirmation modal have been added to prevent accidental deletions."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-terraform/2026-08-28": {
+      "bullets": [
+        "Manage team tokens with bulk deletion and filters for active, expired, expiring in 7 or 30 days, and no expiration."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-terraform/2026-09-05": {
+      "bullets": [
+        "Tags are now a valid scope for a policy set. Use matching logic of 'And'/'Or' to specify whether all or just one of the specified tags should be present on a workspace for it to be targeted by a policy set."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-terraform/2026-09-10": {
+      "bullets": [
+        "Terraform policy can now evaluate policies against Stacks. Evaluations are triggered during a deployment run, and occur post-plan."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-terraform/2026-09-16": {
+      "bullets": [
+        "The Teams page now includes an \"ID\" copy link, allowing you to easily copy the team ID for use in other workflows. This addition enhances the usability of the Teams page by providing a quick and convenient way to access the team ID."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-terraform/2026-09-17": {
+      "bullets": [
+        "Enhanced team management and auditability with team descriptions and richer, persistent audit metadata across organizations, memberships, permissions, teams, projects, and variable sets.."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-terraform/2026-10-01": {
+      "bullets": [
+        "HCP Terraform expands identity lifecycle management and auditability with SCIM provisioning and richer audit metadata for authentication tokens and SAML configuration changes."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-terraform/2026-10-02": {
+      "bullets": [
+        "HCP Terraform now supports Azure DevOps Org scoped Personal Access Tokens, allowing users to connect using tokens scoped to a specific organization, rather than globally. This change enables users to migrate their VCS connections before Microsoft retires global PATs on December 1, 2026."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-vault/2026-07-07": {
+      "bullets": [
+        "**Vault 2.0.3 is now available for HCP Vault** Dedicated clusters on AWS and Azure. Refer to the Vault 2.0.3 release notes to learn more about the new features, enhancements, and fixes included in Vault 2.0.3"
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-vault/2026-08-24": {
+      "bullets": [
+        "**Connectivity Tester:** HCP Vault Dedicated clusters on AWS and Azure now support a connectivity tester that validates network connectivity between the cluster and external endpoints."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-vault/2026-09-11": {
+      "bullets": [
+        "**Vault 2.0.4:** Vault 2.0.4 is now available for HCP Vault Dedicated clusters on AWS and Azure. Refer to the Vault 2.0.4 release notes to learn more about the new features, enhancements, and fixes included in Vault 2.0.4."
+      ],
+      "source": "reference-deck"
+    },
+    "hcp-vault/2026-09-23": {
+      "bullets": [
+        "**Data plane account details:** HCP Vault Dedicated clusters on AWS and Azure now expose the data plane account details directly.."
+      ],
+      "source": "reference-deck"
+    },
+    "terraform-enterprise/1.2.4": {
+      "bullets": [
+        "Focuses on security hardening, addressing vulnerabilities and strengthening content boundary enforcement for VCS-based module ingestion, including remediation for CVE-2026-14468"
+      ],
+      "source": "reference-deck"
+    },
+    "terraform-enterprise/2.0.5": {
+      "bullets": [
+        "Delivers targeted reliability, identity and integration improvements, addressing SCIM synchronization with Microsoft Entra ID, GitHub Enterprise Cloud workflows, private registry processing, and security vulnerabilities."
+      ],
+      "source": "reference-deck"
+    },
+    "terraform-enterprise/2.0.6": {
+      "bullets": [
+        "Focused maintenance release that improves operational flexibility and platform reliability, while strengthening security and addressing issues across VCS operations, Terraform Stacks, Explorer, and multi-architecture deployments."
+      ],
+      "source": "reference-deck"
+    },
+    "terraform-enterprise/2.0.7": {
+      "bullets": [
+        "Strengthens VCS integrations and Terraform 1.15 compatibility while improving drift detection, connectivity, and overall platform security."
+      ],
+      "source": "reference-deck"
+    },
+    "terraform-enterprise/2.0.8": {
+      "bullets": [
+        "Improves deployment reliability by fixing Sidekiq startup failures when using a separate Redis instance with mTLS and password authentication."
+      ],
+      "source": "reference-deck"
+    },
+    "vault/1.21.10": {
+      "bullets": [
+        "Bug fixes and improvements"
+      ],
+      "source": "reference-deck"
+    },
+    "vault/1.21.11": {
+      "bullets": [
+        "Added a \"**Submit feedback\" button** to the sidebar navigation and the Help and Support dropdown, linking to an external feedback survey.",
+        "Bug fixes and improvements"
+      ],
+      "source": "reference-deck"
+    },
+    "vault/1.21.8": {
+      "bullets": [
+        "Bug fixes and improvements"
+      ],
+      "source": "reference-deck"
+    },
+    "vault/1.21.9": {
+      "bullets": [
+        "Bug fixes and improvements"
+      ],
+      "source": "reference-deck"
+    },
+    "vault/2.0.2": {
+      "bullets": [
+        "**Breaking changes**",
+        "Containers: Remove cap_ipc_lock capability on vault at build time Runtime operators are advised to disable swapping to guarantee data safety.",
+        "secrets/ssh: RSA key sizes are now limited to a maximum size of 8192 bits addressing CVE-2026-39829"
+      ],
+      "source": "reference-deck"
+    },
+    "vault/2.0.3": {
+      "bullets": [
+        "**Introduces native support for AI agents** (public beta), extending Vault's machine identity and secrets management capabilities to emerging AI-driven workloads.",
+        "**Operational and user experience improvements** include enhanced Cloud Foundry authentication efficiency, refreshed usage dashboards, and UI stability enhancements."
+      ],
+      "source": "reference-deck"
+    },
+    "vault/2.0.4": {
+      "bullets": [
+        "Expands Vault’s machine identity capabilities with **native AI-agent support**, while delivering targeted reliability, operational and UX improvements and continuing to strengthen the platform’s security posture"
+      ],
+      "source": "reference-deck"
+    },
+    "vault/2.1.0": {
+      "bullets": [
+        "**Agentic IAM reaches General Availability**, extending Vault’s machine identity and security capabilities to AI agents and emerging agentic workloads.",
+        "**Expanded OAuth support**, policy flexibility, and platform improvements enhance the security, reliability, and operational experience of Vault"
+      ],
+      "source": "reference-deck"
+    },
+    "vault/2.1.1": {
+      "bullets": [
+        "**Strengthens secrets import and identity integrations** with trusted private endpoint controls for AWS/Azure imports and enhanced Okta group retrieval for JWT/OIDC authentication.",
+        "The release also **expands PKI flexibility** by supporting additional CSR subject attributes, while delivering security patches and fixes across Secrets Sync, Agent Registry, leases, and the Vault UI."
+      ],
+      "source": "reference-deck"
+    }
+  }
+}

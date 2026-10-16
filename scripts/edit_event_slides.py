@@ -41,7 +41,7 @@ from pathlib import Path
 from xml.dom import minidom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib.common import DATA_DIR, load_config, log  # noqa: E402
+from lib.common import DATA_DIR, REPO_ROOT, load_config, log  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
 from lib.city_photos import build_city_photo_cache, resolve_city_photo, norm_city  # noqa: E402
 from lib.regions import event_region, resolve_scope_regions, scope_events  # noqa: E402
@@ -63,7 +63,7 @@ HERO_CORNER_ADJ = 1178
 # Brand logo overlay placed in the bottom-left of each featured hero (assets/brand/, via gen_brand_logo.py):
 # the "HashiCorp / An IBM Company" lockup with gradient-filled letters. WIDTH_FRAC is its width as a
 # fraction of the hero frame width; INSET_FRAC is the left/bottom padding from the hero corner.
-BRAND_LOGO = DATA_DIR.parent / "assets" / "brand" / "hashicorp-ibm-gradient.png"
+BRAND_LOGO = REPO_ROOT / "assets" / "brand" / "hashicorp-ibm-gradient.png"
 BRAND_LOGO_WIDTH_FRAC = 0.46
 BRAND_LOGO_INSET_FRAC = 0.012
 

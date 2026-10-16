@@ -8,11 +8,9 @@ services:
     env_file:
       - .env
     volumes:
-      # Persist produced decks, fetched data, and learned corrections on the host.
+      # The built decks, the fetched data and the build state stay on the host.
       - ./output:/work/output
       - ./data:/work/data
-      - ./corrections:/work/corrections
-      # Persist Copilot auth/session state between runs (optional but recommended).
-      - ./.copilot-home:/work/.copilot-home
-    # One-shot pipeline run; the container exits when the deck is produced.
+      - ./state:/work/state
+    # One-shot build; the container exits when the deck is verified.
     restart: "no"

@@ -1,0 +1,24 @@
+# IBM Secure Pipelines Service (IBM Cloud DevSecOps) — Simple Automation Pipeline configuration.
+#
+# This is the "v10" format (`version: '1'`). If your toolchain runs the v11 pipeline definitions, point
+# the `pipeline-config` property at .pipeline-config.v11.yaml instead. Both run the same script.
+#
+# One pipeline (EventListener `simple-listener`), two triggers — see docs/pipelines.md:
+#   * Timed trigger            cron `0 6 * * 1`, your timezone      property pipeline-mode = weekly
+#   * Generic webhook trigger  called by a failed weekly run         property pipeline-mode = self-heal
+#
+# Everything the job does lives in ci/ and build.sh, so it runs the same on a laptop
+# (`bash ci/run.sh`) and in the pipeline. Nothing secret is in this repository: the LLM gateway key
+# and the GitHub token are secure pipeline properties (ica-api-key, git-token).
+version: '1'
+
+execute:
+  # The image built from this repository's Dockerfile, pushed to a registry the pipeline workers can
+  # pull from. Replace the placeholder with your registry namespace.
+  image: icr.io/REPLACE-WITH-YOUR-NAMESPACE/auto-pptx:1
+  image_pull_policy: Always
+  script: |
+    #!/usr/bin/env bash
+    cd "${WORKSPACE:-.}/${PIPELINE_CONFIG_REPO_PATH:-}" 2>/dev/null || true
+    [ -f ci/run.sh ] || { echo "auto-pptx checkout not found (looked in $(pwd))"; exit 2; }
+    exec bash ci/run.sh

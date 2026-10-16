@@ -1,0 +1,145 @@
+{
+ "generated_at": "2026-10-13T16:14:45.563409+00:00",
+ "status": "ok",
+ "source": "https://www.hashicorp.com/en/events",
+ "today": "2026-10-13",
+ "counts": {
+  "terraform_webinars": 4,
+  "vault_webinars": 3,
+  "other_webinars": 0,
+  "featured": 1
+ },
+ "webinars": {
+  "terraform": [
+   {
+    "date": "2026-11-04",
+    "display_date": "Nov 4, 2026",
+    "title": "Build, deploy, and manage everything as code",
+    "url": "https://www.hashicorp.com/events/webinars/build-deploy-and-manage-everything-as-code",
+    "description": "",
+    "products": [
+     "terraform"
+    ],
+    "type": "WEBINAR",
+    "abstract": "Automation has grown from simple scripts on servers to the deployment and management of entire environments including everything from applications, networking, infrastructure, security, and even people. In this webinar learn how both HashiCorp Terraform and the HashiCorp Cloud Platform can be used to create and administer all areas of a modern public cloud environment as code. Attendees will learn the high level concepts as well as walk through a live demo of the ideas in context of a scalable AWS and Kubernetes deployment.",
+    "abstract_status": "ok"
+   },
+   {
+    "date": "2026-11-12",
+    "display_date": "Nov 12, 2026",
+    "title": "From Fragmented Workflows to Policy-Driven Hybrid Cloud Automation",
+    "url": "https://www.hashicorp.com/events/webinars/from-fragmented-workflows-to-policy-driven-hybrid-cloud-automation",
+    "description": "",
+    "products": [
+     "terraform"
+    ],
+    "type": "WEBINAR",
+    "abstract": "Infrastructure teams are being asked to deliver faster, support more platforms, and maintain consistent security and governance standards across increasingly complex environments. As organizations expand across on-premises, public cloud, and private cloud infrastructure, many teams are left managing a patchwork of manual processes, disconnected tools, and inconsistent deployment practices that create operational risk and slow delivery. Join this technical session to learn how platform, cloud, and infrastructure teams are using policy-driven automation to standardize provisioning, enforce governance, and scale operations across hybrid environments.",
+    "abstract_status": "ok"
+   },
+   {
+    "date": "2026-12-08",
+    "display_date": "Dec 8, 2026",
+    "title": "Executive roundtable: Agentic Runtime Security",
+    "url": "https://events.hashicorp.com/AgenticRuntimeSecurity",
+    "description": "",
+    "products": [
+     "terraform",
+     "vault"
+    ],
+    "type": "WORKSHOP",
+    "abstract": "",
+    "abstract_status": "blocked"
+   },
+   {
+    "date": "2026-12-09",
+    "display_date": "Dec 9, 2026",
+    "title": "Hands-on workshop: Cloud Foundations (Terraform)",
+    "url": "https://events.hashicorp.com/TerraformDec",
+    "description": "",
+    "products": [
+     "terraform"
+    ],
+    "type": "WORKSHOP",
+    "abstract": "",
+    "abstract_status": "blocked"
+   }
+  ],
+  "vault": [
+   {
+    "date": "2026-10-13",
+    "display_date": "Oct 13, 2026",
+    "title": "Get Certified at TechXchange 2026",
+    "url": "https://ibm.webcasts.com/starthere.jsp?ei=1774310&tp_key=c4a79edc06",
+    "description": "",
+    "products": [
+     "vault"
+    ],
+    "type": "WEBINAR",
+    "abstract": "Get ready for Atlanta! Learn how to maximize your TechXchange experience with onsite certification exams. Get the first look of our new certifications launching in October (or at the conference), including an exciting new AI credential. We'll also explore IBM and HashiCorp certifications that tailors to your career path/growth.",
+    "abstract_status": "ok"
+   },
+   {
+    "date": "2026-12-08",
+    "display_date": "Dec 8, 2026",
+    "title": "Executive roundtable: Agentic Runtime Security",
+    "url": "https://events.hashicorp.com/AgenticRuntimeSecurity",
+    "description": "",
+    "products": [
+     "terraform",
+     "vault"
+    ],
+    "type": "WORKSHOP",
+    "abstract": "",
+    "abstract_status": "blocked"
+   },
+   {
+    "date": "2026-12-10",
+    "display_date": "Dec 10, 2026",
+    "title": "Hands-on workshop: Vault Quickstart",
+    "url": "https://events.hashicorp.com/VaultQuickstartDec",
+    "description": "",
+    "products": [
+     "vault"
+    ],
+    "type": "WORKSHOP",
+    "abstract": "",
+    "abstract_status": "blocked"
+   }
+  ],
+  "other": []
+ },
+ "featured": [
+  {
+   "date": "2026-11-10",
+   "display_date": "November 10",
+   "title": "Agentic Runtime Security Exchange Frankfurt",
+   "location": "Frankfurt",
+   "type": "Event",
+   "url": "https://www.ibm.com/events/reg/flow/ibm/xn301hmb/landing/page/landing",
+   "links": [
+    {
+     "label": "Business Track",
+     "url": "https://www.ibm.com/events/reg/flow/ibm/xn301hmb/landing/page/landing"
+    },
+    {
+     "label": "Practitioner Track",
+     "url": "http://events.hashicorp.com/agentic-runtime-sec-exch-fra/hashi-sales"
+    }
+   ],
+   "products": [
+    "vault"
+   ],
+   "description": "",
+   "description_points": [
+    "Join industry peers at this thought leadership event as we explore how **agentic AI, non-human identities, IAM gaps, and runtime security risks** are reshaping real-world deployments.",
+    "Gain practical insights into securing the agentic runtime and aligning identity, access, and governance models to safely scale AI-driven initiatives."
+   ],
+   "language": "en",
+   "visuals": "template",
+   "abstract": "",
+   "abstract_status": "manual",
+   "source": "manual"
+  }
+ ]
+}
