@@ -139,6 +139,17 @@ class GitHub:
             data = redact.scrub_bytes(data)
         self.request("POST", url, data=data, content_type="application/octet-stream")
 
+    def prune_assets(self, release: dict, keep: set[str]) -> list[str]:
+        """Delete the release's assets not named in `keep`: when a date is published again, files the
+        new build did not produce (a PDF preview it could not render) are left from the earlier build
+        and would not match its deck. Returns the names removed."""
+        removed = []
+        for asset in release.get("assets") or []:
+            if asset["name"] not in keep:
+                self.request("DELETE", f"/releases/assets/{asset['id']}")
+                removed.append(asset["name"])
+        return removed
+
     def delete_release(self, release: dict) -> None:
         self.request("DELETE", f"/releases/{release['id']}")
         self.request("DELETE", f"/git/refs/tags/{urllib.parse.quote(release['tag_name'])}")

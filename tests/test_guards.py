@@ -201,6 +201,12 @@ class GitRemotes(unittest.TestCase):
         self.assertEqual(github.GitHub("github.com", "o/r", "t").api, "https://api.github.com")
         self.assertEqual(github.GitHub("github.ibm.com", "o/r", "t").api, "https://github.ibm.com/api/v3")
 
+    def test_publishing_a_date_again_removes_files_the_new_build_did_not_make(self):
+        gh = github.GitHub("github.invalid", "o/r", "t", dry_run=True)
+        release = {"assets": [{"id": 1, "name": "deck-2026-10-16.pptx"}, {"id": 2, "name": "deck-2026-10-16.pdf"}]}
+        self.assertEqual(gh.prune_assets(release, {"deck-2026-10-16.pptx", "summary.md"}), ["deck-2026-10-16.pdf"])
+        self.assertEqual(gh.calls, ["DELETE https://github.invalid/api/v3/repos/o/r/releases/assets/2"])
+
     def test_a_dry_run_makes_no_write_call(self):
         gh = github.GitHub("github.invalid", "o/r", "t", dry_run=True)
         gh.request("POST", "/releases", {"tag_name": "deck-x"})

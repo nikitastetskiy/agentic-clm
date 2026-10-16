@@ -76,6 +76,8 @@ def main() -> int:
             if asset.exists():
                 gh.upload_asset(release, asset)
                 log(f"  {'would attach' if args.dry_run else 'attached'} {asset.name}")
+        for name in gh.prune_assets(release, {a.name for a in assets if a.exists()}):
+            log(f"  removed {name} (left from an earlier build of this date)")
         log(f"{'would publish' if args.dry_run else 'published'} {gh.web_url(f'/releases/tag/{tag}')}")
 
         if args.keep > 0:
