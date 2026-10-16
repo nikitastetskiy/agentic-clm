@@ -12,8 +12,9 @@ What it does:
   1. finds each role's slide by its text (config/deck.yaml `detect`), not by position;
   2. drops every other slide, plus the speaker notes and comments of the kept ones;
   3. removes layouts and media nothing uses any more, re-encodes oversized pictures (the reference
-     deck carries 4K artwork for a 10-inch slide), and drops the source deck's author / slide-title
-     metadata;
+     deck carries 4K artwork for a 10-inch slide), drops embedded fonts whose data is another font
+     than their name (lib/fonts.py: the reference deck embeds Calibri as "Inter Light" and "Inter
+     Black"), and drops the source deck's author / slide-title metadata;
   4. seeds state/ from what the reference deck currently shows, so curated wording carries over:
      blog history (state/blogs.json) and the highlights and event descriptions a person already
      wrote (state/enrichment.json). Existing state entries are kept unless --reseed is given.
@@ -32,7 +33,7 @@ from pathlib import Path
 from xml.dom import minidom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import deck, slides as sl, state  # noqa: E402
+from lib import deck, fonts, slides as sl, state  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
 from lib.common import MONTH_NAMES, REPO_ROOT, load_config, log, today  # noqa: E402
 
@@ -323,6 +324,9 @@ def main() -> int:
         drop_part(tmp, "ppt/revisionInfo.xml", tmp / "ppt" / "_rels" / "presentation.xml.rels")
         deck.clean(tmp)
         drop_missing_overrides(tmp)
+        broken_fonts = fonts.drop_mismatched(tmp)
+        if broken_fonts:
+            log(f"  dropped embedded fonts whose data is another font: {', '.join(broken_fonts)}")
         media_saved = 0 if args.keep_media else optimize_media(tmp)
         deck.stamp_properties(tmp, f"{cfg['deck']['title']} (template)")
 
@@ -335,7 +339,8 @@ def main() -> int:
         shutil.rmtree(tmp, ignore_errors=True)
 
     size_mb = out.stat().st_size / 1e6
-    log(f"template -> {out.relative_to(REPO_ROOT)}  ({len(kept)} slides, {layouts} unused layouts "
+    log(f"template -> {out.relative_to(REPO_ROOT) if out.is_relative_to(REPO_ROOT) else out}  "
+        f"({len(kept)} slides, {layouts} unused layouts "
         f"removed, pictures re-encoded -{media_saved / 1e6:.1f} MB, {size_mb:.1f} MB)")
     if not args.no_seed:
         added = apply_seed(seed, args.reseed)

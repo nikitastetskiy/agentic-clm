@@ -11,6 +11,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from xml.dom import minidom
 
 import helpers
 
@@ -152,6 +153,27 @@ class WeeklyBuild(unittest.TestCase):
     def test_gate_catches_foreign_formatting(self):
         deck = self.damaged("colour", "hcp-vault-changelog", lambda x: x.replace('val="F9B373"', 'val="FF00AA"', 1))
         self.assertEqual(self.failed(self.verify(deck)), {"formatting"})
+
+    def test_gate_catches_a_font_embedded_under_another_name(self):
+        # The reference deck's fault: PowerPoint draws "Inter Medium" text with this data when the
+        # typeface is not installed, so it must be Inter Medium — here it is made plain Inter.
+        with zipfile.ZipFile(self.deck) as z:
+            pres = z.read("ppt/presentation.xml").decode("utf-8")
+        rid = {face: re.search(r'<p:regular r:id="(\w+)"', pres[pres.index(f'typeface="{face}"'):]).group(1)
+               for face in ("Inter", "Inter Medium")}
+
+        def swap(rels: str) -> str:
+            dom = minidom.parseString(rels)
+            by_id = {r.getAttribute("Id"): r for r in dom.getElementsByTagName("Relationship")}
+            by_id[rid["Inter Medium"]].setAttribute("Target", by_id[rid["Inter"]].getAttribute("Target"))
+            return dom.toxml()
+
+        deck = self.tmp / "font-name.pptx"
+        helpers.rewrite(self.deck, deck, "ppt/_rels/presentation.xml.rels", swap)
+        verdict = self.verify(deck)
+        self.assertEqual(self.failed(verdict), {"formatting"})
+        self.assertIn("embedded font 'Inter Medium' (regular) carries 'Inter' data",
+                      " ".join(verdict["checks"]["formatting"]["notes"]))
 
     def test_gate_catches_a_cover_that_claims_readiness(self):
         deck = self.damaged("cover", "cover", lambda x: x.replace("AUTO-GENERATED: REVIEW BEFORE SHARING",
