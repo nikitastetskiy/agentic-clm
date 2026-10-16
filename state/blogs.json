@@ -48,6 +48,16 @@
   ],
   "vault": [
     {
+      "date": "2026-10-13",
+      "title": "Vault Enterprise 2.2 advances identity security, PKI, and crypto-agility",
+      "url": "https://www.hashicorp.com/en/blog/vault-enterprise-advances-identity-security-pki-and-crypto-agility"
+    },
+    {
+      "date": "2026-10-08",
+      "title": "Banking at machine speed: Securing access across cloud, AI, and hybrid environments",
+      "url": "https://www.hashicorp.com/blog/banking-at-machine-speed-securing-access-across-cloud-ai-and-hybrid-environments"
+    },
+    {
       "date": "2026-09-03",
       "title": "The common security controls behind India's regulatory wave",
       "url": "https://www.hashicorp.com/blog/the-common-security-controls-behind-indias-regulatory-wave"
