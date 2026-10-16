@@ -4,6 +4,9 @@ Works against github.com and GitHub Enterprise Server (github.ibm.com) with noth
 library, so the pipeline image needs no `gh` CLI. The token comes from the environment (GIT_TOKEN,
 filled from a pipeline secret) and is only ever sent in the Authorization header — it is never logged,
 written to disk or put in a URL.
+
+Everything written to GitHub through this client — release notes, pull requests, issues, text assets —
+has the pipeline's secret values removed first (lib/redact.py).
 """
 from __future__ import annotations
 
@@ -16,10 +19,23 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from lib import redact
 from lib.common import REPO_ROOT
 
 TOKEN_VARS = ("GIT_TOKEN", "GH_ENTERPRISE_TOKEN", "GH_TOKEN", "GITHUB_TOKEN")
 REMOTE_RE = re.compile(r"^(?:git@|ssh://git@|https?://(?:[^@/]+@)?)([^:/]+)[:/](.+?)(?:\.git)?/?$")
+TEXT_ASSETS = (".md", ".json", ".txt", ".log", ".csv")
+
+
+def scrubbed(payload):
+    """`payload` with every string in it scrubbed of the pipeline's secret values."""
+    if isinstance(payload, str):
+        return redact.scrub(payload)
+    if isinstance(payload, dict):
+        return {key: scrubbed(value) for key, value in payload.items()}
+    if isinstance(payload, list):
+        return [scrubbed(value) for value in payload]
+    return payload
 
 
 class GitHubError(RuntimeError):
@@ -71,7 +87,7 @@ class GitHub:
             if method != "GET":
                 self.calls.append(f"{method} {url}")
             return {}
-        body = data if data is not None else (json.dumps(payload).encode() if payload is not None else None)
+        body = data if data is not None else (json.dumps(scrubbed(payload)).encode() if payload is not None else None)
         req = urllib.request.Request(url, data=body, method=method, headers={
             "Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json",
             "Content-Type": content_type, "User-Agent": "auto-pptx-pipeline"})
@@ -118,7 +134,10 @@ class GitHub:
             self.calls.append(f"POST <uploads>/releases/{release.get('id')}/assets?name={path.name} "
                               f"({path.stat().st_size} bytes)")
             return
-        self.request("POST", url, data=path.read_bytes(), content_type="application/octet-stream")
+        data = path.read_bytes()
+        if path.suffix in TEXT_ASSETS:
+            data = redact.scrub_bytes(data)
+        self.request("POST", url, data=data, content_type="application/octet-stream")
 
     def delete_release(self, release: dict) -> None:
         self.request("DELETE", f"/releases/{release['id']}")

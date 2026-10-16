@@ -34,7 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import agent, state  # noqa: E402
 from lib.common import DATA_DIR, load_config, log, read_json, today  # noqa: E402
 
-DEFAULT_MODEL = "ica-gateway/claude-haiku-4-5"
+DEFAULT_MODEL = "ica-gateway/claude-haiku-5-5"
 MAX_CHARS = {"release": 230, "changelog": 260, "event": 330}
 EVENT_MIN_ABSTRACT = 300   # shorter abstracts fit a card as they are
 MIN_CHARS = 25

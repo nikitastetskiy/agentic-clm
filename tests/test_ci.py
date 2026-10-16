@@ -19,6 +19,7 @@ GITHUB = helpers.REPO / ".github"
 WEEKLY = "weekly-deck.yml"
 SELF_HEAL = "self-heal.yml"
 # Set by the workflow for the scripts, but not pipeline properties.
+SECRET_EXPR = r"\$\{\{\s*secrets\."
 RUNNER_ENV = {"CI_DRY_RUN", "PIPELINE_RUN_URL", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL"}
 
 
@@ -107,17 +108,30 @@ class Workflows(unittest.TestCase):
                 if step.get("uses", "").startswith("actions/checkout@"):
                     self.assertIs(step.get("with", {}).get("persist-credentials"), False, name)
 
-    def test_secrets_reach_only_the_pipeline_step(self):
+    def test_secrets_reach_only_the_repository_s_own_scripts(self):
+        own = ("bash ci/run.sh", "python3 scripts/scrub_secrets.py output data")
         for name in (WEEKLY, SELF_HEAL):
             wf = workflow(name)
             self.assertEqual(wf["permissions"], {"contents": "read"}, name)
-            self.assertNotIn("secrets.", str(wf.get("env", {})), name)
+            self.assertNotRegex(str(wf.get("env", {})), SECRET_EXPR, name)
             for job in wf["jobs"].values():
-                self.assertNotIn("secrets.", str(job.get("env", {})), name)
+                self.assertNotRegex(str(job.get("env", {})), SECRET_EXPR, name)
             for step in steps(wf):
-                self.assertNotIn("secrets.", step.get("run", ""), name)   # never pasted into a script
-                if step is not pipeline_step(wf):
-                    self.assertNotIn("secrets.", str(step.get("env", {})), name)
+                self.assertNotRegex(step.get("run", ""), SECRET_EXPR, name)   # never pasted into a script
+                self.assertNotRegex(str(step.get("with", {})), SECRET_EXPR, name)
+                if not any(cmd in step.get("run", "") for cmd in own):
+                    self.assertNotRegex(str(step.get("env", {})), SECRET_EXPR, f"{name}: {step.get('name') or step.get('uses')}")
+
+    def test_saved_files_are_scrubbed_with_every_secret_the_run_had(self):
+        for name in (WEEKLY, SELF_HEAL):
+            wf = workflow(name)
+            run_steps = list(steps(wf))
+            [scrub] = [s for s in run_steps if "scripts/scrub_secrets.py" in s.get("run", "")]
+            [save] = [s for s in run_steps if s.get("uses", "").startswith("actions/upload-artifact@")]
+            self.assertLess(run_steps.index(scrub), run_steps.index(save), name)
+            self.assertEqual(scrub["if"], "always()", name)
+            given = {k for k, v in pipeline_step(wf)["env"].items() if re.search(SECRET_EXPR, v)}
+            self.assertEqual(set(scrub["env"]), given, name)
 
     def test_the_runner_installs_the_image_s_opencode_version(self):
         action = (GITHUB / "actions" / "setup" / "action.yml").read_text(encoding="utf-8")

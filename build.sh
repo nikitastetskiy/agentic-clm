@@ -16,7 +16,7 @@
 # Env (see .env.example):
 #   SKIP_FETCH=1     reuse data/*.json from the last fetch
 #   ENRICH=auto|1|0  enrichment step: auto (default) = run it when opencode is installed
-#   ENRICH_MODEL     model for the enrichment agent        (default ica-gateway/claude-haiku-4-5)
+#   ENRICH_MODEL     model for the enrichment agent        (default ica-gateway/claude-haiku-5-5)
 #   EVENT_SCOPE      region scope for events, e.g. "EMEA,MENA" (default), "GLOBAL"
 #   BUILD_DATE       pin "today" (YYYY-MM-DD) to reproduce a build from saved data
 #   STRICT=1         also fail when an optional source (the events page) was unavailable
@@ -104,7 +104,7 @@ if [[ "$ENRICH" == "0" ]]; then
 elif [[ "$ENRICH" == "auto" ]] && ! command -v opencode >/dev/null 2>&1; then
   log "3/6 enrich — skipped (opencode not installed; rule-based wording)"
 else
-  log "3/6 enrich (${ENRICH_MODEL:-ica-gateway/claude-haiku-4-5})"
+  log "3/6 enrich (${ENRICH_MODEL:-ica-gateway/claude-haiku-5-5})"
   if "$PY" scripts/enrich.py > output/step-enrich.log 2>&1; then
     cat output/step-enrich.log | tee -a "$LOG"
     step plan 20 "$PY" scripts/plan_deck.py    # pick up the wording that was just stored

@@ -55,7 +55,7 @@ ci_setup() {
   if [[ -d "$REPO_ROOT/.venv/bin" ]]; then export PATH="$REPO_ROOT/.venv/bin:$PATH"; fi
   PY="${PYTHON:-python3}"
 
-  export ENRICH_MODEL; ENRICH_MODEL="$(prop enrich-model ica-gateway/claude-haiku-4-5)"
+  export ENRICH_MODEL; ENRICH_MODEL="$(prop enrich-model ica-gateway/claude-haiku-5-5)"
   export FIX_MODEL;    FIX_MODEL="$(prop fix-model ica-gateway/claude-opus-5-5)"
   export EVENT_SCOPE;  EVENT_SCOPE="$(prop event-scope "")"
   export STRICT;       STRICT="$(prop strict 0)"

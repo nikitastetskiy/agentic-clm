@@ -59,12 +59,20 @@ jobs:
           EVENT_SCOPE: ${{ vars.EVENT_SCOPE }}
           STRICT: ${{ vars.STRICT }}
           RELEASE_KEEP: ${{ vars.RELEASE_KEEP }}
+          BASE_BRANCH: ${{ vars.BASE_BRANCH || github.ref_name }}
         run: |
           if [[ -z "$ICA_API_KEY" ]]; then
             echo "::warning::The ICA_API_KEY secret is not set: the repair agent cannot run, so a failure that persists becomes an issue."
             export ENRICH="${ENRICH:-0}"
           fi
           bash ci/run.sh
+
+      - name: Remove secret values from the files kept with this run
+        if: always()
+        env:
+          ICA_API_KEY: ${{ secrets.ICA_API_KEY }}
+          GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/scrub_secrets.py output data
 
       - name: Keep the agent's logs, the verdict and the deck with this run
         if: always()
