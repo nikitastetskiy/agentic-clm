@@ -108,6 +108,17 @@ def fetch_listings(pages: dict[str, str]) -> dict[str, list[dict]]:
     return out
 
 
+def listing_note(pages: dict[str, str], listings: dict[str, list[dict]]) -> str:
+    """What the weekly summary should say about listing pages that could not be read ("" if none).
+    The feed lags the listings and carries no product tags, so without its listing a product's
+    recent posts can be missing."""
+    unread = [product for product in pages if product not in listings]
+    if not unread:
+        return ""
+    return (f"listing page not read for {', '.join(unread)}; their posts come from the feed and the "
+            "history only, so recent ones may be missing")
+
+
 def names_in(title: str) -> set[str]:
     low = title.lower()
     return {name for name in PRODUCT_NAMES if re.search(rf"\b{name}\b", low)}
@@ -139,7 +150,9 @@ def main() -> int:
                                 backoff=float(bcfg.get("retry_backoff_seconds", 3))))
     log(f"  feed: {len(posts)} posts")
     by_url = {state.norm_url(p["url"]): p for p in posts}
-    for product, listed in fetch_listings(bcfg.get("product_pages") or {}).items():
+    pages = bcfg.get("product_pages") or {}
+    listings = fetch_listings(pages)
+    for product, listed in listings.items():
         for post in listed:
             known = by_url.get(state.norm_url(post["url"]))
             if known:
@@ -168,7 +181,11 @@ def main() -> int:
     if state.save("blogs.json", history):
         log("  updated state/blogs.json")
 
-    write_output("blogs.json", {"products": products, "feed": bcfg["feed"]})
+    report = {"products": products, "feed": bcfg["feed"]}
+    note = listing_note(pages, listings)
+    if note:
+        report["note"] = note
+    write_output("blogs.json", report)
     return 0
 
 

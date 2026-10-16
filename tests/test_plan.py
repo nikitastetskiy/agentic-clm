@@ -238,6 +238,16 @@ class Events(unittest.TestCase):
         self.assertEqual(plan["build"]["status"], "degraded")
         self.assertEqual({o["role"] for o in plan["omitted"]}, {"tf-events", "vault-events", "featured"})
 
+    def test_a_partial_source_is_said_in_the_notes_without_degrading_the_build(self):
+        events = {"status": "ok", "note": "events page not rendered (render failed: CheckpointError)",
+                  "featured": [], "webinars": {"terraform": [self.event("As code", "2026-11-04", ["terraform"])],
+                                               "vault": [], "other": []}}
+        plan = planner(slides=[self.TF], events=events,
+                       blogs={"products": {}, "note": "listing page not read for vault"}).build()
+        self.assertEqual(plan["build"]["status"], "ok")
+        self.assertEqual(plan["build"]["notes"], ["events: events page not rendered (render failed: CheckpointError)",
+                                                  "blogs: listing page not read for vault"])
+
     def test_featured_event_links_and_text(self):
         events = {"status": "ok", "webinars": {"terraform": [], "vault": [], "other": []}, "featured": [
             {"title": "Exchange Frankfurt", "date": "2026-11-10", "display_date": "November 10",

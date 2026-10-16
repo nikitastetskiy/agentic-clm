@@ -136,7 +136,10 @@ These mirror how the reference deck is maintained by hand.
   never does. The 8 newest are shown; `state/blogs.json` remembers posts the live sources no longer
   reach back to.
 - **Event cards** show webinars and workshops badged for the product, soonest first, each with its type,
-  product icon(s) and language flag. A session badged for both products appears on both slides.
+  product icon(s) and language flag. A session badged for both products appears on both slides. The
+  dated events come from the events page's own search index (the data the page renders its cards
+  from), so they do not depend on getting a browser past hashicorp.com's bot check; the page itself
+  is rendered for the abstracts and its undated promotions (see docs/pipelines.md).
   Webinars and workshops are **online**: they are never filtered by region (the events page tags them
   with the audience's time zone, not a venue). Only **in-person** events — the Featured / In Person
   section — are held to the region scope. Anything the page promotes **without a date** (its

@@ -2,6 +2,8 @@
 import json
 import tempfile
 import unittest
+from contextlib import contextmanager
+from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -14,7 +16,7 @@ import fetch_hcp_changelogs
 import fetch_release_notes
 import fetch_releases
 import fetch_tfe_releases
-from lib import common
+from lib import browser, common
 
 
 class VaultReleaseNotes(unittest.TestCase):
@@ -271,6 +273,95 @@ class Events(unittest.TestCase):
         self.assertEqual([e["title"] for e in events["featured"]], ["Cloud Summit - London"])
         self.assertEqual([d["title"] for d in report["dropped"]], ["Cloud Summit - Toronto"])
 
+
+
+class EventsIndex(unittest.TestCase):
+    """The events page's search index (tests/fixtures/events-index.json: its real records on 2026-10-16
+    plus hand-made ones for the cases the parser must skip or link differently)."""
+    TODAY = "2026-10-16"
+    CFG = {"terraform": {}, "vault": {}}
+
+    def setUp(self):
+        self.hits = json.loads((helpers.FIXTURES / "events-index.json").read_text(encoding="utf-8"))["results"][0]["hits"]
+
+    def parsed(self):
+        return [e for e in (fetch_events.parse_hit(h, self.TODAY) for h in self.hits) if e]
+
+    def test_records_become_the_events_the_page_shows(self):
+        by_title = {e["title"]: e for e in self.parsed()}
+        webinar = by_title["Build, deploy, and manage everything as code"]   # the index has a trailing space
+        self.assertEqual((webinar["date"], webinar["display_date"], webinar["type"], webinar["products"]),
+                         ("2026-11-04", "Nov 4, 2026", "WEBINAR", ["terraform"]))
+        self.assertEqual(webinar["url"],
+                         "https://www.hashicorp.com/events/webinars/build-deploy-and-manage-everything-as-code")
+        roundtable = by_title["Executive roundtable: Agentic Runtime Security"]
+        self.assertEqual((roundtable["type"], roundtable["products"], roundtable["url"]),
+                         ("WORKSHOP", ["terraform", "vault"], "https://events.hashicorp.com/AgenticRuntimeSecurity"))
+
+    def test_hidden_recorded_past_and_undated_records_are_left_out(self):
+        titles = {e["title"] for e in self.parsed()}
+        self.assertEqual(len(titles), 6)
+        self.assertFalse(titles & {"A hidden webinar", "A recorded webinar", "Long gone", "No usable date"})
+
+    def test_the_index_fills_the_same_slides_as_the_page(self):
+        events = fetch_events.bucket_events(self.parsed(), self.TODAY, self.CFG, ("WEBINAR", "WORKSHOP"))
+        self.assertEqual([e["date"] for e in events["webinars"]["terraform"]],
+                         ["2026-11-04", "2026-11-12", "2026-12-08", "2026-12-09"])
+        self.assertEqual([e["date"] for e in events["webinars"]["vault"]], ["2026-12-08", "2026-12-10"])
+        self.assertEqual([(e["title"], e["location"]) for e in events["featured"]],
+                         [("Cloud Summit - London", "London")])
+
+    def test_the_page_fills_a_missing_link_and_keeps_what_only_it_shows(self):
+        indexed = self.parsed()
+        self.assertEqual(next(e["url"] for e in indexed if e["title"] == "Cloud Summit - London"),
+                         fetch_events.EVENTS_URL)                     # the record has no link of its own
+        rendered = fetch_events.parse_cards([
+            {"href": "/events/cloud-summit-london", "text": "NOV 20, 2026|\nCONFERENCE\nCloud Summit - London",
+             "products": []},
+            {"href": "/events/webinars/late", "text": "DEC 15, 2026|\nWEBINAR\nAdded since the index\nVault",
+             "products": ["vault"]}], self.TODAY)
+        listed, differ = fetch_events.reconcile(indexed, rendered)
+        by_title = {e["title"]: e for e in listed}
+        self.assertEqual(len(listed), 7)
+        self.assertEqual(by_title["Cloud Summit - London"]["url"], "https://www.hashicorp.com/events/cloud-summit-london")
+        self.assertIn("Added since the index", by_title)
+        self.assertIn("only on the page: 2026-12-15 added since the index", differ)
+        self.assertEqual(sum(d.startswith("only in the index") for d in differ), 5)
+        self.assertEqual(fetch_events.reconcile(None, rendered), (rendered, []))
+
+    def test_registration_pages_elsewhere_are_not_opened_by_the_own_site_browser(self):
+        events = fetch_events.bucket_events(self.parsed(), self.TODAY, self.CFG, ("WEBINAR", "WORKSHOP"))
+        own = fetch_events.event_pages(events, browser.own_site)
+        elsewhere = fetch_events.event_pages(events, lambda url: not browser.own_site(url))
+        self.assertTrue(all(url.startswith("https://www.hashicorp.com/") for url in own))
+        self.assertEqual(sorted(elsewhere), ["https://events.hashicorp.com/AgenticRuntimeSecurity",
+                                             "https://events.hashicorp.com/TerraformDec",
+                                             "https://events.hashicorp.com/VaultQuickstartDec"])
+        self.assertEqual(len(elsewhere["https://events.hashicorp.com/AgenticRuntimeSecurity"]), 2)  # both slides
+
+    def test_without_the_page_the_dated_events_still_come_from_the_index(self):
+        @contextmanager
+        def blocked():
+            raise browser.CheckpointError("security checkpoint did not clear for https://www.hashicorp.com/en/events")
+            yield  # noqa: unreachable — makes this a generator, as session() is
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(common, "DATA_DIR", Path(tmp)), \
+                mock.patch.object(fetch_events, "index_hits", return_value=self.hits), \
+                mock.patch.object(fetch_events.browser, "session", blocked), \
+                mock.patch.object(fetch_events, "run_date", return_value=date(2026, 10, 16)):
+            self.assertEqual(fetch_events.main(), 0)
+            events = json.loads((Path(tmp) / "events.json").read_text(encoding="utf-8"))
+        self.assertEqual((events["status"], events["dated_from"]), ("ok", "index"))
+        self.assertEqual((events["counts"]["terraform_webinars"], events["counts"]["vault_webinars"]), (4, 2))
+        self.assertIn("events page not rendered (render failed: CheckpointError)", events["note"])
+
+
+class BlogListings(unittest.TestCase):
+    def test_an_unread_listing_page_is_said(self):
+        pages = {"terraform": "https://example.test/t", "vault": "https://example.test/v"}
+        self.assertEqual(fetch_blogs.listing_note(pages, {"terraform": [], "vault": []}), "")
+        self.assertTrue(fetch_blogs.listing_note(pages, {"terraform": []}).startswith("listing page not read for vault;"))
 
 
 class FetcherOutput(unittest.TestCase):
