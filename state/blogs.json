@@ -48,6 +48,11 @@
   ],
   "vault": [
     {
+      "date": "2026-10-15",
+      "title": "Securely govern human and agentic identities with Vault",
+      "url": "https://www.hashicorp.com/en/blog/govern-human-and-agentic-identities-with-confidence-with-vault"
+    },
+    {
       "date": "2026-10-13",
       "title": "Vault Enterprise 2.2 advances identity security, PKI, and crypto-agility",
       "url": "https://www.hashicorp.com/en/blog/vault-enterprise-advances-identity-security-pki-and-crypto-agility"
