@@ -371,7 +371,8 @@ or the enrichment step fails (the build continues with the rule-based wording).
   Neither the pull request nor any of the 26 files saved with the run contained the key.
   On 2026-10-20 the gateway refused Opus 5.5 with the pipeline's new key (HTTP 400, `E003: Model not
   available for Coding Agents`), so `fix-model` now defaults to Sonnet 5.5; Sonnet 5.5 and Haiku 5.5
-  both answered a streamed request with a tool call that day.
+  both answered a streamed request with a tool call that day, and a preflight run on GitHub's runner
+  confirmed the repository's new key for both.
   **Not yet exercised:** a repair on Sonnet 5.5; anything inside SPS (the image build, the pipeline
   definitions, the triggers, the secret references). SPS needs its first run there; start with
   `pipeline-mode = preflight`.
