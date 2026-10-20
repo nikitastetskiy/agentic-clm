@@ -56,7 +56,7 @@ ci_setup() {
   PY="${PYTHON:-python3}"
 
   export ENRICH_MODEL; ENRICH_MODEL="$(prop enrich-model ica-gateway/claude-haiku-5-5)"
-  export FIX_MODEL;    FIX_MODEL="$(prop fix-model ica-gateway/claude-opus-5-5)"
+  export FIX_MODEL;    FIX_MODEL="$(prop fix-model ica-gateway/claude-sonnet-5-5)"
   export EVENT_SCOPE;  EVENT_SCOPE="$(prop event-scope "")"
   export STRICT;       STRICT="$(prop strict 0)"
   BASE_BRANCH="$(prop base-branch main)"
@@ -102,7 +102,9 @@ PYEOF
 }
 
 # ci_preflight — say plainly what this runner can and cannot reach. Never fails the run: a blocked
-# source shows up again, with consequences, in the step that needs it.
+# source shows up again, with consequences, in the step that needs it. It also asks the gateway whether
+# it accepts the key for both models (lib/gateway.py) and returns non-zero when it refuses one, which
+# fails a run in preflight mode (ci/run.sh) and is only reported by the others.
 ci_preflight() {
   ci_log "preflight"
   local tool
@@ -134,6 +136,8 @@ try:
     print(f"  {'playwright':<32} installed")
 except ImportError:
     print(f"  {'playwright':<32} NOT INSTALLED (events and blog listings unavailable)")
+from lib import gateway
+sys.exit(gateway.preflight())
 PYEOF
 }
 

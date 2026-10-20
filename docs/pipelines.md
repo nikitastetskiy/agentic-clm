@@ -29,7 +29,7 @@ flowchart TD
 | | Weekly build | Self-heal |
 |---|---|---|
 | Starts | on a schedule, once a week | when a weekly run fails (or by hand) |
-| Model | small — `enrich-model`, default `ica-gateway/claude-haiku-5-5` | large — `fix-model`, default `ica-gateway/claude-opus-5-5` |
+| Model | small — `enrich-model`, default `ica-gateway/claude-haiku-5-5` | large — `fix-model`, default `ica-gateway/claude-sonnet-5-5` |
 | The model's job | word *new* release notes and event abstracts, one line each | find and fix the code that made the build fail |
 | What the model can touch | one JSON file in a scratch directory; no shell, no network | the checkout, with a shell; not git remotes, not the tokens |
 | Result | a GitHub release with the deck | a pull request with the fix **and** the week's deck — or an issue |
@@ -67,12 +67,20 @@ Settings, under **Settings → Secrets and variables → Actions**:
 |------|------|-------|
 | `ICA_API_KEY` | secret | the LLM gateway key. Without it the deck is built with the rule-based wording, and self-heal can still recover from a transient failure but cannot repair one: it opens an issue. |
 | `ICA_BASE_URL` | variable | the gateway's OpenAI-compatible base URL, ending in `/v1` |
-| `ENRICH_MODEL`, `FIX_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, Opus 5.5 for repairs) |
+| `ENRICH_MODEL`, `FIX_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, Sonnet 5.5 for repairs) |
 | `BASE_BRANCH` | variable, optional | where the state commit goes and what a repair is proposed against; unset means the branch the run was started on |
 
 The self-heal pull request also needs **Settings → Actions → General → Workflow permissions →
 Allow GitHub Actions to create and approve pull requests**. GitHub grants "create" and "approve"
 with that one switch; nothing in these workflows approves or merges a pull request.
+
+**After rotating the gateway key**, put the new one in `ICA_API_KEY` without it touching a command
+line (`gh secret set ICA_API_KEY` reads it from standard input), then check it from GitHub's side:
+`gh workflow run weekly-deck.yml -f mode=preflight`. The preflight asks the gateway, one token per
+model, whether it accepts the key for the wording and the repair model (`scripts/lib/gateway.py`),
+and the run fails when either is refused or unanswered. A weekly run passes with a dead key as long
+as nothing needs new wording, so every weekly and self-heal run makes the same check at its start —
+there it only reports, with a warning on the run's page.
 
 Cost: GitHub Free includes 2,000 Actions minutes a month for private repositories, and 500 MB of
 artifact storage shared with Packages, which is why run artifacts are kept 30 days only.
@@ -140,7 +148,7 @@ definition source, set these **environment properties**:
 | `ica-base-url` | text | the LLM gateway's OpenAI-compatible base URL (ends in `/v1`) |
 | `ica-api-key` | **secure** | the gateway API key |
 | `enrich-model` | text | `ica-gateway/claude-haiku-5-5` |
-| `fix-model` | text | `ica-gateway/claude-opus-5-5` |
+| `fix-model` | text | `ica-gateway/claude-sonnet-5-5` |
 | `selfheal-webhook-url` | **secure** | the self-heal trigger's webhook URL (step 3) |
 | `selfheal-webhook-token` | **secure** | the secret of that trigger |
 
@@ -314,7 +322,7 @@ publishes and it commits `state/`.
 
 On a laptop opencode uses its own login and only calls models its config lists. In a pipeline the
 model list is written from `ENRICH_MODEL` and `FIX_MODEL`; locally, add the models to the
-`ica-gateway` provider's `models` in your opencode config (`claude-haiku-5-5`, `claude-opus-5-5`),
+`ica-gateway` provider's `models` in your opencode config (`claude-haiku-5-5`, `claude-sonnet-5-5`),
 or the enrichment step fails (the build continues with the rule-based wording).
 
 ## Notes and alternatives
@@ -361,8 +369,11 @@ or the enrichment step fails (the build continues with the rule-based wording).
   the weekly build fail, Opus 5.5 found the cause and fixed it with a test in about five minutes, the
   guard, the tests and a full rebuild passed, and the pull request was opened against that branch.
   Neither the pull request nor any of the 26 files saved with the run contained the key.
-  **Not yet exercised:** anything inside SPS (the image build, the pipeline definitions, the
-  triggers, the secret references). SPS needs its first run there; start with
+  On 2026-10-20 the gateway refused Opus 5.5 with the pipeline's new key (HTTP 400, `E003: Model not
+  available for Coding Agents`), so `fix-model` now defaults to Sonnet 5.5; Sonnet 5.5 and Haiku 5.5
+  both answered a streamed request with a tool call that day.
+  **Not yet exercised:** a repair on Sonnet 5.5; anything inside SPS (the image build, the pipeline
+  definitions, the triggers, the secret references). SPS needs its first run there; start with
   `pipeline-mode = preflight`.
 
 [sps-guide]: https://community.ibm.com/community/user/blogs/aashita-manglani/2026/01/13/beginners-guide-to-secure-pipelines-service-sps

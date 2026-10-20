@@ -3,7 +3,8 @@
 # Pipeline entry point. The pipeline property `pipeline-mode` (set per trigger) picks the job:
 #   weekly     build this week's deck and publish it           (timed trigger; the default)
 #   self-heal  repair the repository after a failed build      (webhook trigger, or by hand)
-#   preflight  only report what this runner can reach and which settings are present
+#   preflight  only report what this runner can reach and which settings are present; fails when
+#              the gateway refuses the key for a model the pipeline uses (check it after a rotation)
 #
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
