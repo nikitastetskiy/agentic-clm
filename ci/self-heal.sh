@@ -4,7 +4,7 @@
 # repair, propose it, and still deliver this week's deck.
 #
 #   1. reproduce       run the build again. If it passes now the failure was transient: publish and stop.
-#   2. repair          the `repo-fixer` agent (FIX_MODEL, e.g. Claude Opus 5.5) diagnoses and edits the
+#   2. repair          the `repo-fixer` agent (FIX_MODEL, e.g. Claude Sonnet 5.5) diagnoses and edits the
 #                      code. It cannot push, cannot see the GitHub token, and its edits to generated
 #                      files are discarded.
 #   3. guard           scripts/check_fix.py: fixed rules on what a repair may touch and how big it may be.

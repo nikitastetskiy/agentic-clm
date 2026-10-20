@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run one of the repository's opencode agents from the command line (used by the pipeline scripts).
 
-    python scripts/run_agent.py repo-fixer --model ica-gateway/claude-opus-5-5 \
+    python scripts/run_agent.py repo-fixer --model ica-gateway/claude-sonnet-5-5 \
         --message "The weekly build failed. Start with output/failure.json."
 
 The agent works in the repository root. Tokens that only the publishing steps need are removed from

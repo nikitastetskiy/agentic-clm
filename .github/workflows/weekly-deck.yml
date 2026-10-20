@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "weekly: build and publish the deck. preflight: only report what the runner can reach."
+        description: "weekly: build and publish the deck. preflight: only report what the runner can reach, and check the gateway key."
         type: choice
         options: [weekly, preflight]
         default: weekly
