@@ -58,6 +58,8 @@ What differs from SPS:
   then runs `self-heal.yml` in the same run. A publishing failure (exit 60) and a dry run start
   nothing.
 - **The schedule is in UTC**, so the local time moves with daylight saving.
+- **Actions from other repositories are pinned to a commit**, with the release in a comment (the
+  hashicorp org checks this: `GHA_Pinned_Hashes_Check`). To update one, pin the new release's commit.
 - **Each run also keeps its `output/`** (the deck, the summary, the logs; for self-heal also the
   agent's logs and the guard's verdict) as a run artifact for 30 days.
 
@@ -68,7 +70,8 @@ Settings, under **Settings → Secrets and variables → Actions**:
 | `ICA_API_KEY` | secret | the LLM gateway key. Without it the deck is built with the rule-based wording, and self-heal can still recover from a transient failure but cannot repair one: it opens an issue. |
 | `ICA_BASE_URL` | variable | the gateway's OpenAI-compatible base URL, ending in `/v1` |
 | `ENRICH_MODEL`, `FIX_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, Sonnet 5.5 for repairs) |
-| `BASE_BRANCH` | variable, optional | where the state commit goes and what a repair is proposed against; unset means the branch the run was started on |
+| `BASE_BRANCH` | variable, optional | what a repair is proposed against; unset means the branch the run was started on |
+| `STATE_BRANCH` | variable, optional | the branch that keeps `state/` between runs; unset means `pipeline-state`. It holds `state/` and nothing else, so the base branch can accept reviewed pull requests only (as `main` does in the hashicorp org). Set it to the base branch's name to commit `state/` there instead. |
 
 The self-heal pull request also needs **Settings → Actions → General → Workflow permissions →
 Allow GitHub Actions to create and approve pull requests**. GitHub grants "create" and "approve"
@@ -116,7 +119,8 @@ internally. These points decide whether the setup below works as written:
    internet needs a private worker. `pipeline-mode = preflight` answers this from inside a run.
 3. **Which registry** may hold the pipeline image, and how do workers authenticate to it?
 4. **May a pipeline push** to the repository it builds (the state commit and the repair branch), or
-   does branch protection require the state commit to go through a pull request?
+   does branch protection require the state commit to go through a pull request? (Then set
+   `state-branch`.)
 5. **Timed and generic-webhook triggers** — allowed as they are, or subject to an SPS policy?
 
 ---
@@ -154,8 +158,8 @@ definition source, set these **environment properties**:
 
 Optional: `event-scope` (e.g. `EMEA,MENA`), `strict` (`1` = fail when the events page was unreachable),
 `release-keep` (prune all but the newest N deck releases), `fix-attempts` (default 2),
-`fix-timeout` (seconds, default 2700), `base-branch` (default `main`), `enrich` (`0` = no model in the
-weekly build).
+`fix-timeout` (seconds, default 2700), `base-branch` (default `main`), `state-branch` (unset = the base
+branch; see step 2), `enrich` (`0` = no model in the weekly build).
 
 Secure values belong in Secrets Manager, referenced from the property rather than typed into it:
 `{vault::<integration-name>.<secret-group>.<secret-name>}`. The stage reads them with `get_secret`.
@@ -197,8 +201,11 @@ nothing. Then run it with `pipeline-mode = weekly`.
      the `.pptx`, `summary-<date>.md`, `build-report.json`, `verify-report.json`, and a PDF preview
      when the image has LibreOffice. `<repo>/releases/latest` therefore always opens this week's deck.
      Re-running a build for the same date updates that release in place.
-   - `state/` is committed and pushed to the base branch, so next week starts from the blog history
-     and the wording this run stored. If the push is refused the build still succeeds and says so.
+   - `state/` is committed and pushed, so next week starts from the blog history and the wording this
+     run stored: to the base branch, or, with `state-branch` set (on GitHub: `pipeline-state` unless
+     the `STATE_BRANCH` variable says otherwise), as a commit holding `state/` alone on that branch,
+     which every build reads `state/` from (until the first build creates it, from the checkout).
+     Self-heal starts from it too. If the push is refused the build still succeeds and says so.
 3. **Failed** → nothing is published (last week's release stays "latest"), the self-heal webhook is
    called, and the run fails.
 
@@ -373,7 +380,7 @@ or the enrichment step fails (the build continues with the rule-based wording).
   available for Coding Agents`), so `fix-model` now defaults to Sonnet 5.5; Sonnet 5.5 and Haiku 5.5
   both answered a streamed request with a tool call that day, and a preflight run on GitHub's runner
   confirmed the repository's new key for both.
-  **Not yet exercised:** a repair on Sonnet 5.5; anything inside SPS (the image build, the pipeline
+  **Not yet exercised:** a repair on Sonnet 5.5; the `pipeline-state` branch on GitHub; anything inside SPS (the image build, the pipeline
   definitions, the triggers, the secret references). SPS needs its first run there; start with
   `pipeline-mode = preflight`.
 

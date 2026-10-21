@@ -60,6 +60,8 @@ ci_setup() {
   export EVENT_SCOPE;  EVENT_SCOPE="$(prop event-scope "")"
   export STRICT;       STRICT="$(prop strict 0)"
   BASE_BRANCH="$(prop base-branch main)"
+  STATE_BRANCH="$(prop state-branch "")"   # unset, or the base branch: the state is kept there
+  if [[ "$STATE_BRANCH" == "$BASE_BRANCH" ]]; then STATE_BRANCH=""; fi
   RELEASE_KEEP="$(prop release-keep 0)"
   DRY=()
   if [[ "${CI_DRY_RUN:-0}" == "1" ]]; then
@@ -145,12 +147,24 @@ PYEOF
 # ci/askpass.sh, which answers from the environment, so the token is never in a URL, in git's config
 # or on a command line.
 ci_git_push() {
-  local refspec="$1" host_repo
+  local refspec="$1"
   if [[ "${CI_DRY_RUN:-0}" == "1" ]]; then echo "  [dry-run] git push origin ${refspec}"; return 0; fi
   if [[ -z "$GIT_TOKEN" ]]; then ci_warn "no git-token; cannot push"; return 1; fi
+  _ci_git_origin push "$refspec"
+}
+
+# ci_git_fetch <refspec> — fetch from origin the same way. Without a real token (a laptop, a rehearsal)
+# the checkout's own login is used: the workflows' checkouts keep none.
+ci_git_fetch() {
+  if [[ -z "$GIT_TOKEN" || "$GIT_TOKEN" == "dry-run" ]]; then git fetch -q origin "$1"; return; fi
+  _ci_git_origin fetch "$1"
+}
+
+_ci_git_origin() {
+  local host_repo
   host_repo="$("$PY" -c 'import sys; sys.path.insert(0, "scripts"); from lib.github import remote_coordinates as r; h, p = r(); print(f"{h}/{p}")')" || return 1
   GIT_ASKPASS="$REPO_ROOT/ci/askpass.sh" GIT_TERMINAL_PROMPT=0 \
-    git -c credential.helper= push "https://x-access-token@${host_repo}.git" "$refspec"
+    git -c credential.helper= "$1" "https://x-access-token@${host_repo}.git" "$2"
 }
 
 # ci_trigger_selfheal <failed step> <exit code> — start the self-heal pipeline: on GitHub Actions
@@ -185,9 +199,66 @@ except Exception as exc:  # noqa: BLE001
 PYEOF
 }
 
-# ci_commit_state <message> — keep the small git-tracked build state (blog history, stored wording)
-# in step with what this build learned, so next week starts from it. Best-effort.
+# The build state is the small git-tracked state/ (blog history, stored wording): each build starts
+# from what the last one kept. It is kept on the base branch, or on a separate state-branch holding
+# state/ and nothing else when the base branch only takes reviewed pull requests (main in the
+# hashicorp org), which the pipeline cannot push to. STATE_REF is that branch as this run found it.
+STATE_REF=refs/ci/state
+
+# ci_load_state — start from the state branch's state/, when there is one. Until the first build has
+# created it, or if it cannot be read, the checkout's own state/ is used; a build that started from it
+# then cannot push over a newer state (_ci_commit_state_branch).
+ci_load_state() {
+  [[ -n "$STATE_BRANCH" ]] || return 0
+  ci_log "build state"
+  git update-ref -d "$STATE_REF" 2>/dev/null || true
+  if ci_git_fetch "+refs/heads/${STATE_BRANCH}:${STATE_REF}" 2>/dev/null; then
+    ci_reset_state
+    echo "  state/ from branch ${STATE_BRANCH} ($(git rev-parse --short "$STATE_REF"))"
+  else
+    echo "  no branch ${STATE_BRANCH} to read (not created yet, or unreachable): state/ from the checkout"
+  fi
+}
+
+# ci_reset_state — put back the state this run started from, discarding whatever a build or an agent
+# wrote to state/ since. Only in the working tree: the index keeps the checkout's own state/, so it can
+# never end up in a commit of code.
+ci_reset_state() {
+  git checkout -q -- state/ 2>/dev/null || true
+  if [[ -n "$STATE_BRANCH" ]] && git rev-parse -q --verify "${STATE_REF}^{commit}" >/dev/null; then
+    git restore --source="$STATE_REF" --worktree -- state/ 2>/dev/null || true
+  fi
+}
+
+# _ci_commit_state_branch <message> — state/ alone, as the next commit of the state branch after the
+# one this run started from. If another run has pushed since, the push is refused instead of
+# replacing the newer state.
+_ci_commit_state_branch() {
+  local tmp tree="" parent=() commit
+  tmp="$(mktemp -d)"
+  GIT_INDEX_FILE="$tmp/index" git add -- state/ 2>/dev/null && tree="$(GIT_INDEX_FILE="$tmp/index" git write-tree)"
+  rm -rf "$tmp"
+  if [[ -z "$tree" ]]; then ci_warn "could not record state/"; return 0; fi
+  if git rev-parse -q --verify "${STATE_REF}^{commit}" >/dev/null; then
+    if [[ "$(git rev-parse "${STATE_REF}^{tree}")" == "$tree" ]]; then echo "  state/ unchanged"; return 0; fi
+    parent=(-p "$STATE_REF")
+  fi
+  if [[ "${CI_DRY_RUN:-0}" == "1" ]]; then
+    echo "  [dry-run] would commit state/ (\"$1\") and push it to ${STATE_BRANCH}"
+    return 0
+  fi
+  commit="$(git commit-tree "$tree" ${parent[@]+"${parent[@]}"} -m "$1")" || { ci_warn "could not commit state/"; return 0; }
+  if ci_git_push "${commit}:refs/heads/${STATE_BRANCH}"; then
+    git update-ref "$STATE_REF" "$commit"
+    echo "  state/ pushed to ${STATE_BRANCH}"
+  else
+    ci_warn "could not push state/ to ${STATE_BRANCH} (pushed to by another run, or a read-only token); the next build starts from the old state"
+  fi
+}
+
+# ci_commit_state <message> — keep what this build learned in state/ for the next one. Best-effort.
 ci_commit_state() {
+  if [[ -n "$STATE_BRANCH" ]]; then _ci_commit_state_branch "$1"; return 0; fi
   if [[ "${CI_DRY_RUN:-0}" == "1" ]]; then
     # A rehearsal must leave the checkout's history alone: no staging, no commit.
     if [[ -n "$(git status --porcelain -- state/)" ]]; then
@@ -206,7 +277,7 @@ ci_commit_state() {
   if ci_git_push "HEAD:refs/heads/${BASE_BRANCH}"; then
     echo "  state/ pushed to ${BASE_BRANCH}"
   else
-    ci_warn "could not push state/ to ${BASE_BRANCH} (protected branch or read-only token); the next build starts from the old state"
+    ci_warn "could not push state/ to ${BASE_BRANCH} (protected branch — set state-branch — or read-only token); the next build starts from the old state"
   fi
 }
 

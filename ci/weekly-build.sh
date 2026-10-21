@@ -15,6 +15,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 source ci/lib.sh
 ci_setup
 ci_preflight
+ci_load_state
 
 ci_log "weekly build"
 ENRICH="$(prop enrich auto)" bash build.sh
