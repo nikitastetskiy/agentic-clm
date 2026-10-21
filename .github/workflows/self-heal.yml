@@ -34,7 +34,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           # The repair agent has a shell in this checkout: leave no token in .git/config.
           persist-credentials: false
@@ -60,6 +60,7 @@ jobs:
           STRICT: ${{ vars.STRICT }}
           RELEASE_KEEP: ${{ vars.RELEASE_KEEP }}
           BASE_BRANCH: ${{ vars.BASE_BRANCH || github.ref_name }}
+          STATE_BRANCH: ${{ vars.STATE_BRANCH || 'pipeline-state' }}
         run: |
           if [[ -z "$ICA_API_KEY" ]]; then
             echo "::warning::The ICA_API_KEY secret is not set: the repair agent cannot run, so a failure that persists becomes an issue."
@@ -76,7 +77,7 @@ jobs:
 
       - name: Keep the agent's logs, the verdict and the deck with this run
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: self-heal-output
           path: |

@@ -30,6 +30,7 @@ if [[ -n "$(git status --porcelain --untracked-files=all -- . ':!state' ':!data'
   echo "refusing to run: the working tree has uncommitted changes (self-heal needs a clean checkout)" >&2
   exit 2
 fi
+ci_load_state
 
 # --- 1. reproduce -------------------------------------------------------------------------
 ci_log "reproduce the failure"
@@ -61,7 +62,7 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
       --timeout "$(prop fix-timeout 2700)" --log "output/agent-attempt-${attempt}.log" || true
 
   # --- 3. guard ---------------------------------------------------------------------------
-  git checkout -q -- state/ 2>/dev/null || true     # generated inputs are never part of a repair
+  ci_reset_state     # generated inputs are never part of a repair
   "$PY" scripts/check_fix.py > output/fix-verdict.json
   verdict=$?
   cat output/fix-verdict.json

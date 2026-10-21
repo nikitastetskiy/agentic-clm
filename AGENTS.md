@@ -13,7 +13,9 @@ auto-pptx builds a weekly HashiCorp product-updates PowerPoint deck from public 
   order and roles.
 - `config/deck.yaml` — the deck's slides by ROLE. `config/sources.yaml` — the public sources.
 - `templates/cadence-template.pptx` — cut from a reference deck by `scripts/make_template.py`.
-- `state/` — blog history and stored wording; updated by builds, tracked in git.
+- `state/` — blog history and stored wording; updated by builds, tracked in git. On GitHub the
+  builds keep it on the `pipeline-state` branch (`ci_load_state` in `ci/lib.sh`); main's copy is
+  where the first build starts.
 - `ci/` — the weekly and self-heal pipelines; `.github/workflows/` runs them on GitHub Actions,
   `.pipeline-config*.yaml` on IBM SPS. Both only call `ci/run.sh`.
 - `run.sh`, `scripts/edit_*_slides.py`, `scripts/verify_deck.py`, `.github/agents/` — the LEGACY

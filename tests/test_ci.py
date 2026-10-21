@@ -10,8 +10,10 @@ import io
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -147,11 +149,116 @@ class Workflows(unittest.TestCase):
             given = {k for k, v in pipeline_step(wf)["env"].items() if re.search(SECRET_EXPR, v)}
             self.assertEqual(set(scrub["env"]), given, name)
 
+    def test_every_action_from_elsewhere_is_pinned_to_a_commit(self):
+        # The hashicorp org checks this (custom property GHA_Pinned_Hashes_Check): a tag can be moved to
+        # other code, a commit cannot.
+        for path in [*(GITHUB / "workflows").glob("*.yml"), *(GITHUB / "actions").glob("*/action.yml")]:
+            for ref in re.findall(r"(?m)^[\s-]*uses:\s*(\S+)", path.read_text(encoding="utf-8")):
+                if not ref.startswith("./"):
+                    self.assertRegex(ref, r"@[0-9a-f]{40}$", path.name)
+
     def test_the_runner_installs_the_image_s_opencode_version(self):
         action = (GITHUB / "actions" / "setup" / "action.yml").read_text(encoding="utf-8")
         self.assertIn("s/^ARG OPENCODE_VERSION=//p' Dockerfile", action)
         self.assertRegex((helpers.REPO / "Dockerfile").read_text(encoding="utf-8"),
                          r"(?m)^ARG OPENCODE_VERSION=\d+\.\d+\.\d+$")
+
+
+REMOTE = "github.com/hashicorp/agentic-clm"
+
+
+class StateBranch(unittest.TestCase):
+    """The build state kept on a branch of its own, for a base branch the pipeline cannot push to. The
+    pipeline pushes to https://x-access-token@<origin>; git sends that to a local bare repository."""
+
+    def setUp(self):
+        tmp = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.origin, self.work = tmp / "origin.git", tmp / "work"
+        self.env = {k: v for k, v in os.environ.items()
+                    if not k.startswith(("GIT_", "CI_", "ICA_", "STATE_", "BASE_", "GITHUB_"))}
+        self.env.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1", PYTHON=sys.executable,
+                        GIT_AUTHOR_NAME="pipeline", GIT_AUTHOR_EMAIL="pipeline@example.invalid",
+                        GIT_COMMITTER_NAME="pipeline", GIT_COMMITTER_EMAIL="pipeline@example.invalid")
+        shutil.copytree(helpers.REPO / "ci", self.work / "ci")
+        shutil.copytree(helpers.SCRIPTS / "lib", self.work / "scripts" / "lib",
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        (self.work / "state").mkdir()
+        (self.work / "state" / "blogs.json").write_text("seed\n", encoding="utf-8")
+        self.git("init", "-q", "--bare", "-b", "main", str(self.origin), cwd=tmp)
+        self.git("init", "-q", "-b", "main")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "seed")
+        self.git("remote", "add", "origin", f"git@{REMOTE.replace('/', ':', 1)}.git")
+        self.git("config", f"url.{self.origin.as_uri()}.insteadOf", f"https://x-access-token@{REMOTE}.git")
+        self.git("push", "-q", str(self.origin), "main")
+        self.seed = self.git("rev-parse", "main")
+
+    def git(self, *args, cwd=None) -> str:
+        return subprocess.run(["git", *args], cwd=cwd or self.work, env=self.env, check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    def at_origin(self, *args) -> str:
+        return self.git("--git-dir", str(self.origin), *args)
+
+    def ci(self, script: str, state_branch: str = "pipeline-state") -> str:
+        env = {**self.env, "GIT_TOKEN": "t0ken", "STATE_BRANCH": state_branch, "BASE_BRANCH": "main"}
+        proc = subprocess.run(["bash", "-c", f"source ci/lib.sh && ci_setup && {script}"],
+                              cwd=self.work, env=env, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return proc.stdout + proc.stderr
+
+    def build(self, state: str) -> str:
+        """A weekly build that leaves `state` in state/blogs.json."""
+        return self.ci(f"ci_load_state && echo {state} > state/blogs.json && ci_commit_state 'chore(state): {state}'")
+
+    def test_the_first_build_starts_the_branch_with_state_alone(self):
+        out = self.build("week1")
+        self.assertIn("no branch pipeline-state to read", out)
+        self.assertIn("state/ pushed to pipeline-state", out)
+        self.assertEqual(self.at_origin("ls-tree", "-r", "--name-only", "pipeline-state"), "state/blogs.json")
+        self.assertEqual(self.at_origin("show", "pipeline-state:state/blogs.json"), "week1")
+        self.assertEqual(self.at_origin("rev-parse", "main"), self.seed)   # the base branch is left alone
+
+    def test_the_next_build_starts_from_the_branch_and_continues_it(self):
+        self.build("week1")
+        self.git("checkout", "-q", "--", "state/")                         # a fresh checkout of main
+        out = self.ci("ci_load_state && cat state/blogs.json")
+        self.assertIn("state/ from branch pipeline-state", out)
+        self.assertIn("week1", out)
+        self.assertEqual(self.git("diff", "--cached", "--name-only"), "")   # nothing for a code commit to take
+        self.build("week2")
+        self.assertEqual(self.at_origin("log", "--format=%s", "pipeline-state").splitlines(),
+                         ["chore(state): week2", "chore(state): week1"])
+
+    def test_a_reset_puts_back_the_state_the_run_started_from(self):
+        self.build("week1")
+        out = self.ci("ci_load_state && echo edited-by-an-agent > state/blogs.json && ci_reset_state && cat state/blogs.json")
+        self.assertIn("week1", out)
+        self.assertNotIn("edited-by-an-agent", out)
+
+    def test_an_unchanged_state_commits_nothing(self):
+        self.build("week1")
+        self.assertIn("state/ unchanged", self.build("week1"))
+        self.assertEqual(self.at_origin("rev-list", "--count", "pipeline-state"), "1")
+
+    def test_a_build_from_an_older_state_does_not_replace_a_newer_one(self):
+        self.build("week1")
+        self.ci("ci_load_state")
+        newer = self.git("commit-tree", "refs/ci/state^{tree}",
+                         "-p", "refs/ci/state", "-m", "pushed by another run")
+        self.git("push", "-q", str(self.origin), f"{newer}:refs/heads/pipeline-state")
+        out = self.ci("echo week2 > state/blogs.json && ci_commit_state 'chore(state): week2'")
+        self.assertIn("could not push state/ to pipeline-state", out)
+        self.assertEqual(self.at_origin("rev-parse", "pipeline-state"), newer)
+
+    def test_without_a_branch_of_its_own_the_state_goes_to_the_base_branch(self):
+        for setting in ("", "main"):
+            with self.subTest(state_branch=setting):
+                out = self.ci(f"ci_load_state && echo {setting or 'unset'} > state/blogs.json "
+                              f"&& ci_commit_state 'chore(state): {setting or 'unset'}'", state_branch=setting)
+                self.assertIn("state/ pushed to main", out)
+                self.assertEqual(self.at_origin("show", "main:state/blogs.json"), setting or "unset")
+        self.assertEqual(self.at_origin("branch", "--list", "pipeline-state"), "")
 
 
 class Models(unittest.TestCase):

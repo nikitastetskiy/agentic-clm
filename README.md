@@ -191,7 +191,7 @@ Credentials live in the pipeline's secret store, never in this repository.
 | I want to… | Do this |
 |------------|---------|
 | add an in-person event that is not on the public events page | add it to `config/featured-events.yaml` |
-| correct or rewrite a highlight | edit its entry in `state/enrichment.json` (or delete it to have it regenerated) |
+| correct or rewrite a highlight | edit its entry in `state/enrichment.json` (or delete it to have it regenerated) — on the `pipeline-state` branch, which the builds on GitHub read it from |
 | show Terraform releases as sentences instead of labels | remove `wording: label` in `config/deck.yaml` |
 | change the region scope for events | `events.scope_regions` in `config/sources.yaml`, or `EVENT_SCOPE` for one run |
 | follow a redesigned cadence deck | `make template DECK="new deck.pptx"` |
@@ -217,7 +217,7 @@ config/deck.yaml         the deck: its slides (roles), how each is recognised, w
 config/sources.yaml      the public sources
 config/featured-events.yaml   hand-maintained in-person events
 templates/               the slim template the deck is built from (cut by make_template.py)
-state/                   blog history + stored wording (small, git-tracked, updated by the pipeline)
+state/                   blog history + stored wording (small, git-tracked; the pipeline keeps its own on pipeline-state)
 scripts/fetch_*.py       fetchers           scripts/plan_deck.py   planner
 scripts/build_deck.py    builder            scripts/verify_build.py  gate
 scripts/enrich.py        optional LLM wording, cached in state/
