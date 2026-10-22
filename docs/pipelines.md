@@ -72,7 +72,7 @@ Settings, under **Settings → Secrets and variables → Actions**:
 | `ICA_BASE_URL` | variable | the gateway's OpenAI-compatible base URL, ending in `/v1` |
 | `KEY_ENVIRONMENT` | variable, optional | the name of an environment (**Settings → Environments**) that holds `ICA_API_KEY` and `BOB_API_KEY` instead of the repository, with **Deployment branches** limited to `main`. Runs from `main` then get the key and runs from any other branch do not, so a workflow changed on a branch, which needs no review, cannot reach it. In hashicorp/agentic-clm: `gateway`. Unset: the repository secret is used. |
 | `BOB_API_KEY` | secret, optional | an IBM Bob *Inference* API key: the pull request review's fallback when the ICA gateway does not answer. Never given to the repair agent. |
-| `REVIEW_MODELS` | variable, optional | the review's models, in order of preference; unset means `ica-gateway/gpt-6.1-sol`, then `bob/premium` |
+| `REVIEW_MODELS` | variable, optional | the review's models, in order of preference; unset means `ica-gateway/gpt-6.1-sol`, then `ica-gateway/claude-sonnet-5-5`, then `bob/premium` |
 | `REVIEW_MENTION` | variable, optional | GitHub logins copied on every review, space-separated (in hashicorp/agentic-clm: `nikitastetskiy-hashi`) |
 | `ENRICH_MODEL`, `FIX_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, Sonnet 5.5 for repairs) |
 | `BASE_BRANCH` | variable, optional | what a repair is proposed against; unset means the branch the run was started on |
@@ -271,11 +271,14 @@ look, ⛔ not safe to merge), the findings most severe first, the files a person
 the model says, and which model answered. It copies the logins in `REVIEW_MENTION`. It is advice: it
 cannot approve, and does not count as a review.
 
-- **Models.** `review-models`, by default `ica-gateway/gpt-6.1-sol`, then `bob/premium`: GPT-6.1 Sol
-  through the ICA gateway; when that refuses, does not answer, or answers in the wrong shape, Bob's
-  premium model through Bob's inference API with `BOB_API_KEY`. That is an *Inference* key
-  (bob.ibm.com → your instance → API keys), which can only call models, for one Bob instance and
-  team. The comment names the model that answered, and why the ones before it did not.
+- **Models.** `review-models`, by default `ica-gateway/gpt-6.1-sol`, then `ica-gateway/claude-sonnet-5-5`,
+  then `bob/premium`: GPT-6.1 Sol through the ICA gateway; when that refuses or answers in the wrong
+  shape, Claude Sonnet 5.5 through the same gateway; then Bob's premium model through Bob's inference
+  API with `BOB_API_KEY`. A gateway that gives no answer at all is not asked again in the same review.
+  The comment names the model that answered, and why the ones before it did not.
+  **Bob is not reachable from automation yet** (checked 2026-10-22): Bob's Cloudflare answers every
+  client tried with HTTP 403 "Attention Required" before the key is looked at, so until the Bob team
+  says how CI should reach `api.us-east.bob.ibm.com/inference/v1`, the Bob step only reports that.
 - **What the author cannot decide.** The workflow runs `main`'s own code (`pull_request_target`, with
   the default checkout); the pull request's changes are read through the API as text, never checked
   out or run, so they cannot reach the keys. The model reads what the author wrote, so it can be

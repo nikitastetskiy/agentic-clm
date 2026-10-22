@@ -57,7 +57,9 @@ def _refusal(exc: Exception, key: str, key_var: str) -> tuple[int | None, str]:
         try:
             text = json.loads(text)["error"]["message"]
         except (ValueError, KeyError, TypeError):
-            pass
+            title = re.search(r"<title>(.*?)</title>", text, re.S | re.I)
+            if title:   # a firewall's or proxy's page, not the API's answer
+                text = f"{' '.join(title.group(1).split())} (an HTML page, not the API)"
         return exc.code, _clean(text, key, key_var)
     return None, _clean(str(getattr(exc, "reason", exc)), key, key_var)   # unreachable, timed out, not a URL
 
