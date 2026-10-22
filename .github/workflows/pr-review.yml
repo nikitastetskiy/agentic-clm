@@ -1,0 +1,49 @@
+# The pull request review: a model reads each pull request and leaves its verdict as one comment, as
+# advice for the person who approves it (main only takes pull requests that someone else approved).
+# scripts/review_pr.py does the work, and decides when a review is not worth a model call; see
+# docs/pipelines.md.
+#
+# pull_request_target runs this file and the scripts as they are on main, with the keys, for a pull
+# request whose changes are only read as text from the API: nothing from it is checked out or run.
+# Pull requests that self-heal opens start no workflow; ci/self-heal.sh reviews those itself.
+name: Pull request review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true   # a newer push replaces a review that has not finished
+
+jobs:
+  review:
+    # Drafts wait until they are marked ready; a pull request from a fork is not given the keys.
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # As in the other workflows: where KEY_ENVIRONMENT holds the keys, only runs from main get them.
+    environment: ${{ github.ref == 'refs/heads/main' && vars.KEY_ENVIRONMENT || '' }}
+    permissions:
+      contents: read
+      pull-requests: write   # the comment
+    steps:
+      - name: Let a burst of pushes settle (a newer push cancels this run)
+        run: sleep 30
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # main's own code; the pull request is read through the API
+
+      - name: Review
+        env:
+          GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ICA_API_KEY: ${{ secrets.ICA_API_KEY }}
+          ICA_BASE_URL: ${{ vars.ICA_BASE_URL }}
+          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+          REVIEW_MODELS: ${{ vars.REVIEW_MODELS }}
+          REVIEW_MENTION: ${{ vars.REVIEW_MENTION }}
+        run: python3 scripts/review_pr.py

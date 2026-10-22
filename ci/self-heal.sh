@@ -105,6 +105,9 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   fi
   if ci_git_push "HEAD:refs/heads/${BRANCH}" \
      && "$PY" scripts/report_fix.py --pull --branch "$BRANCH" --base "$BASE_BRANCH" ${DRY[@]+"${DRY[@]}"}; then
+    # For the workflow's review job, which reviews it from a fresh checkout (a pull request opened
+    # with the workflow's token starts no workflow of its own).
+    if [[ -n "${GITHUB_OUTPUT:-}" && "${CI_DRY_RUN:-0}" != "1" ]]; then echo "pull-branch=${BRANCH}" >> "$GITHUB_OUTPUT"; fi
     ci_publish "Built from the UNMERGED repair branch \`${BRANCH}\` after the weekly run failed — see the open self-heal pull request." || exit 60
     exit 0
   fi

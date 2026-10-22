@@ -165,3 +165,34 @@ class GitHub:
 
     def open_issue(self, title: str, body: str, labels: list[str] | None = None) -> dict:
         return self.request("POST", "/issues", {"title": title, "body": body, "labels": labels or []})
+
+    # ---- reading a pull request, commenting on it (scripts/review_pr.py) --------------------------
+    def paged(self, path: str, limit: int = 3000) -> list:
+        """Every item of a list endpoint, up to `limit` (GitHub lists at most 3000 files of a pull)."""
+        items: list = []
+        while len(items) < limit:
+            page = self.request("GET", f"{path}{'&' if '?' in path else '?'}per_page=100&page={len(items) // 100 + 1}") or []
+            items += page
+            if len(page) < 100:
+                break
+        return items
+
+    def pull(self, number: int) -> dict:
+        return self.request("GET", f"/pulls/{number}") or {}
+
+    def pull_for_branch(self, branch: str) -> dict | None:
+        owner = self.repo.split("/", 1)[0]
+        found = self.request("GET", f"/pulls?state=open&head={urllib.parse.quote(f'{owner}:{branch}')}")
+        return found[0] if found else None
+
+    def compare(self, base: str, head: str) -> dict:
+        return self.request("GET", f"/compare/{base}...{head}") or {}
+
+    def comment(self, number: int, body: str) -> dict:
+        return self.request("POST", f"/issues/{number}/comments", {"body": body})
+
+    def edit_comment(self, comment_id: int, body: str) -> None:
+        self.request("PATCH", f"/issues/comments/{comment_id}", {"body": body})
+
+    def delete_comment(self, comment_id: int) -> None:
+        self.request("DELETE", f"/issues/comments/{comment_id}")

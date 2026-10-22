@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-SECRET_VARS = ("ICA_API_KEY", "GIT_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_TOKEN",
+SECRET_VARS = ("ICA_API_KEY", "BOB_API_KEY", "GIT_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_TOKEN",
                "SELFHEAL_WEBHOOK_URL", "SELFHEAL_WEBHOOK_TOKEN", "IBMCLOUD_API_KEY")
 MIN_LENGTH = 8   # shorter values (the dry run's "dry-run" placeholder) would also match ordinary words
 

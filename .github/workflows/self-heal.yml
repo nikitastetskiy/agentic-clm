@@ -3,7 +3,9 @@
 #
 # ci/self-heal.sh reproduces the failure; if it persists, the repo-fixer agent repairs the code on a
 # large model, scripts/check_fix.py judges the change, the tests and a full rebuild prove it, and the
-# repair is proposed as a pull request (never merged automatically) — or reported as an issue.
+# repair is proposed as a pull request (never merged automatically) — or reported as an issue. The
+# review job then reviews that pull request (scripts/review_pr.py) from a fresh checkout: the repair
+# job ran code the agent wrote, so the reviewer and its keys are kept out of it.
 name: Self-heal
 
 on:
@@ -36,6 +38,8 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+    outputs:
+      pull-branch: ${{ steps.run.outputs.pull-branch }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -45,6 +49,7 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Reproduce, repair, prove, propose
+        id: run
         env:
           PIPELINE_MODE: self-heal
           CI_DRY_RUN: ${{ inputs.dry-run && '1' || '0' }}
@@ -89,3 +94,30 @@ jobs:
             data/verify-report.json
           retention-days: 30
           if-no-files-found: ignore
+
+  review:
+    # A pull request opened with the workflow's token starts no other workflow, so the pull request
+    # review (.github/workflows/pr-review.yml) would never see the repair's.
+    needs: repair
+    if: ${{ always() && needs.repair.outputs.pull-branch != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: ${{ github.ref == 'refs/heads/main' && vars.KEY_ENVIRONMENT || '' }}
+    permissions:
+      contents: read
+      pull-requests: write   # the comment
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # main's own code, not the repair's
+
+      - name: Review the repair's pull request
+        env:
+          PULL_BRANCH: ${{ needs.repair.outputs.pull-branch }}
+          GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ICA_API_KEY: ${{ secrets.ICA_API_KEY }}
+          ICA_BASE_URL: ${{ vars.ICA_BASE_URL }}
+          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+          REVIEW_MODELS: ${{ vars.REVIEW_MODELS }}
+          REVIEW_MENTION: ${{ vars.REVIEW_MENTION }}
+        run: python3 scripts/review_pr.py --head "$PULL_BRANCH"
