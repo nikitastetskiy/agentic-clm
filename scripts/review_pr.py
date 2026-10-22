@@ -19,8 +19,9 @@ a second reader. It cannot approve, and it is built so that a pull request canno
     that only touch those since its last review. A diff too large to read whole is left to the person.
 
 REVIEW_MODELS ("<provider>/<model>", space-separated, in order of preference) are tried until one gives
-a usable answer; by default GPT-6.1 Sol on the ICA gateway (ICA_API_KEY), then Bob's premium model
-(BOB_API_KEY). REVIEW_MENTION: the GitHub logins copied on each review.
+a usable answer; by default GPT-6.1 Sol, then Claude Sonnet 5.5, on the ICA gateway (ICA_API_KEY), then
+Bob's premium model (BOB_API_KEY). A gateway that gives no answer at all is not asked again in the same
+review. REVIEW_MENTION: the GitHub logins copied on each review.
 """
 from __future__ import annotations
 
@@ -36,7 +37,7 @@ from lib import gateway  # noqa: E402
 from lib.common import REPO_ROOT, log  # noqa: E402
 from lib.github import GitHub, GitHubError  # noqa: E402
 
-DEFAULT_MODELS = "ica-gateway/gpt-6.1-sol bob/premium"
+DEFAULT_MODELS = "ica-gateway/gpt-6.1-sol ica-gateway/claude-sonnet-5-5 bob/premium"
 BOT = "github-actions[bot]"     # the workflow's own token writes the comment
 MARKER = "<!-- auto-pptx-review head="
 MAX_DIFF_CHARS = 200_000        # about 50k tokens; a larger change is left to the person
@@ -174,9 +175,15 @@ def parse(text) -> dict | None:
 
 def ask_models(messages: list[dict], env, ask) -> tuple[dict | None, str | None, list[str]]:
     """(answer, the model that gave it, why the ones before it did not), trying REVIEW_MODELS in turn."""
-    failures = []
+    failures, silent = [], set()
     for model in (env.get("REVIEW_MODELS") or DEFAULT_MODELS).split():
+        provider = model.partition("/")[0]
+        if provider in silent:
+            failures.append(f"{model}: not asked, {provider} gave no answer")
+            continue
         status, text = ask(model, messages, env)
+        if status is None and not text.startswith("no "):   # timed out or unreachable, not a missing key
+            silent.add(provider)
         answer = parse(text) if status == 200 else None
         if answer:
             return answer, model, failures

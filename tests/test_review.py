@@ -126,6 +126,14 @@ class Fallback(unittest.TestCase):
         self.assertEqual(models.asked, [ICA, BOB])
         self.assertIn("with `bob/premium` because ica-gateway/gpt-6.1-sol: HTTP 503: Service Unavailable", gh.posted[0])
 
+    def test_a_gateway_that_gives_no_answer_is_not_asked_again(self):
+        env = {**ENV, "REVIEW_MODELS": f"{ICA} ica-gateway/claude-sonnet-5-5 {BOB}"}
+        models = Models(**{ICA: (None, "The read operation timed out"), BOB: answer()})
+        gh = FakeGitHub(changed("scripts/plan_deck.py"))
+        review(gh, models, env=env)
+        self.assertEqual(models.asked, [ICA, BOB])
+        self.assertIn("ica-gateway/claude-sonnet-5-5: not asked, ica-gateway gave no answer", gh.posted[0])
+
     def test_an_answer_that_is_not_the_json_asked_for_moves_on(self):
         models = Models(**{ICA: (200, "Looks fine to me!"), BOB: answer()})
         review(FakeGitHub(changed("scripts/plan_deck.py")), models)

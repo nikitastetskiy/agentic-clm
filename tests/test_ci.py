@@ -354,6 +354,13 @@ class FakeGateway(BaseHTTPRequestHandler):
             status, message = 401, ("Authentication Error, Invalid proxy server token passed. Received API Key = "
                                     f"sk-...{self.headers['Authorization'][-4:]}, Key Hash (Token) ={KEY_HASH}. "
                                     "Unable to find token in cache")
+        elif body["model"] == "behind-a-firewall":
+            data = b"<!DOCTYPE html><html><head><title>Attention Required! | Cloudflare</title></head></html>"
+            self.send_response(403)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         elif body["model"] == "claude-withdrawn":
             status, message = 400, "E003: Model not available for Coding Agents. Please use Advantage Assist models"
         else:
@@ -437,6 +444,10 @@ class GatewayKey(unittest.TestCase):
         self.assertEqual(status, 401)
         for fragment in (old, old[-4:], KEY_HASH):
             self.assertNotIn(fragment, said)
+
+    def test_a_firewall_s_page_is_named_not_pasted(self):
+        status, said = gateway.complete("bob/behind-a-firewall", [], {"BOB_API_KEY": BOB_KEY, "BOB_BASE_URL": self.base})
+        self.assertEqual((status, said), (403, "Attention Required! | Cloudflare (an HTML page, not the API)"))
 
     def test_a_provider_without_its_key_is_not_asked(self):
         self.assertEqual(gateway.complete("bob/premium", [], {"ICA_API_KEY": KEY}), (None, "no BOB_API_KEY set"))
