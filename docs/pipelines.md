@@ -243,8 +243,10 @@ would bloat every clone, while release assets sit outside the git history and ca
 1. **Reproduce.** Run the build again. If it passes, the failure was transient: publish the deck and
    stop. No model is involved.
 2. **Repair.** The `repo-fixer` agent (`.opencode/agents/repo-fixer.md`) runs on `fix-model`, or on
-   `fix-fallback-model` when the first gives no answer at all (it exits without writing
-   `output/fix-summary.md`); the pull request names the model that did the work. It gets
+   `fix-fallback-model` when the first gives no answer at all: the agent ends without writing
+   `output/fix-summary.md`, whatever opencode's exit code (opencode can exit 0 when the model was
+   refused). opencode itself retries a throttled model (HTTP 429) before it gives up. The pull request
+   names the model that did the work. It gets
    `output/failure.json` and the logs, may read and edit the checkout, run the tests, the build and
    the fetchers, and fetch public pages. It may not push, commit, switch branches, use `curl`/`ssh`,
    read the environment, or install packages — and the GitHub token and webhook secret are removed
