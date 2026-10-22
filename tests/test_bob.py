@@ -158,6 +158,11 @@ class Install(unittest.TestCase):
             with self.assertRaisesRegex(bob.BobError, "Node 22.15 or later"):
                 bob.install()
 
+    def test_the_tests_never_see_the_pipeline_s_real_keys(self):
+        # Self-heal tests a repair with its keys set; with them, the steps would take other paths.
+        for name in ("ICA_API_KEY", "ICA_BASE_URL", "BOB_API_KEY"):
+            self.assertNotIn(name, os.environ)
+
     def test_the_tests_never_install_it(self):
         with mock.patch.dict(os.environ, {"BOB_SHELL": "", "BOB_SHELL_HOME": "/nonexistent"}):
             with self.assertRaisesRegex(bob.BobError, "BOB_SHELL_INSTALL=0"):
