@@ -136,7 +136,8 @@ def _clean(text: str, key: str, key_var: str = "ICA_API_KEY") -> str:
 def preflight(env=None) -> int:
     """Print whether the gateways accept their keys for ENRICH_MODEL, FIX_MODEL, their fallbacks and the
     REVIEW_MODELS.
-    Returns 1 when a model whose key is set is not confirmed; a missing key is not a failure (the build
+    Returns 1 when a model whose key is set is not confirmed; a model the gateway throttles (HTTP 429) has
+    its key accepted, so that is only a warning; a missing key is not a failure (the build
     keeps its rule-based wording, self-heal reports instead of repairing, the review falls back or says
     it could not run)."""
     env = os.environ if env is None else env
@@ -158,6 +159,11 @@ def preflight(env=None) -> int:
             status, said = check(base, key, model, scheme=scheme, key_var=key_var)
         if status is not None and status < 300:
             print(f"  {model:<32} accepted by the gateway")
+            continue
+        if status == 429:   # the key is accepted; the model is busy for now, and the step's fallback covers it
+            print(f"  {model:<32} THROTTLED by the gateway (HTTP 429: {said}): the key is accepted")
+            if env.get("GITHUB_ACTIONS") == "true":
+                print(f"::warning::{model} is throttled for now (HTTP 429); its step falls back to the next model")
             continue
         unconfirmed += 1
         verdict = f"REFUSED by the gateway (HTTP {status}: {said})" if status else f"NO ANSWER from the gateway ({said})"

@@ -366,6 +366,8 @@ class FakeGateway(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
             return
+        elif body["model"] == "claude-busy":
+            status, message = 429, "litellm.RateLimitError: BedrockException - Too many requests, please wait"
         elif body["model"] == "claude-withdrawn":
             status, message = 400, "E003: Model not available for Coding Agents. Please use Advantage Assist models"
         else:
@@ -421,6 +423,13 @@ class GatewayKey(unittest.TestCase):
         self.assertIn("ica-gateway/claude-withdrawn", out)
         self.assertIn("REFUSED by the gateway (HTTP 400: E003: Model not available for Coding Agents", out)
         self.assertIn("::warning::ICA_API_KEY not confirmed for ica-gateway/claude-withdrawn", out)
+
+    def test_a_throttled_model_is_a_warning_not_a_failure(self):
+        code, out = self.preflight(FIX_MODEL="ica-gateway/claude-busy", GITHUB_ACTIONS="true")
+        self.assertEqual(code, 0)
+        self.assertIn("ica-gateway/claude-busy", out)
+        self.assertIn("THROTTLED by the gateway (HTTP 429: litellm.RateLimitError", out)
+        self.assertIn("::warning::ica-gateway/claude-busy is throttled for now", out)
 
     def test_a_rotated_key_is_reported_without_any_part_of_it(self):
         old = "sk-rotated-9876543210zyxwQRST"
