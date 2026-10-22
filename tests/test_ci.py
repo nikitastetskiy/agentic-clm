@@ -214,6 +214,9 @@ class ReviewWorkflow(unittest.TestCase):
         self.assertEqual(step["env"]["PULL_BRANCH"], "${{ needs.repair.outputs.pull-branch }}")
 
     def test_the_default_models_are_the_documented_ones(self):
+        import enrich
+        self.assertEqual((enrich.DEFAULT_MODEL, enrich.DEFAULT_FALLBACK_MODEL),
+                         (ci_defaults()["enrich-model"], ci_defaults()["enrich-fallback-model"]))
         models = review_pr.DEFAULT_MODELS
         self.assertIn(f'prop review-models "{models}"', (helpers.REPO / "ci" / "lib.sh").read_text(encoding="utf-8"))
         docs = (helpers.REPO / "docs" / "pipelines.md").read_text(encoding="utf-8")
@@ -329,7 +332,7 @@ class Models(unittest.TestCase):
         docs = (helpers.REPO / "docs" / "pipelines.md").read_text(encoding="utf-8")
         example = (helpers.REPO / ".env.example").read_text(encoding="utf-8")
         defaults = ci_defaults()
-        for setting in ("enrich-model", "fix-model"):
+        for setting in ("enrich-model", "fix-model", "enrich-fallback-model", "fix-fallback-model"):
             model, var = defaults[setting], setting.upper().replace("-", "_")
             self.assertIn(f"`{setting}`, default `{model}`", docs, setting)      # the overview table
             self.assertIn(f"| `{setting}` | text | `{model}` |", docs, setting)   # the SPS properties

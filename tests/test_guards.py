@@ -2,6 +2,7 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -117,6 +118,94 @@ class FixGuard(unittest.TestCase):
         self.assertEqual(v["verdict"], "rejected")
         self.assertEqual(v["reasons"], ["the change contains the value of the secret ICA_API_KEY"])
         self.assertNotIn(KEY, json.dumps(v))
+
+
+# Stands in for opencode: per model (FAKE_MODELS) it gives no answer, a garbled one, or a proper one.
+FAKE_OPENCODE = """#!{python}
+import json, os, sys
+from pathlib import Path
+args = sys.argv[1:]
+model, workdir = args[args.index("--model") + 1], Path(args[args.index("--dir") + 1])
+with open(os.environ["FAKE_CALLS"], "a") as calls:
+    calls.write(model + "\\n")
+behaviour = json.loads(os.environ["FAKE_MODELS"]).get(model, "silent")
+if behaviour == "silent":
+    sys.exit(1)
+if behaviour == "garbled":
+    (workdir / "enrich-response.json").write_text("I could not do that.")
+    sys.exit(0)
+request = json.loads((workdir / "enrich-request.json").read_text())
+(workdir / "enrich-response.json").write_text(json.dumps({{"items": [
+    {{"id": item["id"], "bullets": ["Adds what its release notes describe, in one plain sentence."]}}
+    for item in request["items"]]}}))
+"""
+HAIKU, LUNA = "ica-gateway/claude-haiku-5-5", "ica-gateway/gpt-6-luna"
+
+
+class ModelFallback(unittest.TestCase):
+    """A model that gives no answer at all hands over to another vendor's; one that answers does not."""
+
+    def run_first(self, codes, answered):
+        calls = []
+
+        def fake_run(name, message, *, model, cwd, timeout, log_file, drop_env):
+            calls.append((model, log_file.name))
+            return codes[len(calls) - 1]
+
+        with mock.patch.object(agent, "run", fake_run):
+            result = agent.run_first("repo-fixer", "fix it", models=["m1", "m2", ""], answered=answered,
+                                     cwd=Path("."), log_file=Path("output/agent-attempt-1.log"))
+        return result, calls
+
+    def test_a_model_that_answers_is_the_only_one_asked(self):
+        self.assertEqual(self.run_first([0], lambda code: code == 0), ((0, "m1"), [("m1", "agent-attempt-1.log")]))
+
+    def test_no_answer_hands_over_with_a_transcript_of_its_own(self):
+        self.assertEqual(self.run_first([1, 0], lambda code: code == 0),
+                         ((0, "m2"), [("m1", "agent-attempt-1.log"), ("m2", "agent-attempt-1-2.log")]))
+
+    def test_when_none_answers_the_last_one_tried_is_reported(self):
+        self.assertEqual(self.run_first([1, 124], lambda code: False)[0], (124, "m2"))
+
+    def test_the_enrichment_models(self):
+        self.assertEqual(enrich.models({}), [HAIKU, LUNA])
+        self.assertEqual(enrich.models({"ENRICH_FALLBACK_MODEL": "none"}), [HAIKU])
+        self.assertEqual(enrich.models({"ENRICH_MODEL": LUNA}), [LUNA])
+
+    def enrich(self, models: dict, **env):
+        """enrich.py on the snapshot with nothing worded yet; (its report, the models opencode was run on)."""
+        tmp = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        run_env = {k: v for k, v in helpers.snapshot_env(tmp).items() if not k.startswith("ENRICH")}
+        (tmp / "state" / "enrichment.json").write_text("{}", encoding="utf-8")
+        (tmp / "bin").mkdir()
+        fake = tmp / "bin" / "opencode"
+        fake.write_text(FAKE_OPENCODE.format(python=sys.executable), encoding="utf-8")
+        fake.chmod(0o755)
+        run_env.update(PATH=f"{tmp / 'bin'}{os.pathsep}{run_env['PATH']}", FAKE_MODELS=json.dumps(models),
+                       FAKE_CALLS=str(tmp / "calls.txt"), **env)
+        self.assertEqual(helpers.run("plan_deck.py", env=run_env).returncode, 0)
+        self.assertEqual(helpers.run("enrich.py", env=run_env).returncode, 0)   # never fails a build
+        report = json.loads((tmp / "data" / "enrich-report.json").read_text(encoding="utf-8"))
+        self.stored = json.loads((tmp / "state" / "enrichment.json").read_text(encoding="utf-8"))
+        return report, (tmp / "calls.txt").read_text(encoding="utf-8").split()
+
+    def test_the_wording_falls_back_to_another_vendor_when_haiku_gives_no_answer(self):
+        for haiku in ("silent", "garbled"):
+            with self.subTest(haiku=haiku):
+                report, asked = self.enrich({HAIKU: haiku, LUNA: "answers"})
+                self.assertEqual((asked, report["status"], report["model"]), ([HAIKU, LUNA], "ok", LUNA))
+                self.assertTrue(report["accepted"])
+                sources = {e["source"] for group in self.stored.values() for e in group.values()}
+                self.assertEqual(sources, {f"llm:{LUNA}"})
+
+    def test_a_model_that_answers_is_not_second_guessed(self):
+        report, asked = self.enrich({HAIKU: "answers", LUNA: "answers"})
+        self.assertEqual((asked, report["model"]), ([HAIKU], HAIKU))
+
+    def test_without_a_fallback_the_rule_based_wording_stays(self):
+        report, asked = self.enrich({HAIKU: "silent"}, ENRICH_FALLBACK_MODEL="none")
+        self.assertEqual((asked, report["status"]), ([HAIKU], "failed"))
+        self.assertEqual(self.stored, {})
 
 
 class SecretRedaction(unittest.TestCase):

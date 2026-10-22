@@ -104,12 +104,14 @@ def _clean(text: str, key: str, key_var: str = "ICA_API_KEY") -> str:
 
 
 def preflight(env=None) -> int:
-    """Print whether the gateways accept their keys for ENRICH_MODEL, FIX_MODEL and the REVIEW_MODELS.
+    """Print whether the gateways accept their keys for ENRICH_MODEL, FIX_MODEL, their fallbacks and the
+    REVIEW_MODELS.
     Returns 1 when a model whose key is set is not confirmed; a missing key is not a failure (the build
     keeps its rule-based wording, self-heal reports instead of repairing, the review falls back or says
     it could not run)."""
     env = os.environ if env is None else env
-    models = [env.get("ENRICH_MODEL"), env.get("FIX_MODEL"), *(env.get("REVIEW_MODELS") or "").split()]
+    models = [env.get("ENRICH_MODEL"), env.get("FIX_MODEL"), env.get("ENRICH_FALLBACK_MODEL"),
+              env.get("FIX_FALLBACK_MODEL"), *(env.get("REVIEW_MODELS") or "").split()]
     unconfirmed = 0
     for model in dict.fromkeys(m for m in models if m):
         found = endpoint(model, env)
