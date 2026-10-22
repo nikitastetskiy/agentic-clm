@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import agent  # noqa: E402
+from lib import agent, gateway  # noqa: E402
 from lib.common import REPO_ROOT, log  # noqa: E402
 
 PUBLISH_ONLY = ("GIT_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_TOKEN", "SELFHEAL_WEBHOOK_URL",
@@ -39,7 +39,8 @@ def main() -> int:
     def answered(code: int) -> bool:
         return code == 0 or not args.answered_file or (REPO_ROOT / args.answered_file).exists()
 
-    code, model = agent.run_first(args.agent, args.message, models=[args.model, "" if args.fallback_model == "none" else args.fallback_model],
+    models = gateway.with_last_resort([args.model, "" if args.fallback_model == "none" else args.fallback_model])
+    code, model = agent.run_first(args.agent, args.message, models=models,
                                   answered=answered, cwd=REPO_ROOT, timeout=args.timeout,
                                   log_file=Path(args.log), drop_env=PUBLISH_ONLY)
     if args.record:

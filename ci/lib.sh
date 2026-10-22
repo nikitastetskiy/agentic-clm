@@ -61,7 +61,7 @@ ci_setup() {
   export ENRICH_FALLBACK_MODEL; ENRICH_FALLBACK_MODEL="$(prop enrich-fallback-model ica-gateway/gpt-6-luna)"
   export FIX_FALLBACK_MODEL;    FIX_FALLBACK_MODEL="$(prop fix-fallback-model ica-gateway/gpt-6.1-sol)"
   # The pull request review's models (scripts/review_pr.py, a workflow of its own): the preflight checks them.
-  export REVIEW_MODELS; REVIEW_MODELS="$(prop review-models "ica-gateway/gpt-6.1-sol ica-gateway/claude-sonnet-5-5 bob/premium")"
+  export REVIEW_MODELS; REVIEW_MODELS="$(prop review-models "ica-gateway/gpt-6.1-sol ica-gateway/claude-sonnet-5-5")"
   export EVENT_SCOPE;  EVENT_SCOPE="$(prop event-scope "")"
   export STRICT;       STRICT="$(prop strict 0)"
   BASE_BRANCH="$(prop base-branch main)"
@@ -79,6 +79,8 @@ ci_setup() {
   # opencode). On a laptop none of this is set and opencode uses its own stored login.
   export ICA_API_KEY;  ICA_API_KEY="$(secret ica-api-key)"
   export ICA_BASE_URL; ICA_BASE_URL="$(prop ica-base-url "")"
+  # IBM Bob (lib/bob.py): every model step's last resort when the ICA gateway does not answer.
+  export BOB_API_KEY;  BOB_API_KEY="$(secret bob-api-key)"
   if [[ -n "$ICA_API_KEY" && -n "$ICA_BASE_URL" ]]; then
     export OPENCODE_CONFIG_CONTENT
     OPENCODE_CONFIG_CONTENT="$("$PY" - <<'PYEOF'
@@ -137,7 +139,7 @@ for host in hosts:
         print(f"  {host:<32} reachable")
     except OSError as exc:
         print(f"  {host:<32} UNREACHABLE ({exc})")
-for name in ("ICA_API_KEY", "ICA_BASE_URL", "GIT_TOKEN"):
+for name in ("ICA_API_KEY", "ICA_BASE_URL", "BOB_API_KEY", "GIT_TOKEN"):
     print(f"  {name:<32} {'set' if os.environ.get(name) else 'NOT SET'}")
 try:
     from playwright.sync_api import sync_playwright  # noqa: F401

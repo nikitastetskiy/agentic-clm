@@ -15,6 +15,8 @@ answer is treated as untrusted data: a bullet is accepted only if it is short en
 number, figure and CVE id in it occurs in the source it was given. Anything else is dropped and the
 deck falls back to the rule-based wording.
 
+When the ICA gateway does not answer at all, Bob (lib/bob.py) words them as the last resort.
+
 Two ways to reach the model, with the same instructions (.opencode/agents/deck-enrich.md), models and
 rules: with the gateway's key and address in the environment (ICA_API_KEY, ICA_BASE_URL: every pipeline
 run) a direct call, which gives the model no tools at all; without them (a laptop), the `deck-enrich`
@@ -181,15 +183,49 @@ def direct_prompt(request: dict) -> list[dict]:
 
 def ask_direct(request: dict, env, complete=gateway.complete) -> tuple[dict | None, str, list[str]]:
     """(answers, the model that gave them or the last one asked, why the ones before it did not)."""
-    failures, model = [], ""
-    for model in models(env):
+    failures, model, silent = [], "", set()
+    for model in gateway.with_last_resort(models(env), env):
+        provider = model.partition("/")[0]
+        if provider in silent:
+            failures.append(f"{model}: not asked, {provider} gave no answer")
+            continue
         status, text = complete(model, direct_prompt(request), env)
+        if status is None and not text.startswith("no "):   # timed out or unreachable, not a missing key
+            silent.add(provider)
         answers = parse_answer(text) if status == 200 else None
+        if answers is None and status == 200 and model.startswith("bob/"):   # the last resort gets a second try
+            status, text = complete(model, direct_prompt(request), env)
+            answers = parse_answer(text) if status == 200 else None
         if answers is not None:
-            return answers, model, failures
+            return second_round(request, answers, model, env, complete), model, failures
         failures.append(f"{model}: " + ("the answer was not the JSON asked for" if status == 200
                                         else f"HTTP {status}: {text}" if status else text))
     return None, model, failures
+
+
+def second_round(request: dict, answers: dict, model: str, env, complete=gateway.complete) -> dict:
+    """`answers`, after asking `model` once more, with the reasons, for the items the wording rules
+    rejected; a rewrite replaces an answer only when it passes the rules."""
+    needs = {need["id"]: need for need in request["items"]}
+    redo = []
+    for item, need in needs.items():
+        why = problems(need, answers[item]) if answers.get(item) is not None else ["no answer for this item"]
+        if why:
+            redo.append({**need, "rejected_because": why, "previous_answer": answers.get(item)})
+    if not redo:
+        return answers
+    messages = direct_prompt({"items": redo})
+    messages[0]["content"] += ("\n\nThese items were answered before, and the answers were rejected for the reasons in "
+                               "`rejected_because`. Write them again so that they pass: count the characters and stay "
+                               "within `max_chars`.")
+    status, text = complete(model, messages, env)
+    again = (parse_answer(text) if status == 200 else None) or {}
+    fixed = [item for item, bullets in again.items()
+             if item in needs and any(r["id"] == item for r in redo) and not problems(needs[item], bullets)]
+    for item in fixed:
+        answers[item] = again[item]
+    log(f"enrich: second round with {model}: {len(fixed)} of {len(redo)} rejected item(s) rewritten")
+    return answers
 
 
 def ask_agent(request: dict) -> tuple[dict | None, str]:
@@ -207,7 +243,8 @@ def ask_agent(request: dict) -> tuple[dict | None, str]:
             return False
 
         _, model = agent.run_first(
-            "deck-enrich", "Process enrich-request.json and write enrich-response.json.", models=models(),
+            "deck-enrich", "Process enrich-request.json and write enrich-response.json.",
+            models=gateway.with_last_resort(models()),
             answered=answered, cwd=scratch, timeout=int(os.environ.get("ENRICH_TIMEOUT", "600")),
             log_file=DATA_DIR / "enrich-agent.log",
             drop_env=("GIT_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_TOKEN", "BOB_API_KEY"))
@@ -249,7 +286,7 @@ def main() -> int:
     log(f"enrich: {len(needs)} item(s) without stored wording: {[n['id'][-48:] for n in needs]}")
     if args.dry_run:
         return finish("dry-run", "request written to data/enrich-request.json")
-    if gateway.endpoint(model, os.environ):
+    if any(gateway.endpoint(m, os.environ) for m in gateway.with_last_resort(models(), os.environ)):
         report["via"] = "the gateway, directly"
         answers, model, failures = ask_direct(request, os.environ)
         for failure in failures:
