@@ -1,8 +1,9 @@
 """Call the pipeline's LLM gateways, and ask them whether they accept the pipeline's keys.
 
-Two gateways, both OpenAI-compatible, named as opencode names them ("<provider>/<model id>"):
-`ica-gateway` (ICA_BASE_URL, ICA_API_KEY) and IBM Bob's inference API (`bob`, BOB_API_KEY: an
-"Inference" key, tied to one Bob instance and team, so it needs no instance or team headers).
+Models are named as opencode names them ("<provider>/<model id>"): `ica-gateway/...` is the ICA
+gateway, OpenAI-compatible (ICA_BASE_URL, ICA_API_KEY); `bob/shell` is IBM Bob through Bob Shell 2
+(lib/bob.py, BOB_API_KEY), which picks its own model. Bob is every step's last resort: with_last_resort()
+adds it after a step's own models whenever its key is set, for the day the ICA gateway is down.
 
 The weekly build only calls a model when something needs new wording, self-heal only when a build
 fails, and the pull request review only when there is a pull request, so a rotated key or a model the
@@ -16,17 +17,33 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 # The gateways' Cloudflare turns away urllib's default user agent (and Bob's, one naming opencode).
 USER_AGENT = "auto-pptx-pipeline"
-BOB_INFERENCE_URL = "https://api.us-east.bob.ibm.com/inference/v1"
-# provider -> (base URL variable, its default, key variable, Authorization scheme)
+# provider -> (base URL variable, its default, key variable, Authorization scheme). Bob is reached through
+# Bob Shell, not over HTTP: its firewall turns other clients away.
 PROVIDERS = {
     "ica-gateway": ("ICA_BASE_URL", "", "ICA_API_KEY", "Bearer"),
-    "bob": ("BOB_BASE_URL", BOB_INFERENCE_URL, "BOB_API_KEY", "Apikey"),
+    "bob": ("", "bob-shell", "BOB_API_KEY", ""),
 }
+LAST_RESORT = "bob/shell"
+# Bob Shell is an agent: even with every tool group turned off it may try to read files, and then answers
+# with the tool calls it could not make.
+NO_TOOLS = ("You answer in this one message. You have no tools and no files: everything you need is below. "
+            "Do not try to read, search or list anything.\n\n")
+
+
+def with_last_resort(models: list[str], env=None) -> list[str]:
+    """`models`, then Bob when its key is set (BOB_FALLBACK=0 leaves it out)."""
+    env = os.environ if env is None else env
+    models = [m for m in dict.fromkeys(models) if m]
+    if env.get("BOB_API_KEY") and env.get("BOB_FALLBACK", "1") != "0" and not any(m.startswith("bob/") for m in models):
+        models.append(LAST_RESORT)
+    return models
 
 
 def endpoint(model: str, env=None) -> tuple[str, str, str, str] | None:
@@ -37,7 +54,7 @@ def endpoint(model: str, env=None) -> tuple[str, str, str, str] | None:
     if provider not in PROVIDERS:
         return None
     url_var, default, key_var, scheme = PROVIDERS[provider]
-    base, key = env.get(url_var) or default, env.get(key_var, "")
+    base, key = (env.get(url_var) if url_var else "") or default, env.get(key_var, "")
     return (base, key, scheme, key_var) if base and key else None
 
 
@@ -79,6 +96,9 @@ def complete(model: str, messages: list[dict], env=None, *, max_tokens: int = 16
              timeout: int = 300) -> tuple[int | None, str]:
     """(200, the reply's text) from "<provider>/<model id>", or (HTTP status or None, what went wrong).
     max_tokens leaves room for a reasoning model's thinking, which counts towards it."""
+    if model.partition("/")[0] == "bob":
+        return ask_bob(NO_TOOLS + "\n\n---\n\n".join(str(m.get("content", "")) for m in messages), env,
+                       timeout=max(timeout, 600))
     found = endpoint(model, env)
     if not found:
         return None, f"no {PROVIDERS.get(model.partition('/')[0], ('', '', 'key for this provider'))[2]} set"
@@ -97,6 +117,16 @@ def complete(model: str, messages: list[dict], env=None, *, max_tokens: int = 16
     return status, content if isinstance(content, str) else ""
 
 
+def ask_bob(prompt: str, env=None, *, timeout: int = 600) -> tuple[int | None, str]:
+    """One question to Bob Shell, in ask mode, in an empty directory, with no tools at all."""
+    env = os.environ if env is None else env
+    from lib import bob
+    with tempfile.TemporaryDirectory(prefix="bob-ask-") as workspace:
+        status, text, _ = bob.run(prompt, workspace=Path(workspace), mode="ask", tools=(), max_turns=4,
+                                  max_cost=float(env.get("BOB_MAX_COST") or 1), timeout=timeout, env=env)
+    return status, text
+
+
 def _clean(text: str, key: str, key_var: str = "ICA_API_KEY") -> str:
     text = text.split("Received API Key")[0].replace(key, f"[{key_var} removed]")
     text = re.sub(r"\bsk-\S+|\b[0-9a-f]{32,}\b", "[removed]", text)
@@ -110,15 +140,22 @@ def preflight(env=None) -> int:
     keeps its rule-based wording, self-heal reports instead of repairing, the review falls back or says
     it could not run)."""
     env = os.environ if env is None else env
-    models = [env.get("ENRICH_MODEL"), env.get("FIX_MODEL"), env.get("ENRICH_FALLBACK_MODEL"),
-              env.get("FIX_FALLBACK_MODEL"), *(env.get("REVIEW_MODELS") or "").split()]
+    models = with_last_resort([env.get("ENRICH_MODEL"), env.get("FIX_MODEL"), env.get("ENRICH_FALLBACK_MODEL"),
+                               env.get("FIX_FALLBACK_MODEL"), *(env.get("REVIEW_MODELS") or "").split()], env)
     unconfirmed = 0
-    for model in dict.fromkeys(m for m in models if m):
+    for model in models:
         found = endpoint(model, env)
         if not found:
             continue
         base, key, scheme, key_var = found
-        status, said = check(base, key, model, scheme=scheme, key_var=key_var)
+        if model.startswith("bob/"):
+            from lib import bob
+            if bob.executable() is None and env.get("PIPELINE_MODE") != "preflight":
+                print(f"  {model:<32} not checked: Bob Shell is installed when it is needed (the preflight checks it)")
+                continue
+            status, said = ask_bob("Reply with the single word OK.", env)
+        else:
+            status, said = check(base, key, model, scheme=scheme, key_var=key_var)
         if status is not None and status < 300:
             print(f"  {model:<32} accepted by the gateway")
             continue

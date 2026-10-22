@@ -7,7 +7,7 @@ description: Install the tools the weekly build and the self-heal run need.
 
 inputs:
   opencode:
-    description: "Install Node and opencode, which only the self-heal repair agent needs."
+    description: "Install opencode, which only the self-heal repair agent needs. Node is always installed: Bob Shell, the last resort, needs it."
     default: "true"
 
 runs:
@@ -39,8 +39,7 @@ runs:
         python -m playwright install --with-deps chromium
         sudo apt-get install -y --no-install-recommends libreoffice-impress fonts-inter
 
-    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
-      if: inputs.opencode == 'true'
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0   (opencode, and Bob Shell when needed)
       with:
         node-version: "22"
 

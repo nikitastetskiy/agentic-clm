@@ -15,6 +15,8 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SNAPSHOT = FIXTURES / "snapshot-2026-10-13"
 SNAPSHOT_DATE = "2026-10-13"
 sys.path.insert(0, str(SCRIPTS))
+# Never download or install Bob Shell from a test (lib/bob.py installs it on demand).
+os.environ["BOB_SHELL_INSTALL"] = "0"
 
 
 def html(name: str) -> str:

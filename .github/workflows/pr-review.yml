@@ -38,6 +38,10 @@ jobs:
         with:
           persist-credentials: false   # main's own code; the pull request is read through the API
 
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "22"   # Bob Shell, the last resort when the ICA gateway is down, needs 22.15+
+
       - name: Review
         env:
           GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}

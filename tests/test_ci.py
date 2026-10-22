@@ -204,7 +204,9 @@ class ReviewWorkflow(unittest.TestCase):
 
     def test_self_heal_reviews_its_pull_request_from_a_fresh_checkout(self):
         jobs = workflow(SELF_HEAL)["jobs"]
-        self.assertNotIn("secrets.BOB_API_KEY", str(jobs["repair"]))   # the job that ran the agent's code
+        # The repair job has the Bob key (Bob is the repair agent of last resort); the opencode agent does not.
+        import run_agent
+        self.assertIn("BOB_API_KEY", run_agent.PUBLISH_ONLY)
         self.assertEqual(jobs["repair"]["outputs"], {"pull-branch": "${{ steps.run.outputs.pull-branch }}"})
         review = jobs["review"]
         self.assertEqual(review["needs"], "repair")
@@ -432,14 +434,12 @@ class GatewayKey(unittest.TestCase):
         self.assertEqual(self.preflight(ICA_API_KEY=""), (0, ""))
         self.assertEqual(FakeGateway.requests, [])
 
-    def test_a_review_model_is_answered_through_its_own_gateway(self):
+    def test_a_model_is_answered_through_the_gateway(self):
         messages = [{"role": "user", "content": "Review this."}]
-        env = {"ICA_API_KEY": KEY, "ICA_BASE_URL": self.base, "BOB_API_KEY": BOB_KEY, "BOB_BASE_URL": self.base}
+        env = {"ICA_API_KEY": KEY, "ICA_BASE_URL": self.base, "BOB_API_KEY": BOB_KEY}
         self.assertEqual(gateway.complete("ica-gateway/gpt-6.1-sol", messages, env), (200, "answer from gpt-6.1-sol"))
-        self.assertEqual(gateway.complete("bob/premium", messages, env), (200, "answer from premium"))
-        [(_, ica, ica_body), (_, bob, bob_body)] = FakeGateway.requests
-        self.assertEqual((ica["Authorization"], bob["Authorization"]), (f"Bearer {KEY}", f"Apikey {BOB_KEY}"))
-        self.assertEqual((ica_body["messages"], bob_body["model"]), (messages, "premium"))
+        [(_, headers, body)] = FakeGateway.requests
+        self.assertEqual((headers["Authorization"], body["messages"]), (f"Bearer {KEY}", messages))
 
     def test_a_refused_call_says_why_without_the_key(self):
         old = "sk-rotated-9876543210zyxwQRST"
@@ -449,7 +449,7 @@ class GatewayKey(unittest.TestCase):
             self.assertNotIn(fragment, said)
 
     def test_a_firewall_s_page_is_named_not_pasted(self):
-        status, said = gateway.complete("bob/behind-a-firewall", [], {"BOB_API_KEY": BOB_KEY, "BOB_BASE_URL": self.base})
+        status, said = gateway.complete("ica-gateway/behind-a-firewall", [], {"ICA_API_KEY": KEY, "ICA_BASE_URL": self.base})
         self.assertEqual((status, said), (403, "Attention Required! | Cloudflare (an HTML page, not the API)"))
 
     def test_a_provider_without_its_key_is_not_asked(self):

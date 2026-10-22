@@ -20,7 +20,7 @@ a second reader. It cannot approve, and it is built so that a pull request canno
 
 REVIEW_MODELS ("<provider>/<model>", space-separated, in order of preference) are tried until one gives
 a usable answer; by default GPT-6.1 Sol, then Claude Sonnet 5.5, on the ICA gateway (ICA_API_KEY), then
-Bob's premium model (BOB_API_KEY). A gateway that gives no answer at all is not asked again in the same
+Bob through Bob Shell (BOB_API_KEY), every step's last resort. A gateway that gives no answer at all is not asked again in the same
 review. REVIEW_MENTION: the GitHub logins copied on each review.
 """
 from __future__ import annotations
@@ -37,7 +37,7 @@ from lib import gateway  # noqa: E402
 from lib.common import REPO_ROOT, log  # noqa: E402
 from lib.github import GitHub, GitHubError  # noqa: E402
 
-DEFAULT_MODELS = "ica-gateway/gpt-6.1-sol ica-gateway/claude-sonnet-5-5 bob/premium"
+DEFAULT_MODELS = "ica-gateway/gpt-6.1-sol ica-gateway/claude-sonnet-5-5"
 BOT = "github-actions[bot]"     # the workflow's own token writes the comment
 MARKER = "<!-- auto-pptx-review head="
 MAX_DIFF_CHARS = 200_000        # about 50k tokens; a larger change is left to the person
@@ -176,7 +176,7 @@ def parse(text) -> dict | None:
 def ask_models(messages: list[dict], env, ask) -> tuple[dict | None, str | None, list[str]]:
     """(answer, the model that gave it, why the ones before it did not), trying REVIEW_MODELS in turn."""
     failures, silent = [], set()
-    for model in (env.get("REVIEW_MODELS") or DEFAULT_MODELS).split():
+    for model in gateway.with_last_resort((env.get("REVIEW_MODELS") or DEFAULT_MODELS).split(), env):
         provider = model.partition("/")[0]
         if provider in silent:
             failures.append(f"{model}: not asked, {provider} gave no answer")
@@ -185,6 +185,9 @@ def ask_models(messages: list[dict], env, ask) -> tuple[dict | None, str | None,
         if status is None and not text.startswith("no "):   # timed out or unreachable, not a missing key
             silent.add(provider)
         answer = parse(text) if status == 200 else None
+        if answer is None and status == 200 and provider == "bob":   # the last resort gets a second try
+            status, text = ask(model, messages, env)
+            answer = parse(text) if status == 200 else None
         if answer:
             return answer, model, failures
         failures.append(f"{model}: " + ("the answer was not the JSON asked for" if status == 200
