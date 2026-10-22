@@ -444,7 +444,9 @@ or the enrichment step fails (the build continues with the rule-based wording).
   confirmed the repository's new key for both.
   On 2026-10-22, with the CI's opencode 1.18.35 and the pipeline's provider settings: GPT-6 Luna
   worded a release note through the enrichment agent's tools (12 s; accepted by the wording rules,
-  like Haiku 5.5's) and GPT-6.1 Sol drove the repair agent's tools (read, search, shell, edit).
+  like Haiku 5.5's); and GPT-6.1 Sol, as the repair agent in a throwaway copy with a parser fault
+  planted (the "None." filter removed), found the cause in 4 minutes, restored the filter, added
+  two regression tests, and ran the tests and a full rebuild (`OVERALL: PASS`) itself.
   **Not yet exercised:** a repair on Sonnet 5.5; the `pipeline-state` branch on GitHub; the pull
   request review on GitHub (its models answered a one-token check on 2026-10-22: GPT-6.1 Sol through
   the gateway; Bob still needs its inference key); anything inside SPS (the image build, the pipeline
