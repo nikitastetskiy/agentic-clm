@@ -29,6 +29,9 @@ jobs:
   repair:
     runs-on: ubuntu-24.04
     timeout-minutes: 180   # three builds and up to two agent rounds of fix-timeout (45 min) each
+    # Where KEY_ENVIRONMENT names an environment holding ICA_API_KEY that only main may use, a run
+    # from another branch is not given the key: it runs without it, with the rule-based wording.
+    environment: ${{ github.ref == 'refs/heads/main' && vars.KEY_ENVIRONMENT || '' }}
     permissions:
       contents: write
       pull-requests: write
