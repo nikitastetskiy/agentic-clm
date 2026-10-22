@@ -222,7 +222,7 @@ scripts/fetch_*.py       fetchers           scripts/plan_deck.py   planner
 scripts/build_deck.py    builder            scripts/verify_build.py  gate
 scripts/enrich.py        optional LLM wording, cached in state/
 scripts/lib/             slide structure finders, text fitting, paragraph composition, …
-ci/  .opencode/          the two pipelines and their agents
+ci/  .opencode/          the two pipelines and their agents (the repair agent; the wording agent on a laptop)
 .github/workflows/       the pipelines on GitHub Actions (.pipeline-config*.yaml: on IBM SPS)
 tests/                   offline suite: parsers, planner, text fitting, guards, end-to-end + damaged decks
 ```

@@ -47,6 +47,8 @@ jobs:
           persist-credentials: false   # pushes go through ci/askpass.sh; no token is left in .git/config
 
       - uses: ./.github/actions/setup
+        with:
+          opencode: false   # the wording model is called directly (scripts/enrich.py)
 
       - name: Build, verify and publish
         id: run

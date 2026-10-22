@@ -3,20 +3,24 @@
 
 The plan (plan_deck.py) fills every slide from fixed rules. For a NEW release with features, or a
 changelog day with several changes, a rule can only quote the first note; a person would write one
-sentence that sums the release up. This step asks the `deck-enrich` agent (opencode, a small model)
-for that sentence and stores it in state/enrichment.json, so:
+sentence that sums the release up. This step asks a small model for that sentence
+and stores it in state/enrichment.json, so:
 
   * each item is worded ONCE — later builds reuse the stored text instead of rewording the deck
     every week (and a person can correct it by editing the state file);
   * the build itself stays deterministic: plan + build + verify never call a model.
 
-The agent is given only public text (release notes, changelog entries, event abstracts) in a scratch
-directory with no shell, no network and no view of the repository, and its answer is treated as
-untrusted data: a bullet is accepted only if it is short enough, plainly worded, and every version
+The model is given only public text (release notes, changelog entries, event abstracts) and its
+answer is treated as untrusted data: a bullet is accepted only if it is short enough, plainly worded, and every version
 number, figure and CVE id in it occurs in the source it was given. Anything else is dropped and the
 deck falls back to the rule-based wording.
 
-Best-effort by design: no agent, no credentials, a timeout or a bad answer never fails a build.
+Two ways to reach the model, with the same instructions (.opencode/agents/deck-enrich.md), models and
+rules: with the gateway's key and address in the environment (ICA_API_KEY, ICA_BASE_URL: every pipeline
+run) a direct call, which gives the model no tools at all; without them (a laptop), the `deck-enrich`
+opencode agent with opencode's own login, in a scratch directory with no shell and no network.
+
+Best-effort by design: no model, no credentials, a timeout or a bad answer never fails a build.
 Run AFTER plan_deck.py (it reads the plan to see what is on the slides) and re-plan afterwards.
 """
 from __future__ import annotations
@@ -31,8 +35,8 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import agent, state  # noqa: E402
-from lib.common import DATA_DIR, load_config, log, read_json, today  # noqa: E402
+from lib import agent, gateway, state  # noqa: E402
+from lib.common import DATA_DIR, REPO_ROOT, load_config, log, read_json, today  # noqa: E402
 
 DEFAULT_MODEL = "ica-gateway/claude-haiku-5-5"
 DEFAULT_FALLBACK_MODEL = "ica-gateway/gpt-6-luna"   # another vendor's, when the first gives no answer
@@ -148,12 +152,71 @@ def models(env=None) -> list[str]:
     return list(dict.fromkeys([env.get("ENRICH_MODEL") or DEFAULT_MODEL, *([] if fallback == "none" else [fallback])]))
 
 
+def parse_answer(text) -> dict | None:
+    """{id: bullets} from an answer, or None when it is not the JSON asked for."""
+    m = re.search(r"\{.*\}", text, re.S) if isinstance(text, str) else None
+    try:
+        return {a["id"]: a.get("bullets") for a in json.loads(m.group(0))["items"]} if m else None
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
 def read_answer(path: Path) -> dict | None:
     """{id: bullets} from the agent's answer file, or None when there is none or it is not the JSON asked for."""
     try:
-        return {a["id"]: a.get("bullets") for a in json.loads(path.read_text(encoding="utf-8"))["items"]}
-    except (OSError, ValueError, KeyError, TypeError):
+        return parse_answer(path.read_text(encoding="utf-8"))
+    except OSError:
         return None
+
+
+def direct_prompt(request: dict) -> list[dict]:
+    """The deck-enrich agent's instructions as a direct call: the request is the message, the reply the answer."""
+    text = (REPO_ROOT / ".opencode" / "agents" / "deck-enrich.md").read_text(encoding="utf-8")
+    body = text.split("---", 2)[2].strip() if text.startswith("---") else text
+    system = (f"{body}\n\nHere you are called directly, without files: the user message is the content of "
+              "`enrich-request.json`, and your reply is the content of `enrich-response.json`, the JSON object only.")
+    return [{"role": "system", "content": system},
+            {"role": "user", "content": json.dumps(request, indent=2, ensure_ascii=False)}]
+
+
+def ask_direct(request: dict, env, complete=gateway.complete) -> tuple[dict | None, str, list[str]]:
+    """(answers, the model that gave them or the last one asked, why the ones before it did not)."""
+    failures, model = [], ""
+    for model in models(env):
+        status, text = complete(model, direct_prompt(request), env)
+        answers = parse_answer(text) if status == 200 else None
+        if answers is not None:
+            return answers, model, failures
+        failures.append(f"{model}: " + ("the answer was not the JSON asked for" if status == 200
+                                        else f"HTTP {status}: {text}" if status else text))
+    return None, model, failures
+
+
+def ask_agent(request: dict) -> tuple[dict | None, str]:
+    """(answers, the model that ran last) from the deck-enrich opencode agent: the laptop's way."""
+    scratch = Path(tempfile.mkdtemp(prefix="enrich-"))
+    try:
+        (scratch / "enrich-request.json").write_text(json.dumps(request, indent=2, ensure_ascii=False),
+                                                     encoding="utf-8")
+        answer_file = scratch / "enrich-response.json"
+
+        def answered(code: int) -> bool:
+            if read_answer(answer_file) is not None:
+                return True
+            answer_file.unlink(missing_ok=True)   # the next model starts without it
+            return False
+
+        _, model = agent.run_first(
+            "deck-enrich", "Process enrich-request.json and write enrich-response.json.", models=models(),
+            answered=answered, cwd=scratch, timeout=int(os.environ.get("ENRICH_TIMEOUT", "600")),
+            log_file=DATA_DIR / "enrich-agent.log",
+            drop_env=("GIT_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_TOKEN", "BOB_API_KEY"))
+        answers = read_answer(answer_file)
+        if answers is not None:
+            shutil.copy(answer_file, DATA_DIR / "enrich-response.json")
+        return answers, model
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def main() -> int:
@@ -186,34 +249,24 @@ def main() -> int:
     log(f"enrich: {len(needs)} item(s) without stored wording: {[n['id'][-48:] for n in needs]}")
     if args.dry_run:
         return finish("dry-run", "request written to data/enrich-request.json")
-    if not agent.available():
-        return finish("skipped", "opencode is not installed; using rule-based wording")
-
-    scratch = Path(tempfile.mkdtemp(prefix="enrich-"))
-    try:
-        (scratch / "enrich-request.json").write_text(json.dumps(request, indent=2, ensure_ascii=False),
-                                                     encoding="utf-8")
-        answer_file = scratch / "enrich-response.json"
-
-        def answered(code: int) -> bool:
-            if read_answer(answer_file) is not None:
-                return True
-            answer_file.unlink(missing_ok=True)   # the next model starts without it
-            return False
-
-        code, model = agent.run_first(
-            "deck-enrich", "Process enrich-request.json and write enrich-response.json.", models=models(),
-            answered=answered, cwd=scratch, timeout=int(os.environ.get("ENRICH_TIMEOUT", "600")),
-            log_file=DATA_DIR / "enrich-agent.log",
-            drop_env=("GIT_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_TOKEN", "BOB_API_KEY"))
-        report["model"] = model
-        answers = read_answer(answer_file)
-        if answers is None:
-            return finish("failed", f"no model gave a usable answer (last: {model}, exit {code}; see "
-                                    "data/enrich-agent*.log); using rule-based wording")
-        shutil.copy(answer_file, DATA_DIR / "enrich-response.json")
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+    if gateway.endpoint(model, os.environ):
+        report["via"] = "the gateway, directly"
+        answers, model, failures = ask_direct(request, os.environ)
+        for failure in failures:
+            log(f"enrich: {failure}")
+        if failures:
+            report["failures"] = failures
+        if answers is not None:
+            (DATA_DIR / "enrich-response.json").write_text(json.dumps(answers, indent=2, ensure_ascii=False) + "\n",
+                                                           encoding="utf-8")
+    elif agent.available():
+        report["via"] = "the deck-enrich opencode agent"
+        answers, model = ask_agent(request)
+    else:
+        return finish("skipped", "no gateway key in the environment and no opencode; using rule-based wording")
+    report["model"] = model
+    if answers is None:
+        return finish("failed", f"no model gave a usable answer (last: {model}); using rule-based wording")
 
     stamp = {"source": f"llm:{model}", "written": today().isoformat()}
     for need in needs:
