@@ -26,8 +26,8 @@ def main() -> int:
     ap.add_argument("agent")
     ap.add_argument("--model", required=True)
     ap.add_argument("--fallback-model", default="", help='tried when --model gives no answer at all ("none": no fallback)')
-    ap.add_argument("--answered-file", help="the agent's answer: if it exits non-zero without writing this "
-                                            "file, it gave no answer and the fallback model runs")
+    ap.add_argument("--answered-file", help="the agent's answer: if the agent ends without writing this file, "
+                                            "whatever its exit code, it gave no answer and the next model runs")
     ap.add_argument("--record", help="write the name of the model that ran last to this file")
     ap.add_argument("--message", required=True)
     ap.add_argument("--timeout", type=int, default=2700)
@@ -37,7 +37,8 @@ def main() -> int:
         log("ERROR: opencode is not installed")
         return 127
     def answered(code: int) -> bool:
-        return code == 0 or not args.answered_file or (REPO_ROOT / args.answered_file).exists()
+        # The agent's own answer, not opencode's exit code: opencode can exit 0 without it.
+        return (REPO_ROOT / args.answered_file).exists() if args.answered_file else True
 
     models = gateway.with_last_resort([args.model, "" if args.fallback_model == "none" else args.fallback_model])
     code, model = agent.run_first(args.agent, args.message, models=models,

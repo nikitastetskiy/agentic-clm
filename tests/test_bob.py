@@ -126,6 +126,25 @@ class BobShell(unittest.TestCase):
         answer, model, _ = review_pr.ask_models([{"role": "user", "content": "x"}], dict(os.environ), ask)
         self.assertEqual((answer["verdict"], model), ("safe", "bob/shell"))
 
+    def test_a_zero_exit_without_the_agent_s_answer_hands_over_to_the_next_model(self):
+        # opencode can exit 0 when the model was refused; only the summary file shows an answer.
+        summary = self.tmp / "fix-summary.md"
+        ran = []
+
+        def fake_run(name, message, *, model, cwd, timeout, log_file, drop_env):
+            ran.append(model)
+            if model == "ica-gateway/b":
+                summary.write_text("Fixed it.")
+            return 0
+
+        with mock.patch.object(run_agent.agent, "available", return_value=True), \
+                mock.patch.object(run_agent.agent, "run", fake_run), \
+                mock.patch.object(sys, "argv", ["run_agent.py", "repo-fixer", "--model", "ica-gateway/a",
+                                                "--fallback-model", "ica-gateway/b", "--answered-file", str(summary),
+                                                "--message", "m", "--log", str(self.tmp / "a.log")]):
+            run_agent.main()
+        self.assertEqual(ran, ["ica-gateway/a", "ica-gateway/b"])   # and not Bob: b answered
+
     def test_the_repair_chain_ends_with_bob(self):
         with mock.patch.object(run_agent.agent, "available", return_value=True), \
                 mock.patch.object(run_agent.agent, "run_first", return_value=(0, "bob/shell")) as first, \
