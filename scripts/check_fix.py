@@ -6,8 +6,8 @@ model cannot argue with: it looks at what actually changed in the working tree a
 rules. It runs BEFORE the fix is tested, committed or pushed.
 
 Rejected outright:
-  * a change to the pipeline's own plumbing, the agent definitions, the template or this script
-    (PROTECTED) — a repair has no business there, and an agent that was talked into it by something
+  * a change to the pipeline's own plumbing, the agent definitions and rules, the pull request
+    reviewer, the template or this script (PROTECTED) — a repair has no business there, and an agent that was talked into it by something
     it read must not be able to widen its own permissions;
   * a deleted test;
   * a change larger than FIX_MAX_LINES (default 600) changed lines — a repair is small; anything
@@ -39,7 +39,8 @@ PROTECTED = ("ci/", ".opencode/", ".github/", "templates/", "opencode.json", "Do
              "docker-compose.yml", ".gitignore", ".dockerignore", ".env", ".pipeline-config",
              "scripts/check_fix.py", "scripts/report_fix.py", "scripts/publish_release.py",
              "scripts/scrub_secrets.py", "scripts/lib/agent.py", "scripts/lib/github.py",
-             "scripts/lib/redact.py")
+             "scripts/lib/redact.py", "scripts/lib/gateway.py", "scripts/run_agent.py", "scripts/review_pr.py",
+             "AGENTS.md")
 GENERATED = ("data/", "output/", "state/")
 GATE = ("scripts/verify_build.py", "scripts/lib/layout.py", "tests/")
 SUMMARY = REPO_ROOT / "output" / "fix-summary.md"

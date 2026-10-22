@@ -95,7 +95,10 @@ class FixGuard(unittest.TestCase):
         for path in ("ci/self-heal.sh", ".pipeline-config.yaml", ".opencode/agents/repo-fixer.md", "opencode.json",
                      "scripts/check_fix.py", "templates/cadence-template.pptx", "Dockerfile", ".env.example",
                      ".github/workflows/self-heal.yml", ".github/actions/setup/action.yml",
-                     "scripts/lib/redact.py", "scripts/scrub_secrets.py"):
+                     "scripts/lib/redact.py", "scripts/scrub_secrets.py",
+                     # the reviewer of the repair's own pull request, the key handling, the agents' rules
+                     "scripts/review_pr.py", "scripts/lib/gateway.py", "scripts/run_agent.py", "AGENTS.md",
+                     ".github/workflows/pr-review.yml"):
             v = check_fix.judge([("M", path)], 3, self.SUMMARY, 600)
             self.assertEqual(v["verdict"], "rejected", path)
 

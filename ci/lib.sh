@@ -57,6 +57,8 @@ ci_setup() {
 
   export ENRICH_MODEL; ENRICH_MODEL="$(prop enrich-model ica-gateway/claude-haiku-5-5)"
   export FIX_MODEL;    FIX_MODEL="$(prop fix-model ica-gateway/claude-sonnet-5-5)"
+  # The pull request review's models (scripts/review_pr.py, a workflow of its own): the preflight checks them.
+  export REVIEW_MODELS; REVIEW_MODELS="$(prop review-models "ica-gateway/gpt-6.1-sol bob/premium")"
   export EVENT_SCOPE;  EVENT_SCOPE="$(prop event-scope "")"
   export STRICT;       STRICT="$(prop strict 0)"
   BASE_BRANCH="$(prop base-branch main)"

@@ -44,6 +44,7 @@ This repository runs both pipelines on GitHub Actions:
 |------|------------|
 | `.github/workflows/weekly-deck.yml` | the weekly build: Mondays 05:17 UTC (06:17 in Madrid in winter, 07:17 in summer), or **Run workflow** with `mode` = `weekly` or `preflight`, optionally as a dry run |
 | `.github/workflows/self-heal.yml` | the self-heal run: a job of a failed weekly run, or **Run workflow** by hand |
+| `.github/workflows/pr-review.yml` | the [pull request review](#the-pull-request-review): a model's verdict on each pull request, as one comment |
 | `.github/actions/setup/` | what the Dockerfile puts in the SPS image, installed on the runner: Python and the requirements, Chromium, LibreOffice, Inter, and the opencode version the `Dockerfile` pins |
 
 What differs from SPS:
@@ -69,7 +70,10 @@ Settings, under **Settings → Secrets and variables → Actions**:
 |------|------|-------|
 | `ICA_API_KEY` | secret | the LLM gateway key. Without it the deck is built with the rule-based wording, and self-heal can still recover from a transient failure but cannot repair one: it opens an issue. |
 | `ICA_BASE_URL` | variable | the gateway's OpenAI-compatible base URL, ending in `/v1` |
-| `KEY_ENVIRONMENT` | variable, optional | the name of an environment (**Settings → Environments**) that holds `ICA_API_KEY` instead of the repository, with **Deployment branches** limited to `main`. Runs from `main` then get the key and runs from any other branch do not, so a workflow changed on a branch, which needs no review, cannot reach it. In hashicorp/agentic-clm: `gateway`. Unset: the repository secret is used. |
+| `KEY_ENVIRONMENT` | variable, optional | the name of an environment (**Settings → Environments**) that holds `ICA_API_KEY` and `BOB_API_KEY` instead of the repository, with **Deployment branches** limited to `main`. Runs from `main` then get the key and runs from any other branch do not, so a workflow changed on a branch, which needs no review, cannot reach it. In hashicorp/agentic-clm: `gateway`. Unset: the repository secret is used. |
+| `BOB_API_KEY` | secret, optional | an IBM Bob *Inference* API key: the pull request review's fallback when the ICA gateway does not answer. Never given to the repair agent. |
+| `REVIEW_MODELS` | variable, optional | the review's models, in order of preference; unset means `ica-gateway/gpt-6.1-sol`, then `bob/premium` |
+| `REVIEW_MENTION` | variable, optional | GitHub logins copied on every review, space-separated (in hashicorp/agentic-clm: `nikitastetskiy-hashi`) |
 | `ENRICH_MODEL`, `FIX_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, Sonnet 5.5 for repairs) |
 | `BASE_BRANCH` | variable, optional | what a repair is proposed against; unset means the branch the run was started on |
 | `STATE_BRANCH` | variable, optional | the branch that keeps `state/` between runs; unset means `pipeline-state`. It holds `state/` and nothing else, so the base branch can accept reviewed pull requests only (as `main` does in the hashicorp org). Set it to the base branch's name to commit `state/` there instead. |
@@ -164,7 +168,8 @@ definition source, set these **environment properties**:
 Optional: `event-scope` (e.g. `EMEA,MENA`), `strict` (`1` = fail when the events page was unreachable),
 `release-keep` (prune all but the newest N deck releases), `fix-attempts` (default 2),
 `fix-timeout` (seconds, default 2700), `base-branch` (default `main`), `state-branch` (unset = the base
-branch; see step 2), `enrich` (`0` = no model in the weekly build).
+branch; see step 2), `enrich` (`0` = no model in the weekly build), `review-models` (checked by the
+preflight; the [pull request review](#the-pull-request-review) itself runs on GitHub Actions).
 
 Secure values belong in Secrets Manager, referenced from the property rather than typed into it:
 `{vault::<integration-name>.<secret-group>.<secret-name>}`. The stage reads them with `get_secret`.
@@ -236,8 +241,9 @@ would bloat every clone, while release assets sit outside the git history and ca
    read the environment, or install packages — and the GitHub token and webhook secret are removed
    from its environment before it starts.
 3. **Guard.** `scripts/check_fix.py` applies fixed rules to what actually changed:
-   - rejected: any change to `ci/`, `.pipeline-config*.yaml`, `.opencode/`, `opencode.json`,
-     `templates/`, the `Dockerfile`, or the guard and publishing scripts themselves; a deleted test;
+   - rejected: any change to `ci/`, `.github/`, `.pipeline-config*.yaml`, `.opencode/`, `opencode.json`,
+     `AGENTS.md`, `templates/`, the `Dockerfile`, the guard, the publishing scripts, the key handling or
+     the pull request reviewer; a deleted test;
      more than 600 changed lines;
    - flagged for the reviewer: any change to `scripts/verify_build.py` or `tests/`;
    - discarded: edits to `state/`, `data/`, `output/` — a build cannot be made to pass by editing
@@ -247,11 +253,49 @@ would bloat every clone, while release assets sit outside the git history and ca
 5. **Propose.** Commit to `selfheal/<timestamp>`, push, open a pull request whose description is the
    agent's summary plus what the pipeline verified. Publish the deck built from that branch, marked in
    the release notes as built from an unmerged repair. **The pull request is never merged
-   automatically** — a model wrote the change; a person decides.
+   automatically** — a model wrote the change; a person decides. A pull request opened with the
+   workflow's token starts no workflow, so on GitHub the self-heal workflow's `review` job runs the
+   [review](#the-pull-request-review) on it, from a fresh checkout of `main`: the repair job ran code
+   the agent wrote, so the reviewer and the Bob key are kept out of it.
 
 A repair that fails step 3 or 4 gets one more round with the evidence (`fix-attempts`). If there is
 still no verified fix — or the agent reports `NO-FIX` because the cause is environmental — the pipeline
 opens an issue with the failure, the log tail and the agent's findings, and exits 70.
+
+## The pull request review
+
+`.github/workflows/pr-review.yml` runs `scripts/review_pr.py`. In the hashicorp org `main` only takes a
+pull request that someone else approved; this gives that person a second reader. Each pull request
+gets one comment, replaced by every new review: a verdict (✅ looks safe to merge, ⚠️ needs a closer
+look, ⛔ not safe to merge), the findings most severe first, the files a person has to read whatever
+the model says, and which model answered. It copies the logins in `REVIEW_MENTION`. It is advice: it
+cannot approve, and does not count as a review.
+
+- **Models.** `review-models`, by default `ica-gateway/gpt-6.1-sol`, then `bob/premium`: GPT-6.1 Sol
+  through the ICA gateway; when that refuses, does not answer, or answers in the wrong shape, Bob's
+  premium model through Bob's inference API with `BOB_API_KEY`. That is an *Inference* key
+  (bob.ibm.com → your instance → API keys), which can only call models, for one Bob instance and
+  team. The comment names the model that answered, and why the ones before it did not.
+- **What the author cannot decide.** The workflow runs `main`'s own code (`pull_request_target`, with
+  the default checkout); the pull request's changes are read through the API as text, never checked
+  out or run, so they cannot reach the keys. The model reads what the author wrote, so it can be
+  talked into a verdict: fixed checks (`SENSITIVE` in `review_pr.py`) mark the workflows, `ci/`,
+  `CODEOWNERS`, the agents' instructions and the scripts that handle keys or publish, and turn any
+  "safe" into "needs a closer look". The model's text is published without mentions, links or HTML,
+  and only the workflow's own comments count as earlier reviews.
+- **When it spends no model call.** Drafts (reviewed once marked ready) and forks (never given the
+  keys) start no job, and a burst of pushes is reviewed once: a newer push cancels a review still
+  running. Then, without a model: a commit it already reviewed; a commit a person already approved; a
+  pull request that only changes documentation (`docs/`, top-level `*.md` other than `AGENTS.md`) or
+  `state/`; and commits since its last review that only change those (the review is carried forward,
+  and says so). A diff over 200,000 characters is left to the person.
+- **What never starts one.** The weekly build, its release and its `pipeline-state` commit are not pull
+  requests. A self-heal pull request is reviewed by the self-heal workflow's own `review` job (see
+  the self-heal run, step 5).
+- **Files the model could not read.** GitHub gives no text diff for a file too large to show, or a
+  binary one; those are listed for the person, and the verdict cannot be "safe".
+- **Cost.** One model call per reviewed commit, with the diff (at most about 50k tokens) and
+  `AGENTS.md`.
 
 ---
 
@@ -265,6 +309,7 @@ Nothing secret is in this repository, in the image, or in a log.
 | `git-token` | Secrets Manager → secure property | `ci/lib.sh` → environment → publish / push / PR scripts | release, state commit, repair branch, PR, issue |
 | `selfheal-webhook-*` | Secrets Manager → secure property | `ci/lib.sh` (weekly run only) | starting the self-heal pipeline |
 | `ICA_API_KEY` (GitHub) | Actions secret | the workflow's pipeline step → environment → opencode | calling the model |
+| `BOB_API_KEY` (GitHub) | Actions secret | the review jobs only (never the build or the repair job) | the review's fallback model |
 | `GITHUB_TOKEN` (GitHub) | issued per job by GitHub | the workflow's pipeline step, as `GIT_TOKEN` | release, state commit, repair branch, PR, issue |
 
 - **The gateway key** is passed to opencode as an environment variable; the provider settings are
@@ -287,7 +332,8 @@ Nothing secret is in this repository, in the image, or in a log.
   why the GitHub token should be as narrow as possible. On GitHub Actions it is the job's own
   `GITHUB_TOKEN`: this repository only, and only until the job ends. The workflows check the
   repository out with `persist-credentials: false`, so the token is not stored in `.git/config`, and
-  they pass secrets only to the repository's own scripts (`ci/run.sh`, `scripts/scrub_secrets.py`),
+  they pass secrets only to the repository's own scripts (`ci/run.sh`, `scripts/scrub_secrets.py`,
+  `scripts/review_pr.py`),
   never to the setup steps or to a third-party action.
 - **Nothing the pipeline publishes carries a secret** (`scripts/lib/redact.py`). The CI masks secrets
   in its logs, but not in a pull request, an issue, release notes, a commit or the files saved with a
@@ -385,7 +431,9 @@ or the enrichment step fails (the build continues with the rule-based wording).
   available for Coding Agents`), so `fix-model` now defaults to Sonnet 5.5; Sonnet 5.5 and Haiku 5.5
   both answered a streamed request with a tool call that day, and a preflight run on GitHub's runner
   confirmed the repository's new key for both.
-  **Not yet exercised:** a repair on Sonnet 5.5; the `pipeline-state` branch on GitHub; anything inside SPS (the image build, the pipeline
+  **Not yet exercised:** a repair on Sonnet 5.5; the `pipeline-state` branch on GitHub; the pull
+  request review on GitHub (its models answered a one-token check on 2026-10-22: GPT-6.1 Sol through
+  the gateway; Bob still needs its inference key); anything inside SPS (the image build, the pipeline
   definitions, the triggers, the secret references). SPS needs its first run there; start with
   `pipeline-mode = preflight`.
 

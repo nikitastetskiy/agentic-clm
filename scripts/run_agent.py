@@ -18,7 +18,7 @@ from lib import agent  # noqa: E402
 from lib.common import REPO_ROOT, log  # noqa: E402
 
 PUBLISH_ONLY = ("GIT_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_TOKEN", "SELFHEAL_WEBHOOK_URL",
-                "SELFHEAL_WEBHOOK_TOKEN", "IBMCLOUD_API_KEY")
+                "SELFHEAL_WEBHOOK_TOKEN", "IBMCLOUD_API_KEY", "BOB_API_KEY")
 
 
 def main() -> int:

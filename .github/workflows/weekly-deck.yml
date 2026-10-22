@@ -61,6 +61,7 @@ jobs:
           ICA_BASE_URL: ${{ vars.ICA_BASE_URL }}
           ENRICH: ${{ vars.ENRICH }}
           ENRICH_MODEL: ${{ vars.ENRICH_MODEL }}
+          REVIEW_MODELS: ${{ vars.REVIEW_MODELS }}   # only checked by the preflight here
           EVENT_SCOPE: ${{ vars.EVENT_SCOPE }}
           STRICT: ${{ vars.STRICT }}
           RELEASE_KEEP: ${{ vars.RELEASE_KEEP }}

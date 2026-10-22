@@ -23,11 +23,13 @@ from pathlib import Path
 import yaml
 
 import helpers
+import review_pr
 from lib import gateway
 
 GITHUB = helpers.REPO / ".github"
 WEEKLY = "weekly-deck.yml"
 SELF_HEAL = "self-heal.yml"
+REVIEW = "pr-review.yml"
 # Set by the workflow for the scripts, but not pipeline properties.
 SECRET_EXPR = r"\$\{\{\s*secrets\."
 RUNNER_ENV = {"CI_DRY_RUN", "PIPELINE_RUN_URL", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL"}
@@ -101,10 +103,12 @@ class SelfHealHandOver(unittest.TestCase):
         self.assertEqual(set(triggers(workflow(SELF_HEAL))), {"workflow_call", "workflow_dispatch"})
 
     def test_the_self_heal_job_is_granted_what_the_repair_needs(self):
+        # A called workflow's jobs get at most what the calling job grants.
+        rank = {"none": 0, "read": 1, "write": 2}
         granted = workflow(WEEKLY)["jobs"]["self-heal"]["permissions"]
-        for job in workflow(SELF_HEAL)["jobs"].values():
+        for name, job in workflow(SELF_HEAL)["jobs"].items():
             for scope, level in job["permissions"].items():
-                self.assertEqual(granted.get(scope), level, scope)
+                self.assertGreaterEqual(rank[granted.get(scope, "none")], rank[level], f"{name}: {scope}")
 
 
 class Workflows(unittest.TestCase):
@@ -119,14 +123,14 @@ class Workflows(unittest.TestCase):
             self.assertEqual(unknown, set(), name)
 
     def test_no_checkout_leaves_a_token_behind(self):
-        for name in (WEEKLY, SELF_HEAL):
+        for name in (WEEKLY, SELF_HEAL, REVIEW):
             for step in steps(workflow(name)):
                 if step.get("uses", "").startswith("actions/checkout@"):
                     self.assertIs(step.get("with", {}).get("persist-credentials"), False, name)
 
     def test_secrets_reach_only_the_repository_s_own_scripts(self):
-        own = ("bash ci/run.sh", "python3 scripts/scrub_secrets.py output data")
-        for name in (WEEKLY, SELF_HEAL):
+        own = ("bash ci/run.sh", "python3 scripts/scrub_secrets.py output data", "python3 scripts/review_pr.py")
+        for name in (WEEKLY, SELF_HEAL, REVIEW):
             wf = workflow(name)
             self.assertEqual(wf["permissions"], {"contents": "read"}, name)
             self.assertNotRegex(str(wf.get("env", {})), SECRET_EXPR, name)
@@ -153,9 +157,10 @@ class Workflows(unittest.TestCase):
         # With KEY_ENVIRONMENT set, the key is an environment secret only main may use: a workflow
         # changed on another branch, which needs no review, cannot get at it (docs/pipelines.md).
         main_only = "${{ github.ref == 'refs/heads/main' && vars.KEY_ENVIRONMENT || '' }}"
-        for name in (WEEKLY, SELF_HEAL):
+        for name in (WEEKLY, SELF_HEAL, REVIEW):
             for job_name, job in workflow(name)["jobs"].items():
-                if "secrets.ICA_API_KEY" in str([s.get("env", {}) for s in job.get("steps", [])]):
+                given = str([s.get("env", {}) for s in job.get("steps", [])])
+                if "secrets.ICA_API_KEY" in given or "secrets.BOB_API_KEY" in given:
                     self.assertEqual(job.get("environment"), main_only, f"{name}: {job_name}")
 
     def test_every_action_from_elsewhere_is_pinned_to_a_commit(self):
@@ -171,6 +176,54 @@ class Workflows(unittest.TestCase):
         self.assertIn("s/^ARG OPENCODE_VERSION=//p' Dockerfile", action)
         self.assertRegex((helpers.REPO / "Dockerfile").read_text(encoding="utf-8"),
                          r"(?m)^ARG OPENCODE_VERSION=\d+\.\d+\.\d+$")
+
+
+class ReviewWorkflow(unittest.TestCase):
+    """.github/workflows/pr-review.yml runs main's code with the keys, for a pull request it only reads."""
+
+    def test_nothing_from_the_pull_request_is_checked_out_or_run(self):
+        wf = workflow(REVIEW)
+        self.assertEqual(list(triggers(wf)), ["pull_request_target"])   # this file and the scripts as on main
+        for step in steps(wf):
+            if step.get("uses", "").startswith("actions/checkout@"):
+                self.assertNotIn("ref", step.get("with", {}))            # the base branch, never the head
+            self.assertNotIn("github.event.pull_request", step.get("run", ""))
+        self.assertEqual(pipeline_step_of(wf, "scripts/review_pr.py")["run"], "python3 scripts/review_pr.py")
+
+    def test_it_may_read_and_comment_nothing_more(self):
+        wf = workflow(REVIEW)
+        self.assertEqual(wf["permissions"], {"contents": "read"})
+        self.assertEqual(wf["jobs"]["review"]["permissions"], {"contents": "read", "pull-requests": "write"})
+
+    def test_drafts_and_forks_wait_and_a_newer_push_replaces_a_running_review(self):
+        wf = workflow(REVIEW)
+        self.assertIn("!github.event.pull_request.draft", wf["jobs"]["review"]["if"])
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", wf["jobs"]["review"]["if"])
+        self.assertEqual(wf["concurrency"], {"group": "pr-review-${{ github.event.pull_request.number }}",
+                                             "cancel-in-progress": True})
+
+    def test_self_heal_reviews_its_pull_request_from_a_fresh_checkout(self):
+        jobs = workflow(SELF_HEAL)["jobs"]
+        self.assertNotIn("secrets.BOB_API_KEY", str(jobs["repair"]))   # the job that ran the agent's code
+        self.assertEqual(jobs["repair"]["outputs"], {"pull-branch": "${{ steps.run.outputs.pull-branch }}"})
+        review = jobs["review"]
+        self.assertEqual(review["needs"], "repair")
+        self.assertEqual(review["permissions"], {"contents": "read", "pull-requests": "write"})
+        step = pipeline_step_of({"jobs": {"review": review}}, "scripts/review_pr.py")
+        self.assertEqual(step["run"], 'python3 scripts/review_pr.py --head "$PULL_BRANCH"')   # no ${{ }} in the script
+        self.assertEqual(step["env"]["PULL_BRANCH"], "${{ needs.repair.outputs.pull-branch }}")
+
+    def test_the_default_models_are_the_documented_ones(self):
+        models = review_pr.DEFAULT_MODELS
+        self.assertIn(f'prop review-models "{models}"', (helpers.REPO / "ci" / "lib.sh").read_text(encoding="utf-8"))
+        docs = (helpers.REPO / "docs" / "pipelines.md").read_text(encoding="utf-8")
+        for model in models.split():
+            self.assertIn(f"`{model}`", docs)
+
+
+def pipeline_step_of(wf: dict, script: str) -> dict:
+    [step] = [s for s in steps(wf) if script in s.get("run", "")]
+    return step
 
 
 REMOTE = "github.com/hashicorp/agentic-clm"
@@ -285,17 +338,19 @@ class Models(unittest.TestCase):
 
 KEY = "sk-current-0123456789abcdWXYZ"
 KEY_HASH = "becb5b6835b04bfce93eb60ed6d2ef98306d58e54f6e050b3e6dd8ef34167e04"
+BOB_KEY = "bob-inference-0123456789abcdefghij"
 
 
 class FakeGateway(BaseHTTPRequestHandler):
     """Answers as the ICA gateway did on 2026-10-20: 401 for any other key (echoing its last characters
-    and its hash), 400 E003 for a model it no longer serves, 200 otherwise."""
+    and its hash), 400 E003 for a model it no longer serves, 200 otherwise. Bob's inference key, sent as
+    "Apikey", is accepted too."""
     requests: list = []
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         FakeGateway.requests.append((self.path, self.headers, body))
-        if self.headers["Authorization"] != f"Bearer {KEY}":
+        if self.headers["Authorization"] not in (f"Bearer {KEY}", f"Apikey {BOB_KEY}"):
             status, message = 401, ("Authentication Error, Invalid proxy server token passed. Received API Key = "
                                     f"sk-...{self.headers['Authorization'][-4:]}, Key Hash (Token) ={KEY_HASH}. "
                                     "Unable to find token in cache")
@@ -303,7 +358,8 @@ class FakeGateway(BaseHTTPRequestHandler):
             status, message = 400, "E003: Model not available for Coding Agents. Please use Advantage Assist models"
         else:
             status, message = 200, ""
-        data = json.dumps({"error": {"message": message}} if message else {"choices": []}).encode()
+        reply = {"choices": [{"message": {"role": "assistant", "content": f"answer from {body['model']}"}}]}
+        data = json.dumps({"error": {"message": message}} if message else reply).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
@@ -365,6 +421,33 @@ class GatewayKey(unittest.TestCase):
     def test_without_a_key_nothing_is_asked_and_nothing_fails(self):
         self.assertEqual(self.preflight(ICA_API_KEY=""), (0, ""))
         self.assertEqual(FakeGateway.requests, [])
+
+    def test_a_review_model_is_answered_through_its_own_gateway(self):
+        messages = [{"role": "user", "content": "Review this."}]
+        env = {"ICA_API_KEY": KEY, "ICA_BASE_URL": self.base, "BOB_API_KEY": BOB_KEY, "BOB_BASE_URL": self.base}
+        self.assertEqual(gateway.complete("ica-gateway/gpt-6.1-sol", messages, env), (200, "answer from gpt-6.1-sol"))
+        self.assertEqual(gateway.complete("bob/premium", messages, env), (200, "answer from premium"))
+        [(_, ica, ica_body), (_, bob, bob_body)] = FakeGateway.requests
+        self.assertEqual((ica["Authorization"], bob["Authorization"]), (f"Bearer {KEY}", f"Apikey {BOB_KEY}"))
+        self.assertEqual((ica_body["messages"], bob_body["model"]), (messages, "premium"))
+
+    def test_a_refused_call_says_why_without_the_key(self):
+        old = "sk-rotated-9876543210zyxwQRST"
+        status, said = gateway.complete("ica-gateway/gpt-6.1-sol", [], {"ICA_API_KEY": old, "ICA_BASE_URL": self.base})
+        self.assertEqual(status, 401)
+        for fragment in (old, old[-4:], KEY_HASH):
+            self.assertNotIn(fragment, said)
+
+    def test_a_provider_without_its_key_is_not_asked(self):
+        self.assertEqual(gateway.complete("bob/premium", [], {"ICA_API_KEY": KEY}), (None, "no BOB_API_KEY set"))
+        self.assertEqual(FakeGateway.requests, [])
+
+    def test_the_preflight_also_checks_the_review_models_it_has_a_key_for(self):
+        code, out = self.preflight(REVIEW_MODELS="ica-gateway/gpt-review bob/premium")
+        self.assertEqual(code, 0)
+        self.assertIn("ica-gateway/gpt-review", out)
+        self.assertNotIn("bob/premium", out)                          # no BOB_API_KEY in this run
+        self.assertEqual(len(FakeGateway.requests), 3)
 
     def test_an_unreachable_gateway_fails_the_check(self):
         with socket.socket() as s:
