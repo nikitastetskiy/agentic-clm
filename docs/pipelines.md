@@ -71,8 +71,9 @@ Settings, under **Settings → Secrets and variables → Actions**:
 | `ICA_API_KEY` | secret | the LLM gateway key. Without it the deck is built with the rule-based wording, and self-heal can still recover from a transient failure but cannot repair one: it opens an issue. |
 | `ICA_BASE_URL` | variable | the gateway's OpenAI-compatible base URL, ending in `/v1` |
 | `KEY_ENVIRONMENT` | variable, optional | the name of an environment (**Settings → Environments**) that holds `ICA_API_KEY` and `BOB_API_KEY` instead of the repository, with **Deployment branches** limited to `main`. Runs from `main` then get the key and runs from any other branch do not, so a workflow changed on a branch, which needs no review, cannot reach it. In hashicorp/agentic-clm: `gateway`. Unset: the repository secret is used. |
-| `BOB_API_KEY` | secret, optional | an IBM Bob *Inference* API key: the pull request review's fallback when the ICA gateway does not answer. Never given to the repair agent. |
-| `REVIEW_MODELS` | variable, optional | the review's models, in order of preference; unset means `ica-gateway/gpt-6.1-sol`, then `ica-gateway/claude-sonnet-5-5`, then `bob/premium` |
+| `BOB_API_KEY` | secret, optional | an IBM Bob API key: the [last resort](#when-the-ica-gateway-is-down-ibm-bob) of every model step (the wording, the review, the repair agent) when the ICA gateway gives no answer. Unset: no Bob. |
+| `BOB_FALLBACK`, `BOB_MAX_COST`, `BOB_MAX_COST_AGENT` | variables, optional | `0` leaves Bob out even with its key; the most one Bob question may cost (USD, default 1) and one Bob repair (default 5) |
+| `REVIEW_MODELS` | variable, optional | the review's models, in order of preference; unset means `ica-gateway/gpt-6.1-sol`, then `ica-gateway/claude-sonnet-5-5` (then Bob, the last resort) |
 | `REVIEW_MENTION` | variable, optional | GitHub logins copied on every review, space-separated (in hashicorp/agentic-clm: `nikitastetskiy-hashi`) |
 | `ENRICH_MODEL`, `ENRICH_FALLBACK_MODEL`, `FIX_MODEL`, `FIX_FALLBACK_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, then GPT-6 Luna; Sonnet 5.5 for repairs, then GPT-6.1 Sol) |
 | `BASE_BRANCH` | variable, optional | what a repair is proposed against; unset means the branch the run was started on |
@@ -264,7 +265,7 @@ would bloat every clone, while release assets sit outside the git history and ca
    automatically** — a model wrote the change; a person decides. A pull request opened with the
    workflow's token starts no workflow, so on GitHub the self-heal workflow's `review` job runs the
    [review](#the-pull-request-review) on it, from a fresh checkout of `main`: the repair job ran code
-   the agent wrote, so the reviewer and the Bob key are kept out of it.
+   the agent wrote, so the reviewer does not run in it.
 
 A repair that fails step 3 or 4 gets one more round with the evidence (`fix-attempts`). If there is
 still no verified fix — or the agent reports `NO-FIX` because the cause is environmental — the pipeline
@@ -279,14 +280,11 @@ look, ⛔ not safe to merge), the findings most severe first, the files a person
 the model says, and which model answered. It copies the logins in `REVIEW_MENTION`. It is advice: it
 cannot approve, and does not count as a review.
 
-- **Models.** `review-models`, by default `ica-gateway/gpt-6.1-sol`, then `ica-gateway/claude-sonnet-5-5`,
-  then `bob/premium`: GPT-6.1 Sol through the ICA gateway; when that refuses or answers in the wrong
-  shape, Claude Sonnet 5.5 through the same gateway; then Bob's premium model through Bob's inference
-  API with `BOB_API_KEY`. A gateway that gives no answer at all is not asked again in the same review.
-  The comment names the model that answered, and why the ones before it did not.
-  **Bob is not reachable from automation yet** (checked 2026-10-22): Bob's Cloudflare answers every
-  client tried with HTTP 403 "Attention Required" before the key is looked at, so until the Bob team
-  says how CI should reach `api.us-east.bob.ibm.com/inference/v1`, the Bob step only reports that.
+- **Models.** `review-models`, by default `ica-gateway/gpt-6.1-sol`, then `ica-gateway/claude-sonnet-5-5`:
+  GPT-6.1 Sol through the ICA gateway; when that refuses or answers in the wrong shape, Claude Sonnet
+  5.5 through the same gateway; when the gateway is down, [Bob](#when-the-ica-gateway-is-down-ibm-bob).
+  A gateway that gives no answer at all is not asked again in the same review. The comment names the
+  model that answered, and why the ones before it did not.
 - **What the author cannot decide.** The workflow runs `main`'s own code (`pull_request_target`, with
   the default checkout); the pull request's changes are read through the API as text, never checked
   out or run, so they cannot reach the keys. The model reads what the author wrote, so it can be
@@ -308,6 +306,36 @@ cannot approve, and does not count as a review.
 - **Cost.** One model call per reviewed commit, with the diff (at most about 50k tokens) and
   `AGENTS.md`.
 
+## When the ICA gateway is down: IBM Bob
+
+Every model step has a second model of another vendor on the ICA gateway; when the gateway itself gives
+no answer, IBM Bob is the last resort for all of them, whenever `BOB_API_KEY` is set
+(`gateway.with_last_resort()`):
+
+| Step | Bob does | Bob may |
+|---|---|---|
+| the wording (`enrich.py`) | words the new items, with the same instructions and wording rules | nothing but answer: ask mode, an empty directory, every tool group off |
+| the review (`review_pr.py`) | writes the review's verdict and findings | the same |
+| the repair (`run_agent.py`) | runs the `repo-fixer` instructions in the checkout | read, edit, and run the commands in `bob.REPAIR_COMMANDS` (Python, the tests, `build.sh`, read-only git, inspection); never `curl`, `env`, `git push`, `pip install` (`bob.DENIED_COMMANDS`) |
+
+**Through Bob Shell 2, not Bob's API.** Bob's inference API turns other clients away at its firewall
+(Cloudflare answers HTTP 403 before it looks at the key), so `scripts/lib/bob.py` runs `bob run`,
+Bob's official command-line client, headless. It is installed only when a run needs it, the way IBM's
+installer does it: version 2.0.6 from IBM's download bucket, checked against the SHA-256 pinned in
+`lib/bob.py`, installed with npm (the workflows set up Node 22). Each run gets a home of its own with
+auto-update and telemetry off and the tools it may use; in a headless run nothing asks, so a tool or
+command that is not approved is not run. The process gets `BOB_API_KEY` and no other variable named
+like a credential. Bob Shell picks its own model.
+
+Bob is an agent even when it should only answer, so a question tells it that it has no tools, and an
+answer that is not the JSON asked for gets one more try. For the wording, the lines the rules reject
+go back once, with the reasons, to the model that wrote them (any model, not only Bob).
+
+Checked on 2026-10-22 on a laptop with the real Bob and the ICA gateway made unreachable: the wording
+(12 of 12 lines accepted, about 1 minute, $0.04), the review (three runs, 6 to 12 s each, each finding
+a planted parser fault) and the repair agent on that fault (restored, tests and a full rebuild passing,
+2.5 minutes, $0.80).
+
 ---
 
 ## Credentials
@@ -320,7 +348,7 @@ Nothing secret is in this repository, in the image, or in a log.
 | `git-token` | Secrets Manager → secure property | `ci/lib.sh` → environment → publish / push / PR scripts | release, state commit, repair branch, PR, issue |
 | `selfheal-webhook-*` | Secrets Manager → secure property | `ci/lib.sh` (weekly run only) | starting the self-heal pipeline |
 | `ICA_API_KEY` (GitHub) | Actions secret | the workflow's pipeline step → environment → the wording call, the preflight, opencode | calling the models |
-| `BOB_API_KEY` (GitHub) | Actions secret | the review jobs only (never the build or the repair job) | the review's fallback model |
+| `BOB_API_KEY` (GitHub) | Actions secret | the workflows' pipeline and review steps → Bob Shell only (`lib/bob.py`); never the opencode agents | the last resort, when the ICA gateway is down |
 | `GITHUB_TOKEN` (GitHub) | issued per job by GitHub | the workflow's pipeline step, as `GIT_TOKEN` | release, state commit, repair branch, PR, issue |
 
 - **The gateway key** goes in an `Authorization` header only, for the direct calls (the wording, the
@@ -458,7 +486,7 @@ from `FIX_MODEL` and `FIX_FALLBACK_MODEL`.
   3.5 minutes, GPT-6.1 Sol in 3.
   **Not yet exercised:** a repair on Sonnet 5.5; the `pipeline-state` branch on GitHub; the pull
   request review on GitHub (its models answered a one-token check on 2026-10-22: GPT-6.1 Sol through
-  the gateway; Bob still needs its inference key); anything inside SPS (the image build, the pipeline
+  the gateway); Bob as the last resort from a GitHub-hosted runner; anything inside SPS (the image build, the pipeline
   definitions, the triggers, the secret references). SPS needs its first run there; start with
   `pipeline-mode = preflight`.
 

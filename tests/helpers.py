@@ -17,6 +17,10 @@ SNAPSHOT_DATE = "2026-10-13"
 sys.path.insert(0, str(SCRIPTS))
 # Never download or install Bob Shell from a test (lib/bob.py installs it on demand).
 os.environ["BOB_SHELL_INSTALL"] = "0"
+# Nor see the pipeline's real credentials: with them, the steps choose other paths than a test expects
+# (the self-heal run tests a repair with its keys in the environment).
+for _name in ("ICA_API_KEY", "ICA_BASE_URL", "BOB_API_KEY", "BOBSHELL_API_KEY"):
+    os.environ.pop(_name, None)
 
 
 def html(name: str) -> str:
