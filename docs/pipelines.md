@@ -331,10 +331,12 @@ Bob is an agent even when it should only answer, so a question tells it that it 
 answer that is not the JSON asked for gets one more try. For the wording, the lines the rules reject
 go back once, with the reasons, to the model that wrote them (any model, not only Bob).
 
-Checked on 2026-10-22 on a laptop with the real Bob and the ICA gateway made unreachable: the wording
-(12 of 12 lines accepted, about 1 minute, $0.04), the review (three runs, 6 to 12 s each, each finding
-a planted parser fault) and the repair agent on that fault (restored, tests and a full rebuild passing,
-2.5 minutes, $0.80).
+Checked on 2026-10-22, with the real Bob and the ICA gateway made unreachable, on a laptop and then on
+a GitHub-hosted runner, where Bob Shell was installed on demand and Bob's firewall let it through: the
+wording (12 of 12 lines accepted; 35 s on the runner), the review (each run finding a planted parser
+fault; 7 s on the runner) and the repair agent on that fault (restored with tests added, the tests
+passing; 7.5 minutes and $3.24 on the runner, 2.5 minutes and $0.80 on the laptop; `BOB_MAX_COST_AGENT`
+caps it at $5).
 
 ---
 
@@ -486,7 +488,8 @@ from `FIX_MODEL` and `FIX_FALLBACK_MODEL`.
   3.5 minutes, GPT-6.1 Sol in 3.
   **Not yet exercised:** a repair on Sonnet 5.5; the `pipeline-state` branch on GitHub; the pull
   request review on GitHub (its models answered a one-token check on 2026-10-22: GPT-6.1 Sol through
-  the gateway); Bob as the last resort from a GitHub-hosted runner; anything inside SPS (the image build, the pipeline
+  the gateway); Bob as the last resort inside a real outage of the gateway (it was drilled with the
+  gateway made unreachable); anything inside SPS (the image build, the pipeline
   definitions, the triggers, the secret references). SPS needs its first run there; start with
   `pipeline-mode = preflight`.
 
