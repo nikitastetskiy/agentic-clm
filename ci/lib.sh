@@ -84,8 +84,8 @@ ci_setup() {
     OPENCODE_CONFIG_CONTENT="$("$PY" - <<'PYEOF'
 import json, os
 providers = {}
-for model in (os.environ["ENRICH_MODEL"], os.environ["FIX_MODEL"],      # "<provider>/<model id>"
-              os.environ["ENRICH_FALLBACK_MODEL"], os.environ["FIX_FALLBACK_MODEL"]):
+# Only the repair agent goes through opencode: the wording is a direct call (scripts/enrich.py).
+for model in (os.environ["FIX_MODEL"], os.environ["FIX_FALLBACK_MODEL"]):   # "<provider>/<model id>"
     provider, _, name = model.partition("/")
     if name:
         providers.setdefault(provider, {

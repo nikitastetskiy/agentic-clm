@@ -31,7 +31,7 @@ flowchart TD
 | Starts | on a schedule, once a week | when a weekly run fails (or by hand) |
 | Model | small — `enrich-model`, default `ica-gateway/claude-haiku-5-5`; when it gives no answer, `enrich-fallback-model`, default `ica-gateway/gpt-6-luna` | large — `fix-model`, default `ica-gateway/claude-sonnet-5-5`; when it gives no answer, `fix-fallback-model`, default `ica-gateway/gpt-6.1-sol` |
 | The model's job | word *new* release notes and event abstracts, one line each | find and fix the code that made the build fail |
-| What the model can touch | one JSON file in a scratch directory; no shell, no network | the checkout, with a shell; not git remotes, not the tokens |
+| What the model can touch | nothing: it is called directly, text in and JSON out (on a laptop without the gateway key, the `deck-enrich` opencode agent: one JSON file in a scratch directory, no shell, no network) | the checkout, with a shell; not git remotes, not the tokens |
 | Result | a GitHub release with the deck | a pull request with the fix **and** the week's deck — or an issue |
 
 ---
@@ -45,7 +45,7 @@ This repository runs both pipelines on GitHub Actions:
 | `.github/workflows/weekly-deck.yml` | the weekly build: Mondays 05:17 UTC (06:17 in Madrid in winter, 07:17 in summer), or **Run workflow** with `mode` = `weekly` or `preflight`, optionally as a dry run |
 | `.github/workflows/self-heal.yml` | the self-heal run: a job of a failed weekly run, or **Run workflow** by hand |
 | `.github/workflows/pr-review.yml` | the [pull request review](#the-pull-request-review): a model's verdict on each pull request, as one comment |
-| `.github/actions/setup/` | what the Dockerfile puts in the SPS image, installed on the runner: Python and the requirements, Chromium, LibreOffice, Inter, and the opencode version the `Dockerfile` pins |
+| `.github/actions/setup/` | what the Dockerfile puts in the SPS image, installed on the runner: Python and the requirements, Chromium, LibreOffice, Inter, and the opencode version the `Dockerfile` pins (only the self-heal run installs opencode: the weekly build calls its model directly) |
 
 What differs from SPS:
 
@@ -316,14 +316,16 @@ Nothing secret is in this repository, in the image, or in a log.
 
 | Credential | Lives in | Read by | Used for |
 |------------|----------|---------|----------|
-| `ica-api-key` | Secrets Manager → secure property | `ci/lib.sh` → environment → opencode | calling the model |
+| `ica-api-key` | Secrets Manager → secure property | `ci/lib.sh` → environment → the wording call, the preflight, opencode | calling the models |
 | `git-token` | Secrets Manager → secure property | `ci/lib.sh` → environment → publish / push / PR scripts | release, state commit, repair branch, PR, issue |
 | `selfheal-webhook-*` | Secrets Manager → secure property | `ci/lib.sh` (weekly run only) | starting the self-heal pipeline |
-| `ICA_API_KEY` (GitHub) | Actions secret | the workflow's pipeline step → environment → opencode | calling the model |
+| `ICA_API_KEY` (GitHub) | Actions secret | the workflow's pipeline step → environment → the wording call, the preflight, opencode | calling the models |
 | `BOB_API_KEY` (GitHub) | Actions secret | the review jobs only (never the build or the repair job) | the review's fallback model |
 | `GITHUB_TOKEN` (GitHub) | issued per job by GitHub | the workflow's pipeline step, as `GIT_TOKEN` | release, state commit, repair branch, PR, issue |
 
-- **The gateway key** is passed to opencode as an environment variable; the provider settings are
+- **The gateway key** goes in an `Authorization` header only, for the direct calls (the wording, the
+  preflight, the review: `scripts/lib/gateway.py`). For the repair agent it is passed to opencode as an
+  environment variable; the provider settings are
   given inline (`OPENCODE_CONFIG_CONTENT`) with `{env:ICA_API_KEY}` in place of the key, so the key is
   in no file and no command line. This was checked against a local stand-in gateway: opencode sends
   `Authorization: Bearer <value of the variable>`.
@@ -331,8 +333,8 @@ Nothing secret is in this repository, in the image, or in a log.
   nothing else — use a token scoped to this one repository. It is sent only in an `Authorization`
   header (`scripts/lib/github.py`); for `git push` it is supplied through `GIT_ASKPASS`
   (`ci/askpass.sh`), so it is never in a URL, in git's config or on a command line.
-- **What the models can see.** The enrichment agent runs in an empty scratch directory with no shell
-  and no network tool, without the GitHub token in its environment. The repair agent has a shell in
+- **What the models can see.** The wording model is called directly: it sees the public text it
+  words and nothing else, and has no tools. The repair agent has a shell in
   the checkout, without the GitHub token and webhook secret — but the gateway key is necessarily in
   the environment of the process that calls the gateway, and an agent with a shell could read it.
   Its permissions deny the obvious ways (`env`, `printenv`, `curl`, `wget`, `ssh`), which is a
@@ -389,10 +391,12 @@ leaves the machine: no push, no release, no pull request, no issue, no webhook; 
 instead, and the checkout's history is not touched. Without it, `ci/run.sh` is the pipeline: it
 publishes and it commits `state/`.
 
-On a laptop opencode uses its own login and only calls models its config lists. In a pipeline the
-model list is written from `ENRICH_MODEL` and `FIX_MODEL`; locally, add the models to the
-`ica-gateway` provider's `models` in your opencode config (`claude-haiku-5-5`, `claude-sonnet-5-5`),
-or the enrichment step fails (the build continues with the rule-based wording).
+On a laptop without `ICA_API_KEY` and `ICA_BASE_URL` in the environment, the wording goes through the
+`deck-enrich` opencode agent, which uses opencode's own login and only calls models its config lists:
+add them to the `ica-gateway` provider's `models` in your opencode config (`claude-haiku-5-5`,
+`gpt-6-luna`, `claude-sonnet-5-5`, `gpt-6.1-sol`), or the step falls back to the rule-based wording. In
+a pipeline the wording is a direct call, and opencode's model list (for the repair agent) is written
+from `FIX_MODEL` and `FIX_FALLBACK_MODEL`.
 
 ## Notes and alternatives
 
@@ -442,7 +446,9 @@ or the enrichment step fails (the build continues with the rule-based wording).
   available for Coding Agents`), so `fix-model` now defaults to Sonnet 5.5; Sonnet 5.5 and Haiku 5.5
   both answered a streamed request with a tool call that day, and a preflight run on GitHub's runner
   confirmed the repository's new key for both.
-  On 2026-10-22, with the CI's opencode 1.18.35 and the pipeline's provider settings: GPT-6 Luna
+  On 2026-10-22, the wording as a direct call to the gateway, without opencode: all 12 items of the
+  2026-10-13 snapshot worded by Haiku 5.5 and accepted, in 15 s. With the CI's opencode 1.18.35 and
+  the pipeline's provider settings: GPT-6 Luna
   worded a release note through the enrichment agent's tools (12 s; accepted by the wording rules,
   like Haiku 5.5's); and GPT-6.1 Sol, as the repair agent in a throwaway copy with a parser fault
   planted (the "None." filter removed), found the cause in 4 minutes, restored the filter, added
