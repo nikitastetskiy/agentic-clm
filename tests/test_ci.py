@@ -149,6 +149,15 @@ class Workflows(unittest.TestCase):
             given = {k for k, v in pipeline_step(wf)["env"].items() if re.search(SECRET_EXPR, v)}
             self.assertEqual(set(scrub["env"]), given, name)
 
+    def test_the_key_reaches_only_runs_from_main_where_an_environment_holds_it(self):
+        # With KEY_ENVIRONMENT set, the key is an environment secret only main may use: a workflow
+        # changed on another branch, which needs no review, cannot get at it (docs/pipelines.md).
+        main_only = "${{ github.ref == 'refs/heads/main' && vars.KEY_ENVIRONMENT || '' }}"
+        for name in (WEEKLY, SELF_HEAL):
+            for job_name, job in workflow(name)["jobs"].items():
+                if "secrets.ICA_API_KEY" in str([s.get("env", {}) for s in job.get("steps", [])]):
+                    self.assertEqual(job.get("environment"), main_only, f"{name}: {job_name}")
+
     def test_every_action_from_elsewhere_is_pinned_to_a_commit(self):
         # The hashicorp org checks this (custom property GHA_Pinned_Hashes_Check): a tag can be moved to
         # other code, a commit cannot.

@@ -69,9 +69,14 @@ Settings, under **Settings → Secrets and variables → Actions**:
 |------|------|-------|
 | `ICA_API_KEY` | secret | the LLM gateway key. Without it the deck is built with the rule-based wording, and self-heal can still recover from a transient failure but cannot repair one: it opens an issue. |
 | `ICA_BASE_URL` | variable | the gateway's OpenAI-compatible base URL, ending in `/v1` |
+| `KEY_ENVIRONMENT` | variable, optional | the name of an environment (**Settings → Environments**) that holds `ICA_API_KEY` instead of the repository, with **Deployment branches** limited to `main`. Runs from `main` then get the key and runs from any other branch do not, so a workflow changed on a branch, which needs no review, cannot reach it. In hashicorp/agentic-clm: `gateway`. Unset: the repository secret is used. |
 | `ENRICH_MODEL`, `FIX_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, Sonnet 5.5 for repairs) |
 | `BASE_BRANCH` | variable, optional | what a repair is proposed against; unset means the branch the run was started on |
 | `STATE_BRANCH` | variable, optional | the branch that keeps `state/` between runs; unset means `pipeline-state`. It holds `state/` and nothing else, so the base branch can accept reviewed pull requests only (as `main` does in the hashicorp org). Set it to the base branch's name to commit `state/` there instead. |
+
+In the hashicorp org, `main` only takes pull requests that someone else approved; `.github/CODEOWNERS`
+asks `team-clm` for that review, and with **Allow auto-merge** on, `gh pr merge --auto --merge` merges
+a pull request as soon as it is approved. The weekly run needs no pull request (see step 2 below).
 
 The self-heal pull request also needs **Settings → Actions → General → Workflow permissions →
 Allow GitHub Actions to create and approve pull requests**. GitHub grants "create" and "approve"
