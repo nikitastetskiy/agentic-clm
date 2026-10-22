@@ -61,7 +61,9 @@ jobs:
           ICA_BASE_URL: ${{ vars.ICA_BASE_URL }}
           ENRICH: ${{ vars.ENRICH }}
           ENRICH_MODEL: ${{ vars.ENRICH_MODEL }}
+          ENRICH_FALLBACK_MODEL: ${{ vars.ENRICH_FALLBACK_MODEL }}
           FIX_MODEL: ${{ vars.FIX_MODEL }}
+          FIX_FALLBACK_MODEL: ${{ vars.FIX_FALLBACK_MODEL }}
           FIX_ATTEMPTS: ${{ vars.FIX_ATTEMPTS }}
           FIX_TIMEOUT: ${{ vars.FIX_TIMEOUT }}
           EVENT_SCOPE: ${{ vars.EVENT_SCOPE }}

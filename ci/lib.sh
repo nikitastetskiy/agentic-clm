@@ -57,6 +57,9 @@ ci_setup() {
 
   export ENRICH_MODEL; ENRICH_MODEL="$(prop enrich-model ica-gateway/claude-haiku-5-5)"
   export FIX_MODEL;    FIX_MODEL="$(prop fix-model ica-gateway/claude-sonnet-5-5)"
+  # Another vendor's model, for when the first gives no answer at all (refused, unreachable, out of time).
+  export ENRICH_FALLBACK_MODEL; ENRICH_FALLBACK_MODEL="$(prop enrich-fallback-model ica-gateway/gpt-6-luna)"
+  export FIX_FALLBACK_MODEL;    FIX_FALLBACK_MODEL="$(prop fix-fallback-model ica-gateway/gpt-6.1-sol)"
   # The pull request review's models (scripts/review_pr.py, a workflow of its own): the preflight checks them.
   export REVIEW_MODELS; REVIEW_MODELS="$(prop review-models "ica-gateway/gpt-6.1-sol ica-gateway/claude-sonnet-5-5 bob/premium")"
   export EVENT_SCOPE;  EVENT_SCOPE="$(prop event-scope "")"
@@ -81,7 +84,8 @@ ci_setup() {
     OPENCODE_CONFIG_CONTENT="$("$PY" - <<'PYEOF'
 import json, os
 providers = {}
-for model in (os.environ["ENRICH_MODEL"], os.environ["FIX_MODEL"]):   # "<provider>/<model id>"
+for model in (os.environ["ENRICH_MODEL"], os.environ["FIX_MODEL"],      # "<provider>/<model id>"
+              os.environ["ENRICH_FALLBACK_MODEL"], os.environ["FIX_FALLBACK_MODEL"]):
     provider, _, name = model.partition("/")
     if name:
         providers.setdefault(provider, {

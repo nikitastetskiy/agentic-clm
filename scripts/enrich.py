@@ -35,6 +35,7 @@ from lib import agent, state  # noqa: E402
 from lib.common import DATA_DIR, load_config, log, read_json, today  # noqa: E402
 
 DEFAULT_MODEL = "ica-gateway/claude-haiku-5-5"
+DEFAULT_FALLBACK_MODEL = "ica-gateway/gpt-6-luna"   # another vendor's, when the first gives no answer
 MAX_CHARS = {"release": 230, "changelog": 260, "event": 330}
 EVENT_MIN_ABSTRACT = 300   # shorter abstracts fit a card as they are
 MIN_CHARS = 25
@@ -140,13 +141,28 @@ def problems(need: dict, bullets) -> list[str]:
     return out
 
 
+def models(env=None) -> list[str]:
+    """The enrichment models in order: ENRICH_MODEL, then ENRICH_FALLBACK_MODEL ("none" for no fallback)."""
+    env = os.environ if env is None else env
+    fallback = env.get("ENRICH_FALLBACK_MODEL") or DEFAULT_FALLBACK_MODEL
+    return list(dict.fromkeys([env.get("ENRICH_MODEL") or DEFAULT_MODEL, *([] if fallback == "none" else [fallback])]))
+
+
+def read_answer(path: Path) -> dict | None:
+    """{id: bullets} from the agent's answer file, or None when there is none or it is not the JSON asked for."""
+    try:
+        return {a["id"]: a.get("bullets") for a in json.loads(path.read_text(encoding="utf-8"))["items"]}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--plan", default=str(DATA_DIR / "deck-plan.json"))
     ap.add_argument("--dry-run", action="store_true", help="write the request and stop (no agent call)")
     args = ap.parse_args()
 
-    model = os.environ.get("ENRICH_MODEL") or DEFAULT_MODEL
+    model = models()[0]
     plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
     data = {name: read_json(f"{name}.json") for name in ("releases", "changelogs", "events")}
     enrich = state.load("enrichment.json")
@@ -177,20 +193,25 @@ def main() -> int:
     try:
         (scratch / "enrich-request.json").write_text(json.dumps(request, indent=2, ensure_ascii=False),
                                                      encoding="utf-8")
-        code = agent.run("deck-enrich", "Process enrich-request.json and write enrich-response.json.",
-                         model=model, cwd=scratch, timeout=int(os.environ.get("ENRICH_TIMEOUT", "600")),
-                         log_file=DATA_DIR / "enrich-agent.log",
-                         drop_env=("GIT_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_TOKEN"))
         answer_file = scratch / "enrich-response.json"
-        if code != 0 or not answer_file.exists():
-            return finish("failed", f"agent exited {code} without a usable answer (see data/enrich-agent.log); "
-                                    "using rule-based wording")
+
+        def answered(code: int) -> bool:
+            if read_answer(answer_file) is not None:
+                return True
+            answer_file.unlink(missing_ok=True)   # the next model starts without it
+            return False
+
+        code, model = agent.run_first(
+            "deck-enrich", "Process enrich-request.json and write enrich-response.json.", models=models(),
+            answered=answered, cwd=scratch, timeout=int(os.environ.get("ENRICH_TIMEOUT", "600")),
+            log_file=DATA_DIR / "enrich-agent.log",
+            drop_env=("GIT_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_TOKEN", "BOB_API_KEY"))
+        report["model"] = model
+        answers = read_answer(answer_file)
+        if answers is None:
+            return finish("failed", f"no model gave a usable answer (last: {model}, exit {code}; see "
+                                    "data/enrich-agent*.log); using rule-based wording")
         shutil.copy(answer_file, DATA_DIR / "enrich-response.json")
-        try:
-            answer = json.loads(answer_file.read_text(encoding="utf-8"))
-            answers = {a["id"]: a.get("bullets") for a in answer["items"]}
-        except (ValueError, KeyError, TypeError) as exc:
-            return finish("failed", f"answer is not the expected JSON ({exc}); using rule-based wording")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 

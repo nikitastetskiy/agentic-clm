@@ -4,7 +4,8 @@
 # repair, propose it, and still deliver this week's deck.
 #
 #   1. reproduce       run the build again. If it passes now the failure was transient: publish and stop.
-#   2. repair          the `repo-fixer` agent (FIX_MODEL, e.g. Claude Sonnet 5.5) diagnoses and edits the
+#   2. repair          the `repo-fixer` agent (FIX_MODEL, e.g. Claude Sonnet 5.5; FIX_FALLBACK_MODEL when that
+#                      gives no answer at all) diagnoses and edits the
 #                      code. It cannot push, cannot see the GitHub token, and its edits to generated
 #                      files are discarded.
 #   3. guard           scripts/check_fix.py: fixed rules on what a repair may touch and how big it may be.
@@ -52,13 +53,14 @@ BRANCH="selfheal/$(date +%Y%m%d-%H%M)"
 reason="the repair agent did not produce a change"
 for attempt in $(seq 1 "$ATTEMPTS"); do
   # --- 2. repair --------------------------------------------------------------------------
-  ci_log "repair attempt ${attempt}/${ATTEMPTS} with ${FIX_MODEL}"
-  rm -f output/fix-summary.md
+  ci_log "repair attempt ${attempt}/${ATTEMPTS} with ${FIX_MODEL} (fallback: ${FIX_FALLBACK_MODEL:-none})"
+  rm -f output/fix-summary.md output/fix-model.txt
   message="The weekly deck build failed. Start with output/failure.json, find the root cause, fix it, prove the fix, and write output/fix-summary.md."
   if [[ "$attempt" -gt 1 ]]; then
     message="${message} Your previous attempt was not accepted: ${reason}. The evidence is in output/fix-verdict.json, output/selfheal-tests.log and output/failure.json. If your earlier change is still in the working tree, correct it; if it is gone, it was set aside for breaking a rule."
   fi
-  "$PY" scripts/run_agent.py repo-fixer --model "$FIX_MODEL" --message "$message" \
+  "$PY" scripts/run_agent.py repo-fixer --model "$FIX_MODEL" --fallback-model "$FIX_FALLBACK_MODEL" \
+      --answered-file output/fix-summary.md --record output/fix-model.txt --message "$message" \
       --timeout "$(prop fix-timeout 2700)" --log "output/agent-attempt-${attempt}.log" || true
 
   # --- 3. guard ---------------------------------------------------------------------------
@@ -101,7 +103,7 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     git checkout -q -b "$BRANCH"
     git add -A -- . ':!state' ':!data' ':!output'
     git commit -q -m "self-heal: $("$PY" -c 'import json; print(json.load(open("output/fix-verdict.json"))["headline"][:68] or "repair the weekly build")')" \
-                  -m "Proposed by the auto-pptx self-heal pipeline (repo-fixer on ${FIX_MODEL}). Tests and a full rebuild were verified by the pipeline before this commit."
+                  -m "Proposed by the auto-pptx self-heal pipeline (repo-fixer on $(cat output/fix-model.txt 2>/dev/null || echo "$FIX_MODEL")). Tests and a full rebuild were verified by the pipeline before this commit."
   fi
   if ci_git_push "HEAD:refs/heads/${BRANCH}" \
      && "$PY" scripts/report_fix.py --pull --branch "$BRANCH" --base "$BASE_BRANCH" ${DRY[@]+"${DRY[@]}"}; then

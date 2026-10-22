@@ -48,7 +48,7 @@ def main() -> int:
     verdict = json.loads(read("fix-verdict.json") or "{}")
     failure = json.loads(read("failure.json") or "{}")
     run_url = os.environ.get("PIPELINE_RUN_URL", "")
-    model = os.environ.get("FIX_MODEL", "")
+    model = read("fix-model.txt") or os.environ.get("FIX_MODEL", "")   # the model that ran, after a fallback too
     footer = "\n\n---\n" + "\n".join(filter(None, [
         f"Self-heal pipeline run: {run_url}" if run_url else "",
         f"Repair agent: `repo-fixer` on `{model}`" if model else "",

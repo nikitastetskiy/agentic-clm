@@ -29,7 +29,7 @@ flowchart TD
 | | Weekly build | Self-heal |
 |---|---|---|
 | Starts | on a schedule, once a week | when a weekly run fails (or by hand) |
-| Model | small — `enrich-model`, default `ica-gateway/claude-haiku-5-5` | large — `fix-model`, default `ica-gateway/claude-sonnet-5-5` |
+| Model | small — `enrich-model`, default `ica-gateway/claude-haiku-5-5`; when it gives no answer, `enrich-fallback-model`, default `ica-gateway/gpt-6-luna` | large — `fix-model`, default `ica-gateway/claude-sonnet-5-5`; when it gives no answer, `fix-fallback-model`, default `ica-gateway/gpt-6.1-sol` |
 | The model's job | word *new* release notes and event abstracts, one line each | find and fix the code that made the build fail |
 | What the model can touch | one JSON file in a scratch directory; no shell, no network | the checkout, with a shell; not git remotes, not the tokens |
 | Result | a GitHub release with the deck | a pull request with the fix **and** the week's deck — or an issue |
@@ -74,7 +74,7 @@ Settings, under **Settings → Secrets and variables → Actions**:
 | `BOB_API_KEY` | secret, optional | an IBM Bob *Inference* API key: the pull request review's fallback when the ICA gateway does not answer. Never given to the repair agent. |
 | `REVIEW_MODELS` | variable, optional | the review's models, in order of preference; unset means `ica-gateway/gpt-6.1-sol`, then `ica-gateway/claude-sonnet-5-5`, then `bob/premium` |
 | `REVIEW_MENTION` | variable, optional | GitHub logins copied on every review, space-separated (in hashicorp/agentic-clm: `nikitastetskiy-hashi`) |
-| `ENRICH_MODEL`, `FIX_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, Sonnet 5.5 for repairs) |
+| `ENRICH_MODEL`, `ENRICH_FALLBACK_MODEL`, `FIX_MODEL`, `FIX_FALLBACK_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, then GPT-6 Luna; Sonnet 5.5 for repairs, then GPT-6.1 Sol) |
 | `BASE_BRANCH` | variable, optional | what a repair is proposed against; unset means the branch the run was started on |
 | `STATE_BRANCH` | variable, optional | the branch that keeps `state/` between runs; unset means `pipeline-state`. It holds `state/` and nothing else, so the base branch can accept reviewed pull requests only (as `main` does in the hashicorp org). Set it to the base branch's name to commit `state/` there instead. |
 
@@ -162,6 +162,8 @@ definition source, set these **environment properties**:
 | `ica-api-key` | **secure** | the gateway API key |
 | `enrich-model` | text | `ica-gateway/claude-haiku-5-5` |
 | `fix-model` | text | `ica-gateway/claude-sonnet-5-5` |
+| `enrich-fallback-model` | text | `ica-gateway/gpt-6-luna` |
+| `fix-fallback-model` | text | `ica-gateway/gpt-6.1-sol` |
 | `selfheal-webhook-url` | **secure** | the self-heal trigger's webhook URL (step 3) |
 | `selfheal-webhook-token` | **secure** | the secret of that trigger |
 
@@ -205,7 +207,11 @@ nothing. Then run it with `pipeline-mode = weekly`.
 `ci/weekly-build.sh`:
 
 1. `bash build.sh` — see the README for the steps. The enrichment step uses `enrich-model` and only
-   for items that have no stored wording yet; most weeks that is a handful of lines.
+   for items that have no stored wording yet; most weeks that is a handful of lines. When that model
+   gives no answer at all (refused, unreachable, out of time), `enrich-fallback-model` — another
+   vendor's — words them instead; when neither does, those items keep the rule-based wording this
+   week and are asked for again next week. An answer the wording rules reject is not a reason to
+   switch models.
 2. **Verified** → publish and keep state:
    - GitHub release **`deck-<YYYY-MM-DD>`**, with the build summary as its notes and these assets:
      the `.pptx`, `summary-<date>.md`, `build-report.json`, `verify-report.json`, and a PDF preview
@@ -235,7 +241,9 @@ would bloat every clone, while release assets sit outside the git history and ca
 
 1. **Reproduce.** Run the build again. If it passes, the failure was transient: publish the deck and
    stop. No model is involved.
-2. **Repair.** The `repo-fixer` agent (`.opencode/agents/repo-fixer.md`) runs on `fix-model`. It gets
+2. **Repair.** The `repo-fixer` agent (`.opencode/agents/repo-fixer.md`) runs on `fix-model`, or on
+   `fix-fallback-model` when the first gives no answer at all (it exits without writing
+   `output/fix-summary.md`); the pull request names the model that did the work. It gets
    `output/failure.json` and the logs, may read and edit the checkout, run the tests, the build and
    the fetchers, and fetch public pages. It may not push, commit, switch branches, use `curl`/`ssh`,
    read the environment, or install packages — and the GitHub token and webhook secret are removed
@@ -434,6 +442,9 @@ or the enrichment step fails (the build continues with the rule-based wording).
   available for Coding Agents`), so `fix-model` now defaults to Sonnet 5.5; Sonnet 5.5 and Haiku 5.5
   both answered a streamed request with a tool call that day, and a preflight run on GitHub's runner
   confirmed the repository's new key for both.
+  On 2026-10-22, with the CI's opencode 1.18.35 and the pipeline's provider settings: GPT-6 Luna
+  worded a release note through the enrichment agent's tools (12 s; accepted by the wording rules,
+  like Haiku 5.5's) and GPT-6.1 Sol drove the repair agent's tools (read, search, shell, edit).
   **Not yet exercised:** a repair on Sonnet 5.5; the `pipeline-state` branch on GitHub; the pull
   request review on GitHub (its models answered a one-token check on 2026-10-22: GPT-6.1 Sol through
   the gateway; Bob still needs its inference key); anything inside SPS (the image build, the pipeline

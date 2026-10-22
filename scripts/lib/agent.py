@@ -4,7 +4,8 @@ Two agents live in .opencode/agents/:
   * deck-enrich — words new release notes / event abstracts for the deck (small model, weekly);
   * repo-fixer  — repairs the repository when a build fails (large model, self-heal pipeline).
 
-Which model serves which is decided by the caller (ENRICH_MODEL / FIX_MODEL); nothing here names a
+Which model serves which is decided by the caller (ENRICH_MODEL / FIX_MODEL, each with a fallback of
+another vendor's that run_first() turns to when the first gives no answer); nothing here names a
 provider. Credentials are whatever opencode is configured with: the stored login on a laptop, or — in
 a pipeline — the provider block that ci/lib.sh passes in OPENCODE_CONFIG_CONTENT, built from secrets.
 """
@@ -50,3 +51,21 @@ def run(agent: str, message: str, *, model: str, cwd: Path, timeout: int = 900,
         log_file.parent.mkdir(parents=True, exist_ok=True)
         log_file.write_text(redact.scrub(output), encoding="utf-8")
     return code
+
+
+def run_first(agent: str, message: str, *, models: list[str], answered, cwd: Path, timeout: int = 900,
+              log_file: Path | None = None, drop_env: tuple[str, ...] = ()) -> tuple[int, str]:
+    """Run the agent on each of `models` in turn until `answered(exit code)` says one gave its answer;
+    returns (exit code, the model that ran last). Only a model that gives no answer at all — refused by
+    the gateway, unreachable, out of time — is a reason to try the next: an answer the pipeline then
+    rejects is an answer. Each model after the first keeps its own transcript (`<log>-2`, ...)."""
+    code, used = 127, ""
+    for n, model in enumerate(dict.fromkeys(m for m in models if m)):
+        if n:
+            log(f"{agent}: {used} gave no answer (exit {code}); trying {model}")
+        transcript = log_file if not n or log_file is None else log_file.with_name(f"{log_file.stem}-{n + 1}{log_file.suffix}")
+        code, used = run(agent, message, model=model, cwd=cwd, timeout=timeout, log_file=transcript,
+                         drop_env=drop_env), model
+        if answered(code):
+            break
+    return code, used
