@@ -14,7 +14,7 @@ Releases are used rather than commits because a deck is a 7 MB binary: committed
 bloat every clone, while release assets live outside the git history and can be pruned (--keep).
 
 Publishing the same build date again updates that release in place. The token is read from GIT_TOKEN
-(a pipeline secret); it needs write access to the repository's contents.
+(a pipeline secret); it needs write access to the repository's contents. A dry run needs no token.
 """
 from __future__ import annotations
 
@@ -41,7 +41,8 @@ def main() -> int:
     args = ap.parse_args()
 
     gh = GitHub.from_checkout(dry_run=args.dry_run)
-    if not gh.token:
+    # A dry run sends nothing (lib/github.py), so it needs no token; a check is a test of the token.
+    if not gh.token and (args.check or not args.dry_run):
         log("ERROR: no GitHub token in the environment (GIT_TOKEN)")
         return 1
     try:
