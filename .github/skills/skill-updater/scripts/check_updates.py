@@ -25,6 +25,9 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 SKILLS_DIR = REPO_ROOT / ".github" / "skills"
 MANIFEST = SKILLS_DIR / ".skill-manifest.json"
 API = "https://api.github.com"
+# Files whose vendored copy outranks upstream's (the behavior contract in SKILL.md): a re-vendor keeps
+# them, so an upstream change to the license, or its omission, cannot silently replace ours.
+KEPT_ON_REVENDOR = ("LICENSE.txt",)
 
 
 def gh_request(url: str, *, accept: str = "application/vnd.github+json") -> bytes:
@@ -72,6 +75,17 @@ def revendor(owner: str, repo: str, path: str, sha: str, dest: Path) -> None:
             if f is None:
                 continue
             target.write_bytes(f.read())
+        if not tmp.is_dir():
+            raise RuntimeError(f"no files under {path} at {sha[:12]}; {dest.name} left as it was")
+        for name in KEPT_ON_REVENDOR:
+            ours, staged = dest / name, tmp / name
+            if not ours.is_file():
+                continue
+            if not staged.is_file():
+                print(f"[skill-updater]   upstream has no {name}; keeping the vendored one")
+            elif staged.read_bytes() != ours.read_bytes():
+                print(f"[skill-updater]   upstream {name} differs; keeping the vendored one (review it)")
+            shutil.copyfile(ours, staged)
         if dest.exists():
             shutil.rmtree(dest)
         tmp.rename(dest)

@@ -46,5 +46,6 @@ otherwise falls back to unauthenticated GitHub REST API.
 1. Never silently change a skill's behavior mid-run. With `notify`, only print a message and set a
    non-zero advisory exit code (10) — the run continues with the current pinned version.
 2. After an `--update`, re-verify file integrity and record the new SHA + timestamp in the manifest.
-3. Treat the vendored pptx skill `LICENSE.txt` as authoritative; preserve it on re-vendor.
+3. Treat the vendored pptx skill `LICENSE.txt` as authoritative; preserve it on re-vendor
+   (`--update` keeps it, and says so when upstream's copy differs or is missing).
 4. If upstream is unreachable, proceed with the pinned version and warn (do not fail the run).
