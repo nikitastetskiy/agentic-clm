@@ -55,6 +55,9 @@ def main() -> int:
         "Checked by the pipeline, independently of the agent: change stays out of protected paths; "
         "`python -m unittest discover -s tests` passes; `bash build.sh` rebuilds and verifies the deck."
         if args.pull else "",
+        ("The agent, the tests and the rebuild ran as a separate user without the pipeline's keys; the "
+         "decks the rebuild made are kept with the run above." if os.environ.get("SANDBOX_USER") else "")
+        if args.pull else "",
     ]))
     try:
         if args.pull:
@@ -63,7 +66,8 @@ def main() -> int:
                     "`tests/`). Check that it does not simply relax a check.\n\n"
                     if verdict.get("touches_gate") else "")
             pull = gh.open_pull(args.branch, args.base, f"self-heal: {headline}",
-                                f"{warn}{summary}{footer}\n\nNot merged automatically — please review.")
+                                f"{warn}{summary}{footer}\n\nNot merged automatically — please review. Merging it "
+                                "publishes this week's deck: the weekly build runs on the merge.")
             log(f"pull request: {pull.get('html_url', '(dry run)')}")
         else:
             step = failure.get("step", "unknown step")

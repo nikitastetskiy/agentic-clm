@@ -2,7 +2,9 @@
 # ci/run.sh does all the work; this file only provides a runner, the settings and the schedule.
 #
 # A build that fails in a way a code change could repair (ci_trigger_selfheal in ci/lib.sh) starts
-# the self-heal job below, which runs .github/workflows/self-heal.yml.
+# the self-heal job below, which runs .github/workflows/self-heal.yml. That job proposes its repair as a
+# pull request and publishes nothing: when a person merges the repair, this workflow runs again, from
+# main, and publishes the week's deck.
 name: Weekly deck
 
 on:
@@ -19,6 +21,8 @@ on:
         description: "Rehearse: build for real, but publish, push and report nothing."
         type: boolean
         default: false
+  pull_request_target:
+    types: [closed]   # a merged self-heal repair (the build job's condition): main's code, never the branch's
 
 permissions:
   contents: read
@@ -32,6 +36,10 @@ env:
 
 jobs:
   build:
+    if: >-
+      github.event_name != 'pull_request_target' || (github.event.pull_request.merged
+      && startsWith(github.event.pull_request.head.ref, 'selfheal/')
+      && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     # Where KEY_ENVIRONMENT names an environment holding ICA_API_KEY that only main may use, a run
@@ -100,7 +108,7 @@ jobs:
     needs: build
     if: failure() && needs.build.outputs.self-heal == 'true'
     permissions:
-      contents: write        # the repair branch and the deck built from it
+      contents: write        # the repair branch
       pull-requests: write   # the pull request with the repair
       issues: write          # the issue when nothing could be repaired
     uses: ./.github/workflows/self-heal.yml

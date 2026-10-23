@@ -2,6 +2,7 @@
 that the wording, the review and the repair agent turn to it when the ICA gateway gives no answer."""
 import json
 import os
+import pwd
 import stat
 import sys
 import tempfile
@@ -13,7 +14,7 @@ import helpers
 import enrich
 import review_pr
 import run_agent
-from lib import agent, bob, gateway
+from lib import agent, bob, gateway, sandbox
 
 # Stands in for Bob Shell: records its arguments, environment and settings, and answers as `bob run -f
 # json` does. FAKE_BOB=fail answers with an error; otherwise a wording request gets one bullet per item.
@@ -23,7 +24,8 @@ from pathlib import Path
 prompt = sys.stdin.read()
 settings = json.loads((Path(os.environ["HOME"]) / ".bob" / "settings.json").read_text())
 Path(os.environ["FAKE_BOB_LOG"]).write_text(json.dumps({{"args": sys.argv[1:], "prompt": prompt, "settings": settings,
-    "env": sorted(k for k in os.environ if k.endswith(("_KEY", "_TOKEN")))}}))
+    "env": sorted(k for k in os.environ if k.endswith(("_KEY", "_TOKEN"))),
+    "key_ok": os.environ.get("BOB_API_KEY") == "bob-key-0123456789abcdefghij", "cwd": os.getcwd()}}))
 if os.environ.get("FAKE_BOB") == "fail":
     print(json.dumps({{"type": "result", "status": "error", "error": "quota exceeded", "stats": {{}}}}))
     sys.exit(1)
@@ -81,23 +83,54 @@ class BobShell(unittest.TestCase):
         self.assertEqual(gateway.with_last_resort(models, {}), models)
         self.assertEqual(gateway.with_last_resort(models, {"BOB_API_KEY": "k", "BOB_FALLBACK": "0"}), models)
 
-    def test_the_repair_agent_on_bob_may_edit_and_run_only_what_is_listed(self):
+    def test_the_repair_agent_on_bob_reads_and_edits_but_runs_no_command(self):
+        # Bob's key cannot be relayed (scripts/key_relay.py), so no command may ever run next to it.
         code, model = agent.run_first("repo-fixer", "fix it", models=["bob/shell"], answered=lambda code: code == 0,
                                       cwd=self.tmp)
         self.assertEqual((code, model), (0, "bob/shell"))
         call = self.call()
         args = call["args"]
         self.assertEqual(args[args.index("--mode") + 1], "agent")
-        self.assertNotIn("execute", args[args.index("--disable-tool-groups") + 1].split(","))
+        self.assertIn("execute", args[args.index("--disable-tool-groups") + 1].split(","))
         approval = call["settings"]["approval"]
-        self.assertEqual(approval["allowed_permissions"], ["read", "edit", "execute"])
-        [executor] = approval["allowedExecutors"]
-        self.assertIn("python", executor["approvedCommands"])
-        for denied in ("curl", "env", "git push", "pip install"):
-            self.assertIn(denied, executor["deniedCommands"])
+        self.assertEqual(approval["allowed_permissions"], ["read", "edit"])
+        self.assertNotIn("allowedExecutors", approval)
         self.assertIn("Repairs the auto-pptx repository", (helpers.REPO / ".opencode/agents/repo-fixer.md").read_text())
-        self.assertTrue(call["prompt"].endswith("\n\n---\n\nfix it"))
+        self.assertTrue(call["prompt"].endswith("\n\n---\n\n" + agent.NO_COMMANDS + "fix it"))
         self.assertEqual(call["env"], ["BOB_API_KEY"])
+
+    def test_execute_is_never_granted_whoever_asks(self):
+        bob.run("x", workspace=self.tmp, mode="agent", tools=("read", "edit", "execute"))
+        self.assertIn("execute", self.call()["args"][self.call()["args"].index("--disable-tool-groups") + 1])
+        self.assertEqual(self.call()["settings"]["approval"]["allowed_permissions"], ["read", "edit"])
+
+    def test_in_the_sandbox_bob_reads_its_key_from_its_input_alone(self):
+        ran = []
+
+        def without_sudo(cmd, *, cwd, env):   # what sandbox.command runs after sudo switches user
+            line = [*(f"{k}={v}" for k, v in sorted(env.items()))]
+            ran.append(line)
+            return ["env", "-i", *line, "/bin/bash", "-c", 'cd "$1" && shift && exec "$@"', "sandbox", str(cwd), *cmd]
+
+        work = self.tmp / "repo"
+        (work / "output").mkdir(parents=True)
+        (work / "leads-out").symlink_to("/etc")
+        with mock.patch.dict(os.environ, {"SANDBOX_USER": "sandbox-user"}), \
+                mock.patch.object(sandbox, "command", without_sudo), \
+                mock.patch.object(sandbox, "give"), mock.patch.object(sandbox, "take"), \
+                mock.patch.object(sandbox, "clear") as clear, \
+                mock.patch.object(sandbox.pwd, "getpwnam", return_value=mock.Mock(pw_dir=str(self.tmp))):
+            agent.run_first("repo-fixer", "fix it", models=["bob/shell"], answered=lambda code: True, cwd=work)
+        call = self.call()
+        self.assertTrue(call["key_ok"])                                       # Bob has its key...
+        self.assertFalse(any(v in arg for line in ran for arg in line for v in KEYS.values()))   # ...never on a command line
+        self.assertNotIn(KEYS["BOB_API_KEY"], call["prompt"])
+        self.assertTrue(call["prompt"].endswith("fix it"))
+        self.assertEqual(call["env"], ["BOB_API_KEY"])
+        self.assertEqual(Path(call["cwd"]).resolve(), work.resolve())
+        self.assertFalse((work / "leads-out").is_symlink())                   # no link leads Bob out of its copy
+        self.assertTrue(clear.called)
+
 
     def test_the_wording_agent_on_bob_may_read_and_edit_but_run_nothing(self):
         agent.run_first("deck-enrich", "word it", models=["bob/shell"], answered=lambda code: True, cwd=self.tmp)

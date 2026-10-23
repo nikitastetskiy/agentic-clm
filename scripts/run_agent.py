@@ -4,8 +4,9 @@
     python scripts/run_agent.py repo-fixer --model ica-gateway/claude-sonnet-5-5 \
         --message "The weekly build failed. Start with output/failure.json."
 
-The agent works in the repository root. Tokens that only the publishing steps need are removed from
-its environment, so nothing it runs can read them.
+The agent works in the repository root, or in --dir. Tokens that only the publishing steps need are
+removed from its environment. In the self-heal sandbox (lib/sandbox.py) it runs as another user and gets
+no secret at all; this process, which holds them, only starts it and reads what it left.
 """
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import agent, gateway  # noqa: E402
+from lib import agent, gateway, sandbox  # noqa: E402
 from lib.common import REPO_ROOT, log  # noqa: E402
 
 PUBLISH_ONLY = ("GIT_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_TOKEN", "SELFHEAL_WEBHOOK_URL",
@@ -26,8 +27,10 @@ def main() -> int:
     ap.add_argument("agent")
     ap.add_argument("--model", required=True)
     ap.add_argument("--fallback-model", default="", help='tried when --model gives no answer at all ("none": no fallback)')
-    ap.add_argument("--answered-file", help="the agent's answer: if the agent ends without writing this file, "
-                                            "whatever its exit code, it gave no answer and the next model runs")
+    ap.add_argument("--dir", default=str(REPO_ROOT), help="where the agent works (default: the repository)")
+    ap.add_argument("--answered-file", help="the agent's answer, relative to --dir: if the agent ends without "
+                                            "writing this file, whatever its exit code, it gave no answer and the "
+                                            "next model runs")
     ap.add_argument("--record", help="write the name of the model that ran last to this file")
     ap.add_argument("--message", required=True)
     ap.add_argument("--timeout", type=int, default=2700)
@@ -36,13 +39,15 @@ def main() -> int:
     if not agent.available():
         log("ERROR: opencode is not installed")
         return 127
+    workdir = Path(args.dir)
+
     def answered(code: int) -> bool:
         # The agent's own answer, not opencode's exit code: opencode can exit 0 without it.
-        return (REPO_ROOT / args.answered_file).exists() if args.answered_file else True
+        return sandbox.is_file(workdir / args.answered_file) if args.answered_file else True
 
     models = gateway.with_last_resort([args.model, "" if args.fallback_model == "none" else args.fallback_model])
     code, model = agent.run_first(args.agent, args.message, models=models,
-                                  answered=answered, cwd=REPO_ROOT, timeout=args.timeout,
+                                  answered=answered, cwd=workdir, timeout=args.timeout,
                                   log_file=Path(args.log), drop_env=PUBLISH_ONLY)
     if args.record:
         Path(args.record).write_text(model + "\n", encoding="utf-8")

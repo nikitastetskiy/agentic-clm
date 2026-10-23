@@ -4,8 +4,10 @@
 # ci/self-heal.sh reproduces the failure; if it persists, the repo-fixer agent repairs the code on a
 # large model, scripts/check_fix.py judges the change, the tests and a full rebuild prove it, and the
 # repair is proposed as a pull request (never merged automatically) — or reported as an issue. The
-# review job then reviews that pull request (scripts/review_pr.py) from a fresh checkout: the repair
-# job ran code the agent wrote, so the reviewer runs from main's own code.
+# agent, and the tests and rebuild of what it wrote, run in a sandbox: another user of the runner,
+# without the job's secrets (ci_sandbox_start in ci/lib.sh). Nothing is published from here: merging
+# the repair runs the weekly workflow, which does. The review job then reviews that pull request
+# (scripts/review_pr.py) from a fresh checkout, from main's own code.
 name: Self-heal
 
 on:
