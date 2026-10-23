@@ -10,10 +10,12 @@ the pinned VERSION from IBM's download bucket, checked against the pinned SHA256
 (the tests do).
 
 Each run gets a home of its own whose settings turn auto-update and telemetry off and say which tools
-Bob may use. In a headless run nothing asks: a tool or command that is not approved is not run. Bob
-matches commands word by word against prefixes (the longest approved or denied prefix wins), so the
-repair agent gets an explicit list of what it may run. The process sees BOB_API_KEY and no other
-variable named like a credential, the pipeline's or anyone else's.
+Bob may use. In a headless run nothing asks: a tool that is not approved is not run. Bob never gets the
+tool that runs commands: Bob's key cannot be kept from a command Bob runs (its firewall admits Bob Shell
+alone, so the key cannot stay behind a relay as the gateway's does, scripts/key_relay.py). As the repair
+agent Bob reads and edits; the pipeline runs the tests itself. The process sees BOB_API_KEY and no other
+variable named like a credential, the pipeline's or anyone else's. In the self-heal sandbox
+(lib/sandbox.py) Bob runs as the sandbox user, alone, and reads its key from its standard input.
 """
 from __future__ import annotations
 
@@ -27,24 +29,15 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-from lib import redact
+from lib import redact, sandbox
 
 VERSION = "2.0.6"
 SHA256 = "b3e75ad93f2b5236a4b60f1d008c3d6c12bd2748e81e210b80be302a3db0b5bd"
 BUCKET = "https://s3.us-south.cloud-object-storage.appdomain.cloud/bob-shell"
 TOOL_GROUPS = ("read", "edit", "execute", "browser", "mcp", "skill", "todo", "artifact", "subagent", "mode")
-# What the repair agent may run (prefixes, word by word) and what it may not, whatever else matches.
-REPAIR_COMMANDS = ("python", "python3", ".venv/bin/python", "bash build.sh", "SKIP_FETCH=1 ENRICH=0 bash build.sh",
-                   "make test", "git diff", "git status", "git log", "git show", "git rev-parse", "git ls-files",
-                   "git grep", "git blame", "cat", "grep", "rg", "head", "tail", "ls", "sort", "uniq", "wc", "cut",
-                   "find", "sed -n", "awk", "diff", "pwd", "which", "echo")
-DENIED_COMMANDS = ("curl", "wget", "ssh", "scp", "nc", "env", "printenv", "sudo", "pip install", "npm", "npx", "gh",
-                   "rm -rf", "git push", "git remote", "git config", "git commit", "git checkout", "git reset",
-                   "git clean", "python -m pip", "python3 -m pip", ".venv/bin/python -m pip")
-
-
-# Variables Bob's process does not inherit, whoever set them: anything named like a credential.
-SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH|SESSION|COOKIE|WEBHOOK", re.I)
+ALLOWED_TOOLS = ("read", "edit")   # never "execute": no command may run next to Bob's key
+# Bob in the sandbox: the key arrives as the first line of the standard input, the prompt after it.
+WITH_KEY_ON_STDIN = 'IFS= read -r BOB_API_KEY && export BOB_API_KEY && exec "$@"'
 
 
 class BobError(RuntimeError):
@@ -106,21 +99,17 @@ def install() -> Path:
     return found
 
 
-def settings(tools: tuple[str, ...], commands: tuple[str, ...] = ()) -> dict:
+def settings(tools: tuple[str, ...]) -> dict:
     approval = {"autoApprovalEnabled": True, "outsideWorkspaceAllowed": False,
-                "allowed_permissions": [t for t in tools if t in ("read", "edit", "execute")]}
-    if "execute" in tools:
-        approval["allowedExecutors"] = [{"toolId": "execute_command", "approvedCommands": list(commands),
-                                         "deniedCommands": list(DENIED_COMMANDS)}]
+                "allowed_permissions": [t for t in tools if t in ALLOWED_TOOLS]}
     return {"bobShell": {"autoUpdate": "none"}, "telemetry": {"enabled": False, "excludePayload": True},
             "licenseConsent": True, "approval": approval}
 
 
-def run(prompt: str, *, workspace: Path, mode: str = "ask", tools: tuple[str, ...] = (),
-        commands: tuple[str, ...] = (), max_turns: int = 4, max_cost: float = 1.0, timeout: int = 600,
-        env=None) -> tuple[int | None, str, dict]:
-    """Run Bob Shell headless on `prompt` in `workspace` with only `tools` (tool groups) enabled.
-    Returns (200, Bob's last message, its stats), or (None, what went wrong, {})."""
+def run(prompt: str, *, workspace: Path, mode: str = "ask", tools: tuple[str, ...] = (), max_turns: int = 4,
+        max_cost: float = 1.0, timeout: int = 600, env=None) -> tuple[int | None, str, dict]:
+    """Run Bob Shell headless on `prompt` in `workspace` with only `tools` (tool groups among
+    ALLOWED_TOOLS) enabled. Returns (200, Bob's last message, its stats), or (None, what went wrong, {})."""
     env = os.environ if env is None else env
     key = env.get("BOB_API_KEY", "")
     if not key:
@@ -129,21 +118,38 @@ def run(prompt: str, *, workspace: Path, mode: str = "ask", tools: tuple[str, ..
         bob = install()
     except BobError as exc:
         return None, str(exc), {}
+    tools = tuple(t for t in tools if t in ALLOWED_TOOLS)
     off = [g for g in TOOL_GROUPS if g not in tools]
-    with tempfile.TemporaryDirectory(prefix="bob-home-") as home:
-        (Path(home) / ".bob").mkdir()
-        (Path(home) / ".bob" / "settings.json").write_text(json.dumps(settings(tools, commands)), encoding="utf-8")
-        run_env = {k: v for k, v in env.items()
-                   if k not in redact.SECRET_VARS and not SECRET_NAME.search(k) and not k.startswith("BOBSHELL_")}
-        run_env.update(HOME=home, BOB_API_KEY=key)
-        cmd = [str(bob), "run", "--mode", mode, "-w", str(workspace), "--max-turns", str(max_turns),
-               "--max-cost", str(max_cost), "--accept-license", "--disable-mcp", "--disable-subagents",
-               "--disable-tool-groups", ",".join(off), "-f", "json"]
-        try:
+    cmd = [str(bob), "run", "--mode", mode, "-w", str(workspace), "--max-turns", str(max_turns),
+           "--max-cost", str(max_cost), "--accept-license", "--disable-mcp", "--disable-subagents",
+           "--disable-tool-groups", ",".join(off), "-f", "json"]
+    # In the sandbox an agent works on the sandbox's own copy of the repository, so Bob must run as that
+    # user (lib/sandbox.py); a question needs no workspace of anyone's and runs as it is.
+    boxed = sandbox.active(env) and mode == "agent"
+    home = Path(tempfile.mkdtemp(prefix="bob-home-"))
+    try:
+        (home / ".bob").mkdir()
+        (home / ".bob" / "settings.json").write_text(json.dumps(settings(tools)), encoding="utf-8")
+        if boxed:
+            sandbox.give(home)
+            sandbox.clear()              # no other process of the sandbox user while Bob holds its key
+            sandbox.unlink_links(workspace)
+            done = sandbox.run(["/bin/bash", "-c", WITH_KEY_ON_STDIN, "bob", *cmd], cwd=workspace,
+                               env=sandbox.environment(env) | {"HOME": str(home)}, input=f"{key}\n{prompt}",
+                               capture_output=True, text=True, timeout=timeout)
+        else:
+            run_env = {k: v for k, v in env.items()
+                       if k not in redact.SECRET_VARS and not redact.SECRET_NAME.search(k) and not k.startswith("BOBSHELL_")}
+            run_env.update(HOME=str(home), BOB_API_KEY=key)
             done = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=timeout, env=run_env,
                                   cwd=str(workspace))
-        except subprocess.TimeoutExpired:
-            return None, f"Bob Shell did not finish in {timeout}s", {}
+    except subprocess.TimeoutExpired:
+        return None, f"Bob Shell did not finish in {timeout}s", {}
+    finally:
+        if boxed:
+            sandbox.clear()
+            sandbox.take(home)
+        shutil.rmtree(home, ignore_errors=True)
     lines = [line for line in done.stdout.splitlines() if line.strip().startswith("{")]
     try:
         result = json.loads(lines[-1]) if lines else {}

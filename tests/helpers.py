@@ -21,6 +21,9 @@ os.environ["BOB_SHELL_INSTALL"] = "0"
 # (the self-heal run tests a repair with its keys in the environment).
 for _name in ("ICA_API_KEY", "ICA_BASE_URL", "BOB_API_KEY", "BOBSHELL_API_KEY"):
     os.environ.pop(_name, None)
+# Nor run anything as the self-heal sandbox's user (the tests themselves run in it, as that user).
+for _name in [n for n in os.environ if n.startswith("SANDBOX_")]:
+    os.environ.pop(_name, None)
 
 
 def html(name: str) -> str:

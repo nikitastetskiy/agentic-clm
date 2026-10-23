@@ -18,7 +18,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # PowerPoint does. poppler-utils provides pdftoppm for per-slide thumbnails.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-venv python3-pip \
-        git ca-certificates curl \
+        git ca-certificates curl rsync \
         poppler-utils fontconfig fonts-dejavu-core fonts-inter \
     && if [ "$INSTALL_OFFICE" = "true" ]; then \
          apt-get install -y --no-install-recommends libreoffice-impress libreoffice-core ; \

@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -58,6 +59,21 @@ class Credentials(unittest.TestCase):
             rc, out = self.publish(*args)
             self.assertEqual(rc, 1, args)
             self.assertIn("no GitHub token", out)
+
+
+class Secrets(Credentials):
+    def test_a_deck_that_carries_a_secret_is_not_published(self):
+        key = "sk-ica-0123456789abcdef"
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("ppt/slides/slide1.xml", f"<p>{key}</p>")
+        (publish_release.REPO_ROOT / "output" / "deck-2026-10-13.pptx").write_bytes(out.getvalue())
+        with mock.patch.dict(os.environ, {"ICA_API_KEY": key}):
+            rc, said = self.publish("--dry-run")
+        self.assertEqual(rc, 1)
+        self.assertIn("not published: the release would carry the value of ICA_API_KEY", said)
+        self.assertNotIn(key, said)
+        self.assertNotIn("would attach", said)
 
 
 if __name__ == "__main__":

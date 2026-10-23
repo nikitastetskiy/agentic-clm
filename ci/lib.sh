@@ -74,30 +74,16 @@ ci_setup() {
     ci_warn "CI_DRY_RUN=1 — nothing will be pushed, published or reported"
   fi
 
-  # LLM gateway. The provider block is handed to opencode inline, so neither the gateway address nor
-  # the key has to be committed; the key itself stays in the environment ({env:…} is resolved by
-  # opencode). On a laptop none of this is set and opencode uses its own stored login.
+  # LLM gateway. The provider block is handed to opencode inline (lib/agent.opencode_config), so neither
+  # the gateway address nor the key has to be committed; the key itself stays in the environment.
+  # On a laptop none of this is set and opencode uses its own stored login.
   export ICA_API_KEY;  ICA_API_KEY="$(secret ica-api-key)"
   export ICA_BASE_URL; ICA_BASE_URL="$(prop ica-base-url "")"
   # IBM Bob (lib/bob.py): every model step's last resort when the ICA gateway does not answer.
   export BOB_API_KEY;  BOB_API_KEY="$(secret bob-api-key)"
   if [[ -n "$ICA_API_KEY" && -n "$ICA_BASE_URL" ]]; then
     export OPENCODE_CONFIG_CONTENT
-    OPENCODE_CONFIG_CONTENT="$("$PY" - <<'PYEOF'
-import json, os
-providers = {}
-# Only the repair agent goes through opencode: the wording is a direct call (scripts/enrich.py).
-for model in (os.environ["FIX_MODEL"], os.environ["FIX_FALLBACK_MODEL"]):   # "<provider>/<model id>"
-    provider, _, name = model.partition("/")
-    if name:
-        providers.setdefault(provider, {
-            "npm": "@ai-sdk/openai-compatible", "name": "LLM gateway",
-            "options": {"baseURL": os.environ["ICA_BASE_URL"], "apiKey": "{env:ICA_API_KEY}",
-                        "headerTimeout": 300000, "chunkTimeout": 120000},
-            "models": {}})["models"][name] = {"name": name}
-print(json.dumps({"share": "disabled", "autoupdate": False, "provider": providers}))
-PYEOF
-)"
+    OPENCODE_CONFIG_CONTENT="$("$PY" -c 'import sys; sys.path.insert(0, "scripts"); from lib.agent import opencode_config; print(opencode_config())')"
   fi
 
   # GitHub: where the artifact is published and where fixes are proposed.
@@ -304,4 +290,132 @@ ci_publish() {
   [[ "${RELEASE_KEEP:-0}" -gt 0 ]] && keep=(--keep "$RELEASE_KEEP")
   "$PY" scripts/publish_release.py ${note:+--note "$note"} ${preview[@]+"${preview[@]}"} \
       ${keep[@]+"${keep[@]}"} ${DRY[@]+"${DRY[@]}"}
+}
+
+# --- the self-heal sandbox -------------------------------------------------------------------------
+# The repair agent, and the code it writes while that is tested and rebuilt, work in a copy of this
+# checkout (SANDBOX_DIR), never in it: the pipeline goes on running its own scripts from here, and
+# judges and commits the change in STAGE, a worktree of its own. Where the runner allows it (Linux with
+# passwordless sudo: a GitHub runner) the copy belongs to another user, SANDBOX_USER, and everything in
+# it runs as that user, without any of the pipeline's secrets (scripts/lib/sandbox.py); the gateway key
+# stays with a relay (scripts/key_relay.py). Root only ever reads the copy, never through a link, and
+# whatever goes into it is written by its owner. Elsewhere the copy is this user's and nothing is
+# isolated.
+SANDBOX_NAME="auto-pptx-sandbox"
+SANDBOX_ROOT="/opt/auto-pptx"   # this user's, so the sandbox can neither replace the copy nor touch Bob Shell
+
+# ci_sandbox_start — make the stage, and the sandbox where possible. On GitHub Actions a runner that
+# cannot have one fails it: there the agent never runs without one. Property selfheal-sandbox=off
+# (the tests) leaves it out, and only off GitHub Actions.
+ci_sandbox_start() {
+  local tmp="${TMPDIR:-/tmp}"
+  SANDBOX_BASE="$(mktemp -d "${tmp%/}/auto-pptx-selfheal.XXXXXX")" || return 1
+  STAGE="$SANDBOX_BASE/stage"
+  git worktree add -q --detach "$STAGE" HEAD || return 1
+  if [[ "$(prop selfheal-sandbox auto)" != "off" && "$(uname -s)" == "Linux" ]] && sudo -n true 2>/dev/null; then
+    local home waited=0
+    id -u "$SANDBOX_NAME" >/dev/null 2>&1 || sudo -n useradd --create-home --shell /bin/bash "$SANDBOX_NAME" || return 1
+    home="$(getent passwd "$SANDBOX_NAME" | cut -d: -f6)"
+    chmod 700 "$HOME"   # this checkout, and anything else of this user's, is not the sandbox's to read
+    sudo -n install -d -o "$(id -u)" -g "$(id -g)" -m 755 "$SANDBOX_ROOT" || return 1
+    export SANDBOX_USER="$SANDBOX_NAME" SANDBOX_DIR="$SANDBOX_ROOT/repo"
+    export BOB_SHELL_HOME="$SANDBOX_ROOT/bobshell"   # installed by this user, run by the sandbox's
+    if [[ -d "$HOME/.cache/ms-playwright" ]]; then   # the browser of the fetchers that need one
+      sudo -n mkdir -p "$home/.cache" && sudo -n cp -R "$HOME/.cache/ms-playwright" "$home/.cache/" \
+        && sudo -n chown -R "$SANDBOX_USER:" "$home/.cache"
+    fi
+    export SANDBOX_RELAY_ENV="$SANDBOX_BASE/relay.env"
+    "$PY" scripts/key_relay.py --env-out "$SANDBOX_RELAY_ENV" &
+    SANDBOX_RELAY_PID=$!
+    until [[ -f "$SANDBOX_RELAY_ENV" ]]; do
+      waited=$((waited + 1))
+      if [[ "$waited" -gt 100 ]] || ! kill -0 "$SANDBOX_RELAY_PID" 2>/dev/null; then
+        ci_warn "the key relay did not start"; return 1
+      fi
+      sleep 0.2
+    done
+    ci_log "sandbox: the repair runs as ${SANDBOX_USER} in ${SANDBOX_DIR}, without the pipeline's secrets"
+  else
+    if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+      ci_warn "this runner cannot isolate the repair agent (it needs Linux and passwordless sudo)"; return 1
+    fi
+    export SANDBOX_DIR="$SANDBOX_BASE/repo"
+    ci_warn "no sandbox here: the repair agent and the code it writes run as this user, next to its secrets"
+  fi
+  export STAGE
+}
+
+ci_sandbox_stop() {
+  if [[ -n "${SANDBOX_RELAY_PID:-}" ]]; then kill "$SANDBOX_RELAY_PID" 2>/dev/null || true; fi
+  if [[ -n "${SANDBOX_USER:-}" ]]; then sudo -n pkill -KILL -u "$SANDBOX_USER" 2>/dev/null || true; fi
+  # A rehearsal keeps the stage: the verified change is left there for inspection.
+  if [[ -n "${STAGE:-}" && "${CI_DRY_RUN:-0}" != "1" ]]; then git worktree remove --force "$STAGE" 2>/dev/null || true; fi
+}
+
+# _ci_in_copy <script> [arg...] — run a bash script in the copy, as its owner.
+_ci_in_copy() {
+  local script="$1"; shift
+  if [[ -n "${SANDBOX_USER:-}" ]]; then
+    sudo -n -u "$SANDBOX_USER" /bin/bash -c "cd \"\$0\" && $script" "$SANDBOX_DIR" "$@"
+  else
+    /bin/bash -c "cd \"\$0\" && $script" "$SANDBOX_DIR" "$@"
+  fi
+}
+
+# ci_sandbox_copy_in — make the copy this checkout again: files, history and generated files.
+ci_sandbox_copy_in() {
+  if [[ -n "${SANDBOX_USER:-}" ]]; then
+    sudo -n rm -rf "$SANDBOX_DIR" && sudo -n install -d -o "$SANDBOX_USER" -m 755 "$SANDBOX_DIR" || return 1
+  else
+    rm -rf "$SANDBOX_DIR" && mkdir -p "$SANDBOX_DIR" || return 1
+  fi
+  tar -cf - . | _ci_in_copy 'tar -xf -'
+}
+
+# ci_sandbox_give <file>... — put these files of this checkout into the copy (its owner writes them).
+ci_sandbox_give() {
+  local f
+  for f in "$@"; do
+    if [[ -f "$f" ]]; then _ci_in_copy 'cat > "$1"' "$f" < "$f"; fi
+  done
+}
+
+# ci_sandbox_reset_state — the copy's state/ becomes this checkout's again: a repair never edits the
+# build's inputs.
+ci_sandbox_reset_state() {
+  tar -C state -cf - . | _ci_in_copy 'rm -rf state && mkdir state && tar -C state -xf -'
+}
+
+# ci_sandbox_run <command...> — run a command in the copy, in the sandbox.
+ci_sandbox_run() {
+  "$PY" scripts/run_sandboxed.py --dir "$SANDBOX_DIR" -- "$@"
+}
+
+# ci_sandbox_collect — bring the agent's change into STAGE: the tracked tree and output/fix-summary.md,
+# never .git, generated files or what a link points to; then make all of it this user's.
+ci_sandbox_collect() {
+  local sudo=()
+  if [[ -n "${SANDBOX_USER:-}" ]]; then
+    sudo=(sudo -n)
+    sudo -n pkill -KILL -u "$SANDBOX_USER" 2>/dev/null || true   # nothing changes the copy while it is read
+  fi
+  ${sudo[@]+"${sudo[@]}"} rsync -a --checksum --delete --exclude=.git --exclude=/data/ --exclude=/state/ \
+      --include=/output/ --include=/output/fix-summary.md --exclude='/output/*' \
+      "$SANDBOX_DIR/" "$STAGE/" || return 1
+  if [[ -n "${SANDBOX_USER:-}" ]]; then sudo -n chown -R "$(id -u):$(id -g)" "$STAGE" || return 1; fi
+  chmod -R u+rwX "$STAGE"
+  rm -f output/fix-summary.md
+  if [[ -f "$STAGE/output/fix-summary.md" && ! -L "$STAGE/output/fix-summary.md" ]]; then
+    cp "$STAGE/output/fix-summary.md" output/fix-summary.md
+  fi
+}
+
+# ci_sandbox_take_decks — the decks the proof built, into output/repaired/: kept with the run, for the
+# reviewer of the repair.
+ci_sandbox_take_decks() {
+  local name
+  mkdir -p output/repaired
+  for name in $(_ci_in_copy 'for f in output/*.pptx; do if [[ -f "$f" && ! -L "$f" ]]; then basename "$f"; fi; done'); do
+    _ci_in_copy 'cat "output/$1"' "$name" > "output/repaired/$name"
+  done
 }

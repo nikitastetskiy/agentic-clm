@@ -183,8 +183,9 @@ covers both:
 
 - **Weekly build** — on a schedule: build, verify, publish the deck as a GitHub release
   (`…/releases/latest` always opens this week's deck).
-- **Self-heal** — only when the weekly build fails: a larger model repairs the code, the pipeline
-  proves the repair with the tests and a full rebuild, and proposes it as a pull request.
+- **Self-heal** — only when the weekly build fails: a larger model repairs the code in a sandbox
+  without the pipeline's secrets, the pipeline proves the repair with the tests and a full rebuild,
+  and proposes it as a pull request; merging it publishes the week's deck.
 
 Credentials live in the pipeline's secret store, never in this repository.
 

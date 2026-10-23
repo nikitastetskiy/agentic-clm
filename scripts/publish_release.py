@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib import redact  # noqa: E402
 from lib.common import DATA_DIR, REPO_ROOT, log, read_json  # noqa: E402
 from lib.github import GitHub, GitHubError  # noqa: E402
 
@@ -69,6 +70,13 @@ def main() -> int:
         notes = summary.read_text(encoding="utf-8")
         if args.note:
             notes = f"> {args.note}\n\n{notes}"
+        # A release is read by everyone who can see the repository: nothing that carries a secret's value
+        # is published, inside a deck's compressed parts included.
+        leaked = sorted({name for asset in assets if asset.exists() for name in redact.found_in_file(asset)}
+                        | set(redact.found_in([notes])))
+        if leaked:
+            log(f"ERROR: not published: the release would carry the value of {', '.join(leaked)}")
+            return 1
         sha = subprocess.run(["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
                              capture_output=True, text=True, check=True).stdout.strip()
         tag = f"{TAG_PREFIX}{day}"

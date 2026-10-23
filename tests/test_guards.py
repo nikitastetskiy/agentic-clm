@@ -1,4 +1,5 @@
 """The rules that stand between a model's output and the deck or the repository."""
+import io
 import json
 import os
 import subprocess
@@ -6,6 +7,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
@@ -101,7 +103,10 @@ class FixGuard(unittest.TestCase):
                      "scripts/lib/redact.py", "scripts/scrub_secrets.py",
                      # the reviewer of the repair's own pull request, the key handling, the agents' rules
                      "scripts/review_pr.py", "scripts/lib/gateway.py", "scripts/run_agent.py", "AGENTS.md",
-                     ".github/workflows/pr-review.yml"):
+                     ".github/workflows/pr-review.yml",
+                     # the sandbox the repair runs in, Bob's box, and what is installed on the next runner
+                     "scripts/lib/sandbox.py", "scripts/key_relay.py", "scripts/run_sandboxed.py",
+                     "scripts/lib/bob.py", "requirements.txt"):
             v = check_fix.judge([("M", path)], 3, self.SUMMARY, 600)
             self.assertEqual(v["verdict"], "rejected", path)
 
@@ -314,6 +319,33 @@ class SecretRedaction(unittest.TestCase):
             self.assertEqual([p.name for p in changed], ["agent-attempt-1.log"])
             self.assertEqual((root / "logs" / "agent-attempt-1.log").read_text(encoding="utf-8"),
                              "$ echo $ICA_API_KEY\n[ICA_API_KEY removed]\n")
+
+    def test_a_secret_inside_a_deck_is_found_and_scrubbed(self):
+        # A deck is a ZIP archive with compressed parts: the value is not in the file's own bytes.
+        def deck(slide: str, embedded: bytes | None = None) -> bytes:
+            out = io.BytesIO()
+            with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+                z.writestr("[Content_Types].xml", "<Types/>")
+                z.writestr("ppt/slides/slide1.xml", slide)
+                if embedded is not None:
+                    z.writestr("ppt/embeddings/sheet.xlsx", embedded)
+            return out.getvalue()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "plain.pptx").write_bytes(deck("<p>Vault 2.1</p>"))
+            (root / "leaky.pptx").write_bytes(deck(f"<p>{KEY}</p>"))
+            (root / "nested.pptx").write_bytes(deck("<p>ok</p>", embedded=deck(f"<c>{SECRET_ENV['GIT_TOKEN']}</c>")))
+            self.assertNotIn(KEY.encode(), (root / "leaky.pptx").read_bytes())          # compressed away
+            self.assertEqual(redact.found_in_file(root / "leaky.pptx", SECRET_ENV), ["ICA_API_KEY"])
+            self.assertEqual(redact.found_in_file(root / "nested.pptx", SECRET_ENV), ["GIT_TOKEN"])
+            changed = redact.scrub_tree(root, SECRET_ENV)
+            self.assertEqual(sorted(p.name for p in changed), ["leaky.pptx", "nested.pptx"])
+            for name in ("leaky.pptx", "nested.pptx", "plain.pptx"):
+                self.assertEqual(redact.found_in_file(root / name, SECRET_ENV), [], name)
+            with zipfile.ZipFile(root / "leaky.pptx") as z:
+                self.assertEqual(z.read("ppt/slides/slide1.xml").decode(), "<p>[ICA_API_KEY removed]</p>")
+                self.assertEqual(z.getinfo("ppt/slides/slide1.xml").compress_type, zipfile.ZIP_DEFLATED)
 
     def test_the_scrub_script_reports_names_never_values(self):
         with tempfile.TemporaryDirectory() as tmp:

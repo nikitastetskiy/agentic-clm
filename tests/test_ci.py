@@ -111,6 +111,42 @@ class SelfHealHandOver(unittest.TestCase):
                 self.assertGreaterEqual(rank[granted.get(scope, "none")], rank[level], f"{name}: {scope}")
 
 
+class SelfHealPublishes(unittest.TestCase):
+    """A repair is code nobody has reviewed: what it builds is never published; its merge publishes."""
+
+    def test_a_merged_self_heal_repair_runs_the_weekly_build_from_main(self):
+        weekly = workflow(WEEKLY)
+        self.assertEqual(triggers(weekly)["pull_request_target"], {"types": ["closed"]})
+        condition = " ".join(weekly["jobs"]["build"]["if"].split())
+        for part in ("github.event_name != 'pull_request_target'", "github.event.pull_request.merged",
+                     "startsWith(github.event.pull_request.head.ref, 'selfheal/')",
+                     "github.event.pull_request.head.repo.full_name == github.repository"):
+            self.assertIn(part, condition)
+        # pull_request_target checks out the base branch: main's code, with the key main may use.
+        checkout = weekly["jobs"]["build"]["steps"][0]
+        self.assertNotIn("ref", checkout.get("with", {}))
+
+    def test_the_self_heal_run_publishes_only_a_transient_failure_s_deck(self):
+        script = (helpers.REPO / "ci" / "self-heal.sh").read_text(encoding="utf-8")
+        self.assertEqual(script.count("ci_publish "), 1)
+        self.assertLess(script.index("ci_publish "), script.index("# --- 2. repair"))
+        self.assertIn('BRANCH="selfheal/', script)
+
+    def test_the_agent_and_its_code_run_in_the_copy_and_the_change_is_judged_in_the_stage(self):
+        script = (helpers.REPO / "ci" / "self-heal.sh").read_text(encoding="utf-8")
+        repair = script[script.index("# --- 2. repair"):]
+        self.assertIn('scripts/run_agent.py repo-fixer --dir "$SANDBOX_DIR"', repair)
+        self.assertIn('scripts/check_fix.py --tree "$STAGE"', repair)
+        self.assertIn('ci_sandbox_run "$PY" -m unittest discover -s tests', repair)
+        self.assertIn("ci_sandbox_run env ENRICH=", repair)
+        self.assertIn('git -C "$STAGE" commit', repair)
+        # Nothing in the repair runs from, or writes to, this checkout's tree.
+        for line in repair.splitlines():
+            if line.strip().startswith(("bash build.sh", '"$PY" -m unittest', "git add", "git commit", "git stash")):
+                self.fail(line)
+        self.assertLess(script.index("ci_sandbox_start"), script.index("# --- 2. repair"))
+
+
 class Workflows(unittest.TestCase):
     def test_both_run_the_pipeline_entry_point_in_their_mode(self):
         self.assertEqual(pipeline_step(workflow(WEEKLY))["env"]["PIPELINE_MODE"], "${{ inputs.mode || 'weekly' }}")

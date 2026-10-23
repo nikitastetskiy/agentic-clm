@@ -21,7 +21,9 @@ flowchart TD
       R3 --> R4["4 · prove: tests + full rebuild"]
     end
     R1 -->|passes now: transient| P
-    R4 -->|verified| PR["Push branch · open pull request<br/>publish the deck built from the fix"]
+    R4 -->|verified| PR["Push branch · open pull request"]
+    PR -->|a person merges it| M["Weekly build from main"]
+    M --> P
     R3 -->|rejected| R2
     R4 -->|not verified| I["Open an issue with the evidence"]
 ```
@@ -31,8 +33,8 @@ flowchart TD
 | Starts | on a schedule, once a week | when a weekly run fails (or by hand) |
 | Model | small — `enrich-model`, default `ica-gateway/claude-haiku-5-5`; when it gives no answer, `enrich-fallback-model`, default `ica-gateway/gpt-6-luna` | large — `fix-model`, default `ica-gateway/claude-sonnet-5-5`; when it gives no answer, `fix-fallback-model`, default `ica-gateway/gpt-6.1-sol` |
 | The model's job | word *new* release notes and event abstracts, one line each | find and fix the code that made the build fail |
-| What the model can touch | nothing: it is called directly, text in and JSON out (on a laptop without the gateway key, the `deck-enrich` opencode agent: one JSON file in a scratch directory, no shell, no network) | the checkout, with a shell; not git remotes, not the tokens |
-| Result | a GitHub release with the deck | a pull request with the fix **and** the week's deck — or an issue |
+| What the model can touch | nothing: it is called directly, text in and JSON out (on a laptop without the gateway key, the `deck-enrich` opencode agent: one JSON file in a scratch directory, no shell, no network) | a copy of the checkout, with a shell — on GitHub as another user that holds no secret ([the sandbox](#the-sandbox)); never the checkout the pipeline runs from |
+| Result | a GitHub release with the deck | a pull request with the fix, whose merge publishes the week's deck — or an issue |
 
 ---
 
@@ -246,32 +248,64 @@ would bloat every clone, while release assets sit outside the git history and ca
    `fix-fallback-model` when the first gives no answer at all: the agent ends without writing
    `output/fix-summary.md`, whatever opencode's exit code (opencode can exit 0 when the model was
    refused). opencode itself retries a throttled model (HTTP 429) before it gives up. The pull request
-   names the model that did the work. It gets
-   `output/failure.json` and the logs, may read and edit the checkout, run the tests, the build and
-   the fetchers, and fetch public pages. It may not push, commit, switch branches, use `curl`/`ssh`,
-   read the environment, or install packages — and the GitHub token and webhook secret are removed
-   from its environment before it starts.
-3. **Guard.** `scripts/check_fix.py` applies fixed rules to what actually changed:
+   names the model that did the work. The agent works in a copy of the checkout, in
+   [the sandbox](#the-sandbox): it gets `output/failure.json` and the logs, may read and edit the copy,
+   run the tests, the build and the fetchers, and fetch public pages, and holds no secret of the
+   pipeline's.
+3. **Guard.** The change is brought from the copy into a stage, a worktree of its own, and
+   `scripts/check_fix.py --tree <stage>`, run from the untouched checkout, applies fixed rules to it:
    - rejected: any change to `ci/`, `.github/`, `.pipeline-config*.yaml`, `.opencode/`, `opencode.json`,
-     `AGENTS.md`, `templates/`, the `Dockerfile`, the guard, the publishing scripts, the key handling or
-     the pull request reviewer; a deleted test;
-     more than 600 changed lines;
+     `AGENTS.md`, `templates/`, the `Dockerfile`, `requirements.txt`, the guard, the publishing
+     scripts, the key handling, the sandbox and the key relay, Bob's box, or the pull request
+     reviewer; a symbolic link; a deleted test; more than 600 changed lines;
    - flagged for the reviewer: any change to `scripts/verify_build.py` or `tests/`;
    - discarded: edits to `state/`, `data/`, `output/` — a build cannot be made to pass by editing
      its inputs.
-4. **Prove.** The pipeline itself runs `python -m unittest discover -s tests` and a complete
-   `bash build.sh` with live fetches. The agent's own statement that the fix works is not evidence.
-5. **Propose.** Commit to `selfheal/<timestamp>`, push, open a pull request whose description is the
-   agent's summary plus what the pipeline verified. Publish the deck built from that branch, marked in
-   the release notes as built from an unmerged repair. **The pull request is never merged
-   automatically** — a model wrote the change; a person decides. A pull request opened with the
-   workflow's token starts no workflow, so on GitHub the self-heal workflow's `review` job runs the
-   [review](#the-pull-request-review) on it, from a fresh checkout of `main`: the repair job ran code
-   the agent wrote, so the reviewer does not run in it.
+4. **Prove.** The pipeline runs `python -m unittest discover -s tests` and a complete `bash build.sh`
+   with live fetches on the repaired copy — in the sandbox, because that is code the agent wrote. The
+   agent's own statement that the fix works is not evidence. The decks this rebuild makes are kept
+   with the run (`output/repaired/`), for the reviewer, and published nowhere.
+5. **Propose.** Commit the stage to `selfheal/<timestamp>`, push, open a pull request whose description
+   is the agent's summary plus what the pipeline verified. **The pull request is never merged
+   automatically** — a model wrote the change; a person decides — and nothing built from it is
+   published until then: merging it starts the weekly workflow (`pull_request_target`, closed and
+   merged, from a `selfheal/` branch of this repository), which builds from `main` and publishes the
+   week's deck. A pull request opened with the workflow's token starts no workflow, so on GitHub the
+   self-heal workflow's `review` job runs the [review](#the-pull-request-review) on it, from a fresh
+   checkout of `main`.
 
 A repair that fails step 3 or 4 gets one more round with the evidence (`fix-attempts`). If there is
 still no verified fix — or the agent reports `NO-FIX` because the cause is environmental — the pipeline
-opens an issue with the failure, the log tail and the agent's findings, and exits 70.
+opens an issue with the failure, the log tail and the agent's findings, and exits 70. A runner on
+GitHub that cannot have the sandbox opens an issue instead of repairing (exit 71).
+
+### The sandbox
+
+On a GitHub runner every step runs as one user with passwordless `sudo`: any process could read the
+environment of any other (the gateway key, Bob's key, the job's token) or become root. Removing a
+variable from the agent's environment is therefore no protection, so `ci_sandbox_start`
+(`ci/lib.sh`) and `scripts/lib/sandbox.py` give the repair another user:
+
+- **A user of its own**, `auto-pptx-sandbox`, without `sudo`, who cannot enter the runner's home (the
+  checkout the pipeline runs from, made private for the run). The agent, the tests and the rebuild run
+  as that user in `/opt/auto-pptx/repo`, a copy of the checkout, with an environment from which every
+  variable named like a credential, and the workflow's own files, have been removed. Nothing a step
+  starts there outlives it.
+- **The gateway key stays with a relay** (`scripts/key_relay.py`), a process of the pipeline's on
+  `127.0.0.1`. The sandbox gets the relay's address as `ICA_BASE_URL` and a token made for the run as
+  `ICA_API_KEY`; the relay sends a request carrying the token on with the real key, refuses any other
+  request and any path a model call does not need, and takes the key out of every answer.
+- **Bob's key cannot be relayed** — Bob's firewall lets Bob Shell alone through, and Bob Shell does not
+  work behind a relay — so Bob never gets the tool that runs commands. In a repair it reads and edits
+  the copy, as the sandbox user, alone (every other process of that user is ended first, and every
+  symbolic link in the copy removed), and reads its key from its standard input. The pipeline runs
+  the tests after it.
+- **Root only reads the copy** (`rsync` without following links), into the stage; whatever goes into
+  the copy is written by its owner. The pipeline's own scripts — the guard, the commit, the push, the
+  report — run from the checkout the agent never touched.
+
+Off GitHub (a laptop, SPS) there is no second user: the agent still works in a copy, judged in a stage,
+but runs as the pipeline's user, next to its secrets, and the run says so.
 
 ## The pull request review
 
@@ -318,16 +352,17 @@ no answer, IBM Bob is the last resort for all of them, whenever `BOB_API_KEY` is
 |---|---|---|
 | the wording (`enrich.py`) | words the new items, with the same instructions and wording rules | nothing but answer: ask mode, an empty directory, every tool group off |
 | the review (`review_pr.py`) | writes the review's verdict and findings | the same |
-| the repair (`run_agent.py`) | runs the `repo-fixer` instructions in the checkout | read, edit, and run the commands in `bob.REPAIR_COMMANDS` (Python, the tests, `build.sh`, read-only git, inspection); never `curl`, `env`, `git push`, `pip install` (`bob.DENIED_COMMANDS`) |
+| the repair (`run_agent.py`) | runs the `repo-fixer` instructions in the agent's copy of the checkout | read and edit; never run a command (the pipeline runs the tests after it — see [the sandbox](#the-sandbox)) |
 
 **Through Bob Shell 2, not Bob's API.** Bob's inference API turns other clients away at its firewall
 (Cloudflare answers HTTP 403 before it looks at the key), so `scripts/lib/bob.py` runs `bob run`,
 Bob's official command-line client, headless. It is installed only when a run needs it, the way IBM's
 installer does it: version 2.0.6 from IBM's download bucket, checked against the SHA-256 pinned in
 `lib/bob.py`, installed with npm (the workflows set up Node 22). Each run gets a home of its own with
-auto-update and telemetry off and the tools it may use; in a headless run nothing asks, so a tool or
-command that is not approved is not run. The process gets `BOB_API_KEY` and no other variable named
-like a credential. Bob Shell picks its own model.
+auto-update and telemetry off and the tools it may use; in a headless run nothing asks, so a tool that
+is not approved is not run. The process gets `BOB_API_KEY` and no other variable named like a
+credential; the tool that runs commands is never among its tools, so no command runs next to that
+key. Bob Shell picks its own model.
 
 Bob is an agent even when it should only answer, so a question tells it that it has no tools, and an
 answer that is not the JSON asked for gets one more try. For the wording, the lines the rules reject
@@ -338,7 +373,7 @@ a GitHub-hosted runner, where Bob Shell was installed on demand and Bob's firewa
 wording (12 of 12 lines accepted; 35 s on the runner), the review (each run finding a planted parser
 fault; 7 s on the runner) and the repair agent on that fault (restored with tests added, the tests
 passing; 7.5 minutes and $3.24 on the runner, 2.5 minutes and $0.80 on the laptop; `BOB_MAX_COST_AGENT`
-caps it at $5).
+caps it at $5). That repair still ran the tests itself; since 2026-10-23 Bob reads and edits only.
 
 ---
 
@@ -351,30 +386,26 @@ Nothing secret is in this repository, in the image, or in a log.
 | `ica-api-key` | Secrets Manager → secure property | `ci/lib.sh` → environment → the wording call, the preflight, opencode | calling the models |
 | `git-token` | Secrets Manager → secure property | `ci/lib.sh` → environment → publish / push / PR scripts | release, state commit, repair branch, PR, issue |
 | `selfheal-webhook-*` | Secrets Manager → secure property | `ci/lib.sh` (weekly run only) | starting the self-heal pipeline |
-| `ICA_API_KEY` (GitHub) | Actions secret | the workflow's pipeline step → environment → the wording call, the preflight, opencode | calling the models |
-| `BOB_API_KEY` (GitHub) | Actions secret | the workflows' pipeline and review steps → Bob Shell only (`lib/bob.py`); never the opencode agents | the last resort, when the ICA gateway is down |
+| `ICA_API_KEY` (GitHub) | Actions secret | the workflow's pipeline step → environment → the wording call, the preflight; in self-heal, the key relay alone (the agent gets a stand-in) | calling the models |
+| `BOB_API_KEY` (GitHub) | Actions secret | the workflows' pipeline and review steps → Bob Shell only (`lib/bob.py`); never the opencode agents, never a command | the last resort, when the ICA gateway is down |
 | `GITHUB_TOKEN` (GitHub) | issued per job by GitHub | the workflow's pipeline step, as `GIT_TOKEN` | release, state commit, repair branch, PR, issue |
 
 - **The gateway key** goes in an `Authorization` header only, for the direct calls (the wording, the
-  preflight, the review: `scripts/lib/gateway.py`). For the repair agent it is passed to opencode as an
-  environment variable; the provider settings are
-  given inline (`OPENCODE_CONFIG_CONTENT`) with `{env:ICA_API_KEY}` in place of the key, so the key is
-  in no file and no command line. This was checked against a local stand-in gateway: opencode sends
-  `Authorization: Bearer <value of the variable>`.
+  preflight, the review: `scripts/lib/gateway.py`). The repair agent never sees it: in the sandbox,
+  opencode's provider settings (`OPENCODE_CONFIG_CONTENT`, `lib/agent.opencode_config()`) point at the
+  key relay, with `{env:ICA_API_KEY}` — the relay's stand-in token — in place of the key. opencode
+  sends `Authorization: Bearer <value of the variable>`; the relay puts the real key there.
 - **The GitHub token** needs write access to this repository's contents and pull requests, and
   nothing else — use a token scoped to this one repository. It is sent only in an `Authorization`
   header (`scripts/lib/github.py`); for `git push` it is supplied through `GIT_ASKPASS`
   (`ci/askpass.sh`), so it is never in a URL, in git's config or on a command line.
 - **What the models can see.** The wording model is called directly: it sees the public text it
-  words and nothing else, and has no tools. The repair agent has a shell in
-  the checkout, without the GitHub token and webhook secret — but the gateway key is necessarily in
-  the environment of the process that calls the gateway, and an agent with a shell could read it.
-  Its permissions deny the obvious ways (`env`, `printenv`, `curl`, `wget`, `ssh`), which is a
-  deterrent rather than a sandbox. Use a gateway key issued for this pipeline alone, with a spend
-  limit, and rotate it if a self-heal run ever behaves unexpectedly.
-- Removing the GitHub token from the agent's environment is not a sandbox either: the agent runs as
-  the same user as the pipeline process that holds the token, and could read it from there. That is
-  why the GitHub token should be as narrow as possible. On GitHub Actions it is the job's own
+  words and nothing else, and has no tools. The repair agent has a shell, in [the sandbox](#the-sandbox)
+  on GitHub: another user, a copy of the checkout, no secret, the gateway reached through the relay.
+  It can still spend model time through the relay while the run lasts, which is why the gateway key
+  should still be one issued for this pipeline alone, with a spend limit. Off GitHub there is no second
+  user, and an agent with a shell could read what the pipeline's process holds.
+- **The GitHub token** should be as narrow as possible. On GitHub Actions it is the job's own
   `GITHUB_TOKEN`: this repository only, and only until the job ends. The workflows check the
   repository out with `persist-credentials: false`, so the token is not stored in `.git/config`, and
   they pass secrets only to the repository's own scripts (`ci/run.sh`, `scripts/scrub_secrets.py`,
@@ -385,9 +416,11 @@ Nothing secret is in this repository, in the image, or in a log.
   run — and in self-heal a model with a shell wrote some of those. So the value of every secret the
   run has (gateway key, GitHub token, webhook secret) is replaced by `[<NAME> removed]` in everything
   sent to GitHub (`lib/github.py`), in the agent transcripts (`lib/agent.py`) and in the run's saved
-  files (`scripts/scrub_secrets.py`, a workflow step before the upload); and the guard rejects a
-  repair whose change or summary contains one (`check_fix.py`). The match is verbatim: this stops a
-  pasted key, not one the model encoded first — hence the dedicated key with a spend limit.
+  files (`scripts/scrub_secrets.py`, a workflow step before the upload; a deck is a ZIP archive with
+  compressed parts, so archives are searched and scrubbed part by part); the guard rejects a repair
+  whose change or summary contains one (`check_fix.py`); and a release that would carry one is not
+  published (`publish_release.py`). The match is verbatim: this stops a pasted key, not one the model
+  encoded first — hence the sandbox, and the dedicated key with a spend limit.
 - **Sessions are never shared**: `opencode.json` sets `"share": "disabled"`.
 - SPS masks secure values in logs; the scripts additionally never trace (`set +x`) or echo them.
 
