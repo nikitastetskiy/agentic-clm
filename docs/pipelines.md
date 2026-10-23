@@ -307,6 +307,14 @@ variable from the agent's environment is therefore no protection, so `ci_sandbox
 Off GitHub (a laptop, SPS) there is no second user: the agent still works in a copy, judged in a stage,
 but runs as the pipeline's user, next to its secrets, and the run says so.
 
+Drilled on 2026-10-23 on a GitHub-hosted runner. From inside the sandbox: no `sudo`, no listing of the
+runner's home or the checkout, no Docker, and none of the keys or the token in any of the 142 process
+environments and command lines it could read; its `ICA_API_KEY` was the relay's stand-in, and a model
+call through the relay answered. Chromium, LibreOffice, Bob (reading and editing) and the whole test
+suite ran there. A self-heal rehearsal on a planted fault went end to end: Sonnet 5.5 repaired it in the
+sandbox, the guard accepted the change from the stage, the tests and a live rebuild passed in the
+sandbox, and the repaired deck was kept with the run, published nowhere.
+
 ## The pull request review
 
 `.github/workflows/pr-review.yml` runs `scripts/review_pr.py`. In the hashicorp org `main` only takes a
