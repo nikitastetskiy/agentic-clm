@@ -16,13 +16,15 @@ replaces that with a single deterministic HTTP GET + parse:
 
 Freshness guard (never downgrade the deck): TFE has shipped under two schemes (older calendar
 ``vYYYYMM-N`` and newer semver ``v2.x``). We compare the newest fetched release's DATE against the
-newest TFE entry already on slide 8 of the *original* deck. If the live page is OLDER than the deck
-(e.g. 2025 calendar versions vs the deck's 2026 semver), it is stale: we write ``recent: []`` /
-``latest: null`` / ``status: "stale_source"`` so the build leaves slide 8 unchanged.
+newest TFE entry already on the Terraform Enterprise slide of the source deck — the reference deck in
+the repo root, or the weekly template when there is none (root decks are git-ignored). The slide is
+found by its role, never by its number. If the live page is OLDER than the deck (e.g. 2025 calendar
+versions vs the deck's 2026 semver), it is stale: we write ``recent: []`` / ``latest: null`` /
+``status: "stale_source"`` so the in-place updater leaves the TFE slide unchanged.
 
-The weekly deck additionally gets ``releases``: EVERY release in the history window (with its notes
-grouped by section), independent of the freshness guard — a deck built from scratch has no previous
-slide to protect.
+The weekly deck reads only ``releases``: EVERY release in the history window (with its notes grouped
+by section), independent of the freshness guard — a deck built from scratch has no previous slide to
+protect.
 
 Augments data/releases.json -> ``terraform_enterprise`` in place. Run AFTER fetch_releases.py.
 """
@@ -31,10 +33,13 @@ from __future__ import annotations
 import json
 import re
 import sys
+import zipfile
 from pathlib import Path
+from xml.dom import minidom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import htmldoc  # noqa: E402
+from lib import deck, htmldoc  # noqa: E402
+from lib import pptx_edit as px  # noqa: E402
 from lib.common import DATA_DIR, REPO_ROOT, http_get, load_config, log, window_start  # noqa: E402
 
 RELEASES_JSON = DATA_DIR / "releases.json"
@@ -56,6 +61,8 @@ VER_DATE_RE = re.compile(r"(\d+\.\d+\.\d+)\s+(\d{4}-\d{2}-\d{2})")
 _TAG_RE = re.compile(r"<[^>]+>")
 _SCRIPT_RE = re.compile(r"(?is)<(script|style)\b.*?</\1>")
 RELEASES_BASE = "https://developer.hashicorp.com/terraform/enterprise/releases"
+SLIDE_PART_RE = re.compile(r"ppt/slides/slide\d+\.xml")
+DECK_ENTRY_RE = re.compile(r"Terraform Enterprise v[\w.\-]+ \((\d{4}-\d{2}-\d{2})\)")
 
 # One-line highlight: the first sentence of the highest-PRIORITY release-notes section. Caveat
 # sections ("Known Issues", "Deprecations") are intentionally excluded as a slide headline.
@@ -193,30 +200,46 @@ def parse_release_rows(html: str) -> list[dict]:
     return rows
 
 
-def deck_latest_tfe_date(original_pptx: Path) -> str | None:
-    """Max release date among slide-8's ``Terraform Enterprise vX (YYYY-MM-DD)`` entries."""
-    if not original_pptx or not original_pptx.exists():
+def tfe_slide_rule() -> dict:
+    """The Terraform Enterprise slide's entry in config/deck.yaml: its role, and the `detect` pattern
+    that finds it in a reference deck that carries no role stamps."""
+    return next(rule for rule in load_config("deck.yaml")["slides"]
+                if (rule.get("source") or {}).get("product") == "terraform-enterprise")
+
+
+def deck_latest_tfe_date(pptx: Path | None) -> str | None:
+    """Max release date among the ``Terraform Enterprise vX (YYYY-MM-DD)`` entries of the deck's TFE
+    slide: the slide stamped with its role (the template) or, in a reference deck without stamps, the
+    slide config/deck.yaml's `detect` matches — never a slide number, which a reordered deck moves."""
+    if not pptx or not pptx.exists():
         return None
     try:
-        import shutil
-        import subprocess
-        import tempfile
-        unpack = REPO_ROOT / ".github/skills/pptx/scripts/office/unpack.py"
-        tmp = Path(tempfile.mkdtemp(prefix="tfe-deck-"))
-        try:
-            subprocess.run([sys.executable, str(unpack), str(original_pptx), str(tmp)],
-                           check=True, capture_output=True)
-            slide8 = tmp / "ppt" / "slides" / "slide8.xml"
-            if not slide8.exists():
-                return None
-            text = slide8.read_text(encoding="utf-8")
-            dates = re.findall(r"Terraform Enterprise v[\w.\-]+ \((\d{4}-\d{2}-\d{2})\)", text)
-            return max(dates) if dates else None
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        rule = tfe_slide_rule()
+        with zipfile.ZipFile(pptx) as zf:
+            slides = [minidom.parseString(zf.read(name)) for name in zf.namelist()
+                      if SLIDE_PART_RE.fullmatch(name)]
     except Exception as exc:  # noqa: BLE001 — guard is best-effort; absence just disables it
-        log(f"  could not read deck TFE date ({exc}); freshness guard relaxed")
+        log(f"  could not read the TFE slide of {pptx.name} ({exc}); freshness guard relaxed")
         return None
+    stamp = deck.ROLE_PREFIX + rule["role"]
+    detect = re.compile(rule["detect"], re.I)
+    stamped = [s for s in slides
+               if any(c.getAttribute("name") == stamp for c in s.getElementsByTagName("p:cSld"))]
+    titled = [s for s in slides
+              if any(detect.search(" ".join(px.shape_text(sp).split())) for sp in s.getElementsByTagName("p:sp"))]
+    # Read per paragraph, so an entry whose version is a run of its own (a hyperlink) still matches.
+    dates = [d for s in (stamped or titled) for p in s.getElementsByTagName("a:p")
+             for d in DECK_ENTRY_RE.findall(px.shape_text(p))]
+    return max(dates) if dates else None
+
+
+def source_deck(root: Path = REPO_ROOT) -> Path:
+    """The deck the guard protects: the reference deck in the repo root (what the in-place updater
+    edits) or, without one — root decks are git-ignored, so a pipeline checkout has none — the weekly
+    template, which carries the TFE entries of the deck it was cut from."""
+    for p in sorted(root.glob("*.pptx")):
+        return p
+    return root / load_config("deck.yaml")["deck"]["template"]
 
 
 def main() -> int:
@@ -291,17 +314,18 @@ def main() -> int:
     te["releases"] = [r for r in rows if r.get("scheme") == "semver" and r["date"] >= since]
     log(f"  {len(te['releases'])} TFE release(s) in the history window (since {since})")
 
-    # Freshness guard: never downgrade slide 8 to an older source scheme/date.
-    deck_date = deck_latest_tfe_date(_original_pptx())
+    # Freshness guard: never downgrade the TFE slide to an older source scheme/date.
+    source = source_deck()
+    deck_date = deck_latest_tfe_date(source)
     fetched_latest = rows[0]
     if deck_date and fetched_latest["date"] <= deck_date:
         log(f"  STALE: newest fetched {fetched_latest['version']} ({fetched_latest['date']}) "
-            f"<= deck's slide-8 latest ({deck_date}); leaving slide 8 unchanged")
+            f"<= the TFE slide's latest in {source.name} ({deck_date}); leaving the TFE slide unchanged")
         te["recent"] = []
         te["latest"] = None
         te["status"] = "stale_source"
         te["note"] = (f"Live releases page is older than the deck ({fetched_latest['date']} <= "
-                      f"{deck_date}); slide 8 left unchanged (never downgrade).")
+                      f"{deck_date}); the TFE slide left unchanged (never downgrade).")
         _write(data)
         return 0
 
@@ -313,13 +337,6 @@ def main() -> int:
     log(f"  TFE latest: v{recent[0]['version']} ({recent[0]['date']})")
     _write(data)
     return 0
-
-
-def _original_pptx() -> Path | None:
-    """The read-only source deck at the repo root (first *.pptx that isn't an output copy)."""
-    for p in sorted(REPO_ROOT.glob("*.pptx")):
-        return p
-    return None
 
 
 def _write(data: dict) -> None:
