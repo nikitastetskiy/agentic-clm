@@ -123,6 +123,21 @@ class ReleaseColumns(unittest.TestCase):
         self.assertEqual(entry["options"], [["Bug fixes and security patches"]])
         self.assertEqual(august["entries"][0]["options"], [["Bug fixes and improvements"]])   # LTS only
 
+    def test_the_tfe_freshness_guard_never_changes_the_weekly_slide(self):
+        # fetch_tfe_releases.py empties `recent` and `latest` when the live page is not newer than the
+        # source deck; the weekly slide is planned from `releases` alone, so it stays the same
+        rule = {"role": "tfe", "kind": "columns", "source": {"type": "releases", "product": "terraform-enterprise"},
+                "style": {"heading_prefix": "Terraform Enterprise "}}
+        rels = [release("2.0.8", "2026-09-23", sections=FIXES), release("2.0.7", "2026-09-18", sections=MINOR)]
+
+        def plan(node):
+            return planner(slides=[rule], releases={"products": {}, "terraform_enterprise": node}).build()["slides"][0]
+
+        fresh = plan({"releases": rels, "recent": rels, "latest": rels[0], "status": "ok"})
+        stale = plan({"releases": rels, "recent": [], "latest": None, "status": "stale_source"})
+        self.assertTrue(fresh["columns"])
+        self.assertEqual(stale, fresh)
+
     def test_missing_release_data_fails_the_plan(self):
         p = planner(slides=[TF_RULE])
         self.assertEqual(p.build()["build"]["status"], "failed")

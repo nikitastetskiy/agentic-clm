@@ -2,6 +2,7 @@
 import json
 import tempfile
 import unittest
+import zipfile
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
@@ -64,6 +65,58 @@ class TerraformEnterpriseSeries(unittest.TestCase):
 
     def test_a_version_in_a_table_is_not_a_release(self):
         self.assertNotIn("14.4.0", fetch_tfe_releases.parse_series_sections(self.page))
+
+
+def slide_xml(*shapes, role=None) -> str:
+    """A slide with one shape per argument; a shape is a list of paragraphs, a paragraph a string or a
+    list of runs."""
+    name = f' name="auto-pptx:{role}"' if role else ""
+    body = "".join(
+        "<p:sp><p:txBody>" + "".join(
+            "<a:p>" + "".join(f"<a:r><a:t>{run}</a:t></a:r>" for run in ([p] if isinstance(p, str) else p))
+            + "</a:p>" for p in paras) + "</p:txBody></p:sp>" for paras in shapes)
+    return ('<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+            'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
+            f"<p:cSld{name}><p:spTree>{body}</p:spTree></p:cSld></p:sld>")
+
+
+class TerraformEnterpriseFreshness(unittest.TestCase):
+    """The guard compares the live page with the TFE slide of the source deck (fetch_tfe_releases.py)."""
+    TFE_SLIDE = (["Terraform Enterprise Upgrades"],
+                 [["Terraform Enterprise ", "v2.0.8", " (2026-09-23)"], "Terraform Enterprise v2.0.7 (2026-09-18)"])
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tmp = Path(tmp.name)
+
+    def deck(self, slides: dict[int, str]) -> Path:
+        path = self.tmp / "Reference deck.pptx"
+        with zipfile.ZipFile(path, "w") as zf:
+            for n, xml in slides.items():
+                zf.writestr(f"ppt/slides/slide{n}.xml", xml)
+        return path
+
+    def test_the_slide_is_found_by_its_role_not_its_number(self):
+        deck = self.deck({3: slide_xml(*self.TFE_SLIDE, role="terraform-enterprise-releases"),
+                          8: slide_xml(["Terraform Core Releases"], ["Terraform v1.15.0 (2026-10-01)"],
+                                       role="terraform-core-releases")})
+        self.assertEqual(fetch_tfe_releases.deck_latest_tfe_date(deck), "2026-09-23")
+
+    def test_a_reference_deck_without_stamps_is_read_by_the_slide_s_title(self):
+        deck = self.deck({2: slide_xml(["Agenda"], ["Terraform Enterprise Upgrades"]),   # names it, no entries
+                          8: slide_xml(["Terraform Core Releases"]),
+                          9: slide_xml(*self.TFE_SLIDE)})
+        self.assertEqual(fetch_tfe_releases.deck_latest_tfe_date(deck), "2026-09-23")
+
+    def test_without_a_root_deck_the_template_is_the_source(self):
+        template = self.tmp / "templates" / "cadence-template.pptx"
+        self.assertEqual(fetch_tfe_releases.source_deck(self.tmp), template)
+        deck = self.deck({9: slide_xml(*self.TFE_SLIDE)})
+        self.assertEqual(fetch_tfe_releases.source_deck(self.tmp), deck)
+        # The real template carries the entries, so the guard works in a pipeline checkout too.
+        real = fetch_tfe_releases.deck_latest_tfe_date(helpers.REPO / "templates" / "cadence-template.pptx")
+        self.assertRegex(real or "", r"^\d{4}-\d{2}-\d{2}$")
 
 
 class HcpChangelogs(unittest.TestCase):
