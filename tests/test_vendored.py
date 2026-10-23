@@ -2,7 +2,10 @@
 import contextlib
 import importlib.util
 import io
+import os
 import re
+import shutil
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -108,6 +111,39 @@ class Packing(unittest.TestCase):
         code = [*helpers.SCRIPTS.rglob("*.py"), *helpers.REPO.glob("*.sh"), *helpers.REPO.glob("ci/*.sh")]
         callers = {str(f.relative_to(helpers.REPO)) for f in code if "office/pack.py" in f.read_text(encoding="utf-8")}
         self.assertEqual(callers, {"scripts/lib/pptx_edit.py"})
+
+
+class WeeklyBuildCheck(unittest.TestCase):
+    """build.sh, which both pipelines run, uses the skill's scripts; it checks the skill while it
+    fetches, and an update upstream never fails the build. Every python call goes to a stand-in."""
+    CHECK = ".github/skills/skill-updater/scripts/check_updates.py --check"
+
+    def build(self, **env: str) -> tuple[int, list[str]]:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        shutil.copy(helpers.REPO / "build.sh", root / "build.sh")
+        python = root / "python"
+        python.write_text('#!/bin/sh\necho "$*" >> "$CALLS"\n'
+                          'case "$*" in *check_updates.py*) exit 10 ;; esac\n', encoding="utf-8")
+        python.chmod(0o755)
+        calls = root / "calls"
+        proc = subprocess.run(["bash", str(root / "build.sh")], capture_output=True, text=True, timeout=60,
+                              env={**os.environ, "PYTHON": str(python), "CALLS": str(calls), "SKIP_FETCH": "0",
+                                   "ENRICH": "0", "STRICT": "0", **env})
+        return proc.returncode, calls.read_text(encoding="utf-8").splitlines()
+
+    def test_the_skill_is_checked_while_fetching_and_an_update_does_not_fail_the_build(self):
+        rc, calls = self.build()
+        self.assertEqual(rc, 0)
+        self.assertIn(self.CHECK, calls)
+        self.assertLess(calls.index(self.CHECK), calls.index("scripts/build_deck.py"))
+
+    def test_an_offline_rebuild_does_not_check(self):
+        rc, calls = self.build(SKIP_FETCH="1")
+        self.assertEqual(rc, 0)
+        self.assertNotIn(self.CHECK, calls)
+        self.assertIn("scripts/build_deck.py", calls)
 
 
 if __name__ == "__main__":

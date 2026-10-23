@@ -4,6 +4,7 @@
 #
 #   1. fetch    deterministic Python: releases (+changelogs, TFE, Vault release notes), HCP
 #               changelogs, blogs, events                                       -> data/*.json
+#               (+ an advisory check that the vendored pptx skill matches its upstream)
 #   2. plan     data + stored wording -> what every slide will say              -> data/deck-plan.json
 #   3. enrich   OPTIONAL: an LLM agent words items nobody has worded yet, once  -> state/enrichment.json
 #               (then the plan is recomputed). Never fails a build.
@@ -78,12 +79,18 @@ if [[ "${SKIP_FETCH:-0}" != "1" ]]; then
   "$PY" scripts/fetch_hcp_changelogs.py > output/fetch-changelogs.log 2>&1 & pid_log=$!
   "$PY" scripts/fetch_blogs.py          > output/fetch-blogs.log      2>&1 & pid_blog=$!
   "$PY" scripts/fetch_events.py         > output/fetch-events.log     2>&1 & pid_evt=$!
-  rc_rel=0; rc_log=0; rc_blog=0; rc_evt=0
+  # Advisory only: is the vendored pptx skill (whose unpack / pack / clean / add_slide scripts the
+  # build and the gate run) behind its upstream? .github/skills/skill-updater; never fails the build.
+  "$PY" .github/skills/skill-updater/scripts/check_updates.py --check > output/skills-check.log 2>&1 & pid_skill=$!
+  rc_rel=0; rc_log=0; rc_blog=0; rc_evt=0; rc_skill=0
   wait "$pid_rel"  || rc_rel=$?
   wait "$pid_log"  || rc_log=$?
   wait "$pid_blog" || rc_blog=$?
   wait "$pid_evt"  || rc_evt=$?
-  cat output/fetch-releases.log output/fetch-changelogs.log output/fetch-blogs.log output/fetch-events.log | tee -a "$LOG"
+  wait "$pid_skill" || rc_skill=$?
+  cat output/fetch-releases.log output/fetch-changelogs.log output/fetch-blogs.log output/fetch-events.log \
+      output/skills-check.log | tee -a "$LOG"
+  [[ "$rc_skill" -ne 0 ]] && warn "skill check exited ${rc_skill} (10 = update available); building with the pinned pptx skill"
   [[ "$rc_rel"  -ne 0 ]] && die fetch-releases   10 output/fetch-releases.log
   [[ "$rc_log"  -ne 0 ]] && die fetch-changelogs 10 output/fetch-changelogs.log
   [[ "$rc_blog" -ne 0 ]] && die fetch-blogs      10 output/fetch-blogs.log

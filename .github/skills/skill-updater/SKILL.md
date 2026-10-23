@@ -16,8 +16,10 @@ and, depending on `update_policy`, notifies or re-vendors.
 
 ## When to run
 
-- **Before every pipeline run**, as the first step (so the deck is always edited with a known-good
-  pptx skill). `run.sh` calls `scripts/check_updates.py` automatically.
+- **On every build that fetches**, so a drift is reported before the deck is made with the pptx skill.
+  The weekly build (`build.sh`, which both pipelines run) checks during its fetch step, alongside the
+  fetchers: its build and gate steps run the skill's unpack / pack / clean / add_slide scripts. An
+  offline rebuild (`SKIP_FETCH=1`, `make deck`) skips it. The legacy `run.sh` checks first (Phase 0).
 - On demand: "check skills", "update the pptx skill", "pin skills to latest".
 
 ## Usage

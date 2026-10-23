@@ -93,6 +93,8 @@ flowchart LR
 
 1. **Fetch** (`scripts/fetch_*.py`) — plain HTTP and one headless browser. Each release slide needs
    three months of history, so the fetchers page back through it rather than keep it from an old deck.
+   Alongside, an advisory check reports whether the vendored pptx skill, whose scripts unpack and
+   pack the deck, is behind its upstream (`.github/skills/skill-updater`); it never fails the build.
 2. **Plan** (`scripts/plan_deck.py`) — turns the data into exactly what every slide will say. One
    JSON file; a pure function of the data, the stored wording and the config.
 3. **Enrich** (`scripts/enrich.py`, optional) — for an item nobody has worded yet, a small model
