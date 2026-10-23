@@ -2,6 +2,7 @@
 import contextlib
 import importlib.util
 import io
+import re
 import tarfile
 import tempfile
 import unittest
@@ -10,7 +11,10 @@ from unittest import mock
 
 import helpers
 
+from lib import pptx_edit as px
+
 SKILLS = helpers.REPO / ".github" / "skills"
+TEMPLATE = helpers.REPO / "templates" / "cadence-template.pptx"
 
 
 def _load(name: str, path: Path):
@@ -69,6 +73,41 @@ class Revendor(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.revendor({})
         self.assertEqual((self.read("LICENSE.txt"), self.read("scripts/gone.py")), (self.OURS, "old"))
+
+
+class Packing(unittest.TestCase):
+    """pack.py validates only when it is given an original; ours always gives it one (lib/pptx_edit.py)."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tmp = Path(tmp.name)
+        self.out = self.tmp / "deck.pptx"
+
+    def test_a_broken_deck_is_not_written(self):
+        unpacked = self.tmp / "unpacked"
+        px.unpack(TEMPLATE, unpacked)
+        slide = unpacked / helpers.slide_member(TEMPLATE, "terraform-enterprise-releases")
+        xml = slide.read_text(encoding="utf-8")
+        broken = re.sub(r'r:id="rId\d+"', 'r:id="rId999"', xml, count=1)   # a link to no relationship
+        self.assertNotEqual(broken, xml)
+        slide.write_text(broken, encoding="utf-8")
+        packed = px.pack(unpacked, self.out, original=TEMPLATE)
+        self.assertNotEqual(packed.returncode, 0)
+        self.assertIn("rId999", packed.stdout)
+        self.assertFalse(self.out.exists())
+
+    def test_a_pack_must_name_an_original_that_exists(self):
+        with self.assertRaises(TypeError):
+            px.pack(self.tmp, self.out)
+        with self.assertRaises(FileNotFoundError):
+            px.pack(self.tmp, self.out, original=self.tmp / "missing.pptx")
+        self.assertFalse(self.out.exists())
+
+    def test_only_that_wrapper_runs_the_vendored_pack_script(self):
+        code = [*helpers.SCRIPTS.rglob("*.py"), *helpers.REPO.glob("*.sh"), *helpers.REPO.glob("ci/*.sh")]
+        callers = {str(f.relative_to(helpers.REPO)) for f in code if "office/pack.py" in f.read_text(encoding="utf-8")}
+        self.assertEqual(callers, {"scripts/lib/pptx_edit.py"})
 
 
 if __name__ == "__main__":

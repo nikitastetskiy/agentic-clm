@@ -49,3 +49,11 @@ otherwise falls back to unauthenticated GitHub REST API.
 3. Treat the vendored pptx skill `LICENSE.txt` as authoritative; preserve it on re-vendor
    (`--update` keeps it, and says so when upstream's copy differs or is missing).
 4. If upstream is unreachable, proceed with the pinned version and warn (do not fail the run).
+
+## Vendored files stay as upstream ships them
+
+`--check` compares upstream commit SHAs only, so a local edit to a vendored file goes unnoticed, and
+`--update` replaces the whole tree (keeping only `LICENSE.txt`), so the edit would be lost. Work
+around upstream behaviour in our own code instead. Example: `scripts/office/pack.py` validates only
+when it is given `--original`, so every pack goes through `pack()` in `scripts/lib/pptx_edit.py`,
+which requires one.
