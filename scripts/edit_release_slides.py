@@ -44,10 +44,9 @@ from xml.dom import minidom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.common import DATA_DIR, REPO_ROOT, load_config, log  # noqa: E402
-from lib.pptx_edit import prune_orphan_hyperlinks  # noqa: E402
+from lib.pptx_edit import pack, prune_orphan_hyperlinks  # noqa: E402
 
 UNPACK = REPO_ROOT / ".github/skills/pptx/scripts/office/unpack.py"
-PACK = REPO_ROOT / ".github/skills/pptx/scripts/office/pack.py"
 EMU = 914400
 COL_BOUNDS = [(0.0, 2.0), (2.0, 5.0), (5.0, 12.0)]  # x-buckets for the 3 columns
 HEADER_Y_MAX = 1.5
@@ -639,9 +638,7 @@ def main() -> int:
         subprocess.run([sys.executable, str(UNPACK), str(deck), str(tmp)], check=True, capture_output=True)
         report = edit_unpacked(tmp, slide_map, rel_index)
         if report["any_change"] and not args.dry_run:
-            out = subprocess.run(
-                [sys.executable, str(PACK), str(tmp), str(deck), "--validate", "true"],
-                capture_output=True, text=True)
+            out = pack(tmp, deck, original=deck)   # validated before the deck is overwritten
             if out.returncode != 0:
                 log(f"pack failed: {out.stderr[-500:]}")
                 return 2

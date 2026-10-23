@@ -207,7 +207,7 @@ def main() -> int:
                 report["slides"][str(n)] = srep
                 report["any_change"] = report["any_change"] or srep["changed"]
         if report["any_change"] and not args.dry_run:
-            out = px.pack(tmp, deck)
+            out = px.pack(tmp, deck, original=deck)   # validated before the deck is overwritten
             if out.returncode != 0:
                 log(f"pack failed: {out.stderr[-500:]}")
                 return 2

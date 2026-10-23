@@ -1220,7 +1220,7 @@ def main() -> int:
                         sf, rf, ev, root=tmp, city_photo=city_photo, slide_n=n, image_source=img_src)
                     report["any_change"] = True
         if report["any_change"] and not args.dry_run:
-            out = px.pack(tmp, deck)
+            out = px.pack(tmp, deck, original=deck)   # validated before the deck is overwritten
             if out.returncode != 0:
                 log(f"pack failed: {out.stderr[-600:]}")
                 return 2
