@@ -244,7 +244,8 @@ class CopyAndStage(unittest.TestCase):
     what crosses between them."""
 
     def sh(self, script: str) -> subprocess.CompletedProcess:
-        env = {k: v for k, v in os.environ.items() if k not in SECRETS and k != "GITHUB_ACTIONS"}
+        # Not the run's own settings either: inside a self-heal rehearsal CI_DRY_RUN=1 keeps the stage.
+        env = {k: v for k, v in os.environ.items() if k not in SECRETS and k not in ("GITHUB_ACTIONS", "CI_DRY_RUN")}
         env.update(SELFHEAL_SANDBOX="off", PY=sys.executable)
         return subprocess.run(["bash", "-c", f'set -uo pipefail; source "{helpers.REPO}/ci/lib.sh"; PY="$PY"; {script}'],
                               cwd=self.tree, capture_output=True, text=True, env=env)
