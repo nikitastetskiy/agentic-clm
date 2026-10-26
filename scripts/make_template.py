@@ -14,7 +14,7 @@ What it does:
   3. removes layouts and media nothing uses any more, re-encodes oversized pictures (the reference
      deck carries 4K artwork for a 10-inch slide), drops embedded fonts whose data is another font
      than their name (lib/fonts.py: the reference deck embeds Calibri as "Inter Light" and "Inter
-     Black"), and drops the source deck's author / slide-title metadata;
+     Black"), and drops the source deck's author / slide-title metadata and its comment authors;
   4. seeds state/ from what the reference deck currently shows, so curated wording carries over:
      blog history (state/blogs.json) and the highlights and event descriptions a person already
      wrote (state/enrichment.json). Existing state entries are kept unless --reseed is given.
@@ -106,6 +106,9 @@ def prune_layouts(unpacked: Path, kept: list[Path]) -> int:
         master.write_text(dom.toxml(), encoding="utf-8")
     drop_missing_overrides(unpacked)
     return removed
+
+
+PEOPLE_PARTS = ("ppt/authors.xml", "ppt/commentAuthors.xml")
 
 
 def drop_part(unpacked: Path, part: str, owner_rels: Path) -> None:
@@ -321,7 +324,9 @@ def main() -> int:
         deck.set_slide_order(tmp, kept)
         deck.clean(tmp)
         layouts = prune_layouts(tmp, kept)
-        drop_part(tmp, "ppt/revisionInfo.xml", tmp / "ppt" / "_rels" / "presentation.xml.rels")
+        # revision history, and who commented on the reference deck (names, work emails, account ids)
+        for part in ("ppt/revisionInfo.xml", *PEOPLE_PARTS):
+            drop_part(tmp, part, tmp / "ppt" / "_rels" / "presentation.xml.rels")
         deck.clean(tmp)
         drop_missing_overrides(tmp)
         broken_fonts = fonts.drop_mismatched(tmp)

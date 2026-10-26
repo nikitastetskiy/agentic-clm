@@ -154,6 +154,15 @@ class WeeklyBuild(unittest.TestCase):
         deck = self.damaged("colour", "hcp-vault-changelog", lambda x: x.replace('val="F9B373"', 'val="FF00AA"', 1))
         self.assertEqual(self.failed(self.verify(deck)), {"formatting"})
 
+    def test_gate_catches_comment_authors(self):
+        deck = self.tmp / "authors.pptx"
+        with zipfile.ZipFile(self.deck) as src, zipfile.ZipFile(deck, "w", zipfile.ZIP_DEFLATED) as out:
+            for info in src.infolist():
+                out.writestr(info, src.read(info))
+            out.writestr("ppt/authors.xml", '<p188:authorLst xmlns:p188="http://schemas.microsoft.com/office/'
+                                            'powerpoint/2018/8/main"><p188:author name="A Person"/></p188:authorLst>')
+        self.assertEqual(self.failed(self.verify(deck)), {"disclosure"})
+
     def test_gate_catches_literal_bold_markup(self):
         deck = self.damaged("markup", "vault-enterprise-releases",
                             lambda x: x.replace("Bug fixes and security patches", "Bug fixes and **security** patches", 1))

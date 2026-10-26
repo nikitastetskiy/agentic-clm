@@ -316,7 +316,10 @@ def check_formatting(c: Check, slides: list[Path], template: Path, unpacked: Pat
                    f"fonts {sorted(new_fonts)}")
 
 
-def check_disclosure(c: Check, slides: list[Path], data: dict) -> None:
+def check_disclosure(c: Check, slides: list[Path], data: dict, unpacked: Path) -> None:
+    for part in ("ppt/authors.xml", "ppt/commentAuthors.xml", "ppt/comments"):
+        if (unpacked / part).exists():
+            c.fail(f"{part}: the deck carries the people who commented on the reference deck")
     public = {x.upper() for x in CVE_RE.findall(json.dumps(data["releases"]) + json.dumps(data["changelogs"]))}
     for slide in slides:
         cited = {x.upper() for x in CVE_RE.findall(slide_text(minidom.parse(str(slide))))}
@@ -390,7 +393,7 @@ def main() -> int:
                          slide_cx, slide_cy)
             check_links(checks["links"], ordered)
             check_formatting(checks["formatting"], ordered, REPO_ROOT / cfg["deck"]["template"], tmp)
-            check_disclosure(checks["disclosure"], ordered, data)
+            check_disclosure(checks["disclosure"], ordered, data, tmp)
         month = f"{MONTH_NAMES[int(build_date[5:7]) - 1]} {build_date[:4]}"
         if not any(sp["kind"] == "cover" for sp in plan["slides"]):
             checks["freshness"].info.append(f"no cover slide in this deck (build month {month})")
