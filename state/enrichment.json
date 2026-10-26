@@ -95,7 +95,7 @@
   "highlights": {
     "hcp-terraform/2026-08-06": {
       "bullets": [
-        "HCP Terraform now sends notification emails when API tokens are nearing expiration (30 days and 7 days."
+        "HCP Terraform now sends notification emails when API tokens are nearing expiration (30 days and 7 days)."
       ],
       "source": "reference-deck"
     },

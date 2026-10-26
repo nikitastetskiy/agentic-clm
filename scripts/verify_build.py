@@ -307,6 +307,8 @@ def check_formatting(c: Check, slides: list[Path], template: Path, unpacked: Pat
                 known_fonts |= set(re.findall(r'typeface="([^"]+)"', text))
     for slide in slides:
         text = slide.read_text(encoding="utf-8")
+        if "**" in slide_text(minidom.parseString(text)):
+            c.fail(f"{slide.name}: shows a literal '**' (bold markup that never became bold)")
         new_hex = {h.upper() for h in re.findall(r'srgbClr val="([0-9A-Fa-f]{6})"', text)} - known_hex
         new_fonts = set(re.findall(r'typeface="([^"]+)"', text)) - known_fonts
         if new_hex or new_fonts:

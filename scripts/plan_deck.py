@@ -283,7 +283,8 @@ class Planner:
             language = "us"
         return {"date": ev["date"], "date_label": f"{d.strftime('%b').upper()} {d.day}, {d.year}",
                 "kind": kind, "title": ev["title"], "url": ev["url"],
-                "description_options": [" ".join(o.split()) for o in options],
+                # a card's description is plain text: stored wording may mark bold, which it cannot show
+                "description_options": [" ".join(o.replace("**", "").split()) for o in options],
                 "products": [p for p in DECK_PRODUCTS if p in (ev.get("products") or [])],
                 "language": language}
 

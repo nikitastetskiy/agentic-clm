@@ -154,6 +154,11 @@ class WeeklyBuild(unittest.TestCase):
         deck = self.damaged("colour", "hcp-vault-changelog", lambda x: x.replace('val="F9B373"', 'val="FF00AA"', 1))
         self.assertEqual(self.failed(self.verify(deck)), {"formatting"})
 
+    def test_gate_catches_literal_bold_markup(self):
+        deck = self.damaged("markup", "vault-enterprise-releases",
+                            lambda x: x.replace("Bug fixes and security patches", "Bug fixes and **security** patches", 1))
+        self.assertIn("formatting", self.failed(self.verify(deck)))
+
     def test_gate_catches_a_font_embedded_under_another_name(self):
         # The reference deck's fault: PowerPoint draws "Inter Medium" text with this data when the
         # typeface is not installed, so it must be Inter Medium — here it is made plain Inter.
