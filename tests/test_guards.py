@@ -1,4 +1,5 @@
 """The rules that stand between a model's output and the deck or the repository."""
+import base64
 import io
 import json
 import os
@@ -15,6 +16,7 @@ from unittest import mock
 import helpers  # noqa: F401
 
 import check_fix
+import check_run_exposure
 import enrich
 from lib import agent, github, redact, state
 
@@ -314,6 +316,26 @@ class SecretRedaction(unittest.TestCase):
         env = {"GIT_TOKEN": "dry-run"}            # the dry run's stand-in token
         self.assertEqual(redact.scrub("a dry-run of the build", env), "a dry-run of the build")
         self.assertEqual(redact.found_in(["dry-run"], env), [])
+
+    def test_the_after_run_check_finds_a_token_however_the_run_shows_it(self):
+        key = "sk-Q7wE9rT2yU4iO6pA8sD0fG"   # shaped like a gateway key, so tests/ makes it a known fake
+        secret, fakes = check_run_exposure.needles({"ICA_API_KEY": key}), check_run_exposure.fakes()
+        logs = {
+            "cut in two": (f"answer: {key[:13]}\n{key[13:]}", ["logs, line 1: ICA_API_KEY"]),
+            "in base64": ("auth " + base64.b64encode(f"user:{key}".encode()).decode(), ["logs, line 1: ICA_API_KEY (base64)"]),
+            "not ours": ("ok\ntoken ghp_" + "aB3dE5gH7jK9mN1pQ3sT5vX7zA9cE1gI3kM5", ["logs, line 2: a GitHub token"]),
+            "masked, or a fake": ("ICA_API_KEY: ***\nusing sk-current-0123456789abcdWXYZ", []),
+        }
+        for case, (log, finds) in logs.items():
+            with self.subTest(case):
+                self.assertEqual(check_run_exposure.scan("logs", log.encode(), secret, fakes), finds)
+        deck, artifact = io.BytesIO(), io.BytesIO()
+        with zipfile.ZipFile(deck, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("ppt/slides/slide3.xml", f"<a:t>{key}</a:t>")
+        with zipfile.ZipFile(artifact, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("output/deck.pptx", deck.getvalue())
+        self.assertEqual(check_run_exposure.scan("run-files", artifact.getvalue(), secret, fakes),
+                         ["run-files/output/deck.pptx/ppt/slides/slide3.xml, line 1: ICA_API_KEY"])
 
     def test_files_kept_with_a_run_are_scrubbed_in_place(self):
         with tempfile.TemporaryDirectory() as tmp:

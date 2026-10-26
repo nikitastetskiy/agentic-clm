@@ -1,2 +1,2 @@
-# Every pull request asks team-clm for a review: main only takes pull requests someone else approved.
-* @hashicorp/team-clm
+# Every pull request asks the owner for a review.
+* @nikitastetskiy

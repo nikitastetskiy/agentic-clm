@@ -72,18 +72,18 @@ Settings, under **Settings → Secrets and variables → Actions**:
 |------|------|-------|
 | `ICA_API_KEY` | secret | the LLM gateway key. Without it the deck is built with the rule-based wording, and self-heal can still recover from a transient failure but cannot repair one: it opens an issue. |
 | `ICA_BASE_URL` | variable | the gateway's OpenAI-compatible base URL, ending in `/v1` |
-| `KEY_ENVIRONMENT` | variable, optional | the name of an environment (**Settings → Environments**) that holds `ICA_API_KEY` and `BOB_API_KEY` instead of the repository, with **Deployment branches** limited to `main`. Runs from `main` then get the key and runs from any other branch do not, so a workflow changed on a branch, which needs no review, cannot reach it. In hashicorp/agentic-clm: `gateway`. Unset: the repository secret is used. |
+| `KEY_ENVIRONMENT` | variable, optional | the name of an environment (**Settings → Environments**) that holds `ICA_API_KEY` and `BOB_API_KEY` instead of the repository, with **Deployment branches** limited to `main`. Runs from `main` then get the key and runs from any other branch do not, so a workflow changed on a branch, which needs no review, cannot reach it. Unset: the repository secret is used. |
 | `BOB_API_KEY` | secret, optional | an IBM Bob API key: the [last resort](#when-the-ica-gateway-is-down-ibm-bob) of every model step (the wording, the review, the repair agent) when the ICA gateway gives no answer. Unset: no Bob. |
 | `BOB_FALLBACK`, `BOB_MAX_COST`, `BOB_MAX_COST_AGENT` | variables, optional | `0` leaves Bob out even with its key; the most one Bob question may cost (USD, default 1) and one Bob repair (default 5) |
 | `REVIEW_MODELS` | variable, optional | the review's models, in order of preference; unset means `ica-gateway/gpt-6.1-sol`, then `ica-gateway/claude-sonnet-5-5` (then Bob, the last resort) |
-| `REVIEW_MENTION` | variable, optional | GitHub logins copied on every review, space-separated (in hashicorp/agentic-clm: `nikitastetskiy-hashi`) |
+| `REVIEW_MENTION` | variable, optional | GitHub logins copied on every review, space-separated |
 | `ENRICH_MODEL`, `ENRICH_FALLBACK_MODEL`, `FIX_MODEL`, `FIX_FALLBACK_MODEL`, `EVENT_SCOPE`, `STRICT`, `RELEASE_KEEP`, `FIX_ATTEMPTS`, `FIX_TIMEOUT`, `ENRICH` | variables, optional | the settings described for SPS below; unset means the default (Haiku 5.5 for wording, then GPT-6 Luna; Sonnet 5.5 for repairs, then GPT-6.1 Sol) |
 | `BASE_BRANCH` | variable, optional | what a repair is proposed against; unset means the branch the run was started on |
 | `STATE_BRANCH` | variable, optional | the branch that keeps `state/` between runs; unset means `pipeline-state`. It holds `state/` and nothing else, so the base branch can accept reviewed pull requests only (as `main` does in the hashicorp org). Set it to the base branch's name to commit `state/` there instead. |
 
-In the hashicorp org, `main` only takes pull requests that someone else approved; `.github/CODEOWNERS`
-asks `team-clm` for that review, and with **Allow auto-merge** on, `gh pr merge --auto --merge` merges
-a pull request as soon as it is approved. The weekly run needs no pull request (see step 2 below).
+`.github/CODEOWNERS` asks the repository's owner to review every pull request. Where `main` only
+takes pull requests that someone else approved (as in the hashicorp org), **Allow auto-merge** with
+`gh pr merge --auto --merge` merges one as soon as it is approved. The weekly run needs no pull request (see step 2 below).
 
 The self-heal pull request also needs **Settings → Actions → General → Workflow permissions →
 Allow GitHub Actions to create and approve pull requests**. GitHub grants "create" and "approve"
@@ -384,6 +384,31 @@ passing; 7.5 minutes and $3.24 on the runner, 2.5 minutes and $0.80 on the lapto
 caps it at $5). That repair still ran the tests itself; since 2026-10-23 Bob reads and edits only.
 
 ---
+
+## The token exposure check
+
+`.github/workflows/exposure-check.yml` runs after every run of the weekly build, self-heal and the
+pull request review, from any branch, and `scripts/check_run_exposure.py` reads what that run left:
+its logs, its artifacts and the release it published (a deck is opened part by part). GitHub masks a
+secret only where its exact value is printed whole; the check also finds
+
+- any 12 characters in a row of `ICA_API_KEY`, `BOB_API_KEY` or another secret in its environment,
+  and their base64;
+- anything shaped like a credential, whosever it is: ICA (`sk-`) and Bob (`bob_`) keys, GitHub
+  tokens, private keys, AWS and Slack keys, a key in an `Authorization` or `Apikey` header. The fake
+  ones in `tests/` do not count.
+
+A find fails the check and GitHub emails you. The check deletes the run's logs and every artifact or
+release file that held the token, and opens an issue saying where it was and what kind it was, never
+the value. Then rotate the key: whoever opened the run before the check could have read it. Put the
+new key in the keychain and set the secret by pipe so it is never typed or printed:
+
+```bash
+security find-generic-password -s auto-pptx -a ICA_API_KEY -w | gh secret set ICA_API_KEY
+```
+
+To check an older run: **Actions → Token exposure check → Run workflow** with its number, or locally,
+reporting only: `python3 scripts/check_run_exposure.py --repo OWNER/NAME --run ID --look-only`.
 
 ## Credentials
 

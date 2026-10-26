@@ -18,6 +18,8 @@ auto-pptx builds a weekly HashiCorp product-updates PowerPoint deck from public 
   where the first build starts.
 - `scripts/review_pr.py` — the pull request review (`.github/workflows/pr-review.yml`): a model's verdict
   on each pull request as one comment; advice, never an approval.
+- `scripts/check_run_exposure.py` — after every run, looks for a token in its logs, artifacts and
+  release, and takes it down (`.github/workflows/exposure-check.yml`).
 - `scripts/lib/sandbox.py`, `scripts/key_relay.py` — the self-heal sandbox: the repair agent and the
   code it writes run as another user, without the pipeline's secrets; the gateway key stays with a relay.
 - `ci/` — the weekly and self-heal pipelines; `.github/workflows/` runs them on GitHub Actions,
