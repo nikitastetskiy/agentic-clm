@@ -299,14 +299,14 @@ ci_publish() {
 # passwordless sudo: a GitHub runner) the copy belongs to another user, SANDBOX_USER, and everything in
 # it runs as that user, without any of the pipeline's secrets (scripts/lib/sandbox.py); the gateway key
 # stays with a relay (scripts/key_relay.py). Root only ever reads the copy, never through a link, and
-# whatever goes into it is written by its owner. Elsewhere the copy is this user's and nothing is
-# isolated.
+# whatever goes into it is written by its owner. Elsewhere (a laptop, SPS) there is no sandbox, and so
+# no repair.
 SANDBOX_NAME="auto-pptx-sandbox"
 SANDBOX_ROOT="/opt/auto-pptx"   # this user's, so the sandbox can neither replace the copy nor touch Bob Shell
 
-# ci_sandbox_start — make the stage, and the sandbox where possible. On GitHub Actions a runner that
-# cannot have one fails it: there the agent never runs without one. Property selfheal-sandbox=off
-# (the tests) leaves it out, and only off GitHub Actions.
+# ci_sandbox_start — make the stage and the sandbox; a runner that cannot have one fails it: the agent
+# never runs without one. Property selfheal-sandbox=off (the tests) leaves it out, and only off GitHub
+# Actions.
 ci_sandbox_start() {
   local tmp="${TMPDIR:-/tmp}"
   SANDBOX_BASE="$(mktemp -d "${tmp%/}/auto-pptx-selfheal.XXXXXX")" || return 1
@@ -336,11 +336,11 @@ ci_sandbox_start() {
     done
     ci_log "sandbox: the repair runs as ${SANDBOX_USER} in ${SANDBOX_DIR}, without the pipeline's secrets"
   else
-    if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    if [[ "${GITHUB_ACTIONS:-}" == "true" || "$(prop selfheal-sandbox auto)" != "off" ]]; then
       ci_warn "this runner cannot isolate the repair agent (it needs Linux and passwordless sudo)"; return 1
     fi
     export SANDBOX_DIR="$SANDBOX_BASE/repo"
-    ci_warn "no sandbox here: the repair agent and the code it writes run as this user, next to its secrets"
+    ci_warn "no sandbox (selfheal-sandbox=off): the repair agent runs as this user, next to its secrets"
   fi
   export STAGE
 }

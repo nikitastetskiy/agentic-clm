@@ -108,15 +108,23 @@ class _Handler(BaseHTTPRequestHandler):
             else:   # streamed as it comes (a model's answer arrives piece by piece)
                 self.send_header("Transfer-Encoding", "chunked")
                 self.end_headers()
+                held, tail = len(relay.key) - 1, b""   # the start of a key the next piece may end
                 while chunk := resp.read1(65536):
-                    chunk = relay.scrub(chunk)
-                    self.wfile.write(b"%x\r\n%s\r\n" % (len(chunk), chunk))
+                    data = relay.scrub(tail + chunk)
+                    cut = max(len(data) - held, 0)
+                    self._chunk(data[:cut])
+                    tail = data[cut:]
+                self._chunk(relay.scrub(tail))
                 self.wfile.write(b"0\r\n\r\n")
         except OSError:
             pass   # the caller went away
         finally:
             conn.close()
             self.close_connection = True
+
+    def _chunk(self, data: bytes):
+        if data:   # an empty chunk would end the answer
+            self.wfile.write(b"%x\r\n%s\r\n" % (len(data), data))
 
     def _body(self) -> bytes | None:
         if self.headers.get("Transfer-Encoding", "").lower() == "chunked":

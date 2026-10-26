@@ -304,8 +304,8 @@ variable from the agent's environment is therefore no protection, so `ci_sandbox
   the copy is written by its owner. The pipeline's own scripts — the guard, the commit, the push, the
   report — run from the checkout the agent never touched.
 
-Off GitHub (a laptop, SPS) there is no second user: the agent still works in a copy, judged in a stage,
-but runs as the pipeline's user, next to its secrets, and the run says so.
+Where the runner cannot have a second user (a laptop, an SPS image without `sudo`) the repair agent
+does not run: self-heal opens an issue instead.
 
 Drilled on 2026-10-23 on a GitHub-hosted runner. From inside the sandbox: no `sudo`, no listing of the
 runner's home or the checkout, no Docker, and none of the keys or the token in any of the 142 process
@@ -411,8 +411,8 @@ Nothing secret is in this repository, in the image, or in a log.
   words and nothing else, and has no tools. The repair agent has a shell, in [the sandbox](#the-sandbox)
   on GitHub: another user, a copy of the checkout, no secret, the gateway reached through the relay.
   It can still spend model time through the relay while the run lasts, which is why the gateway key
-  should still be one issued for this pipeline alone, with a spend limit. Off GitHub there is no second
-  user, and an agent with a shell could read what the pipeline's process holds.
+  should still be one issued for this pipeline alone, with a spend limit. Where there can be no
+  sandbox, the agent does not run.
 - **The GitHub token** should be as narrow as possible. On GitHub Actions it is the job's own
   `GITHUB_TOKEN`: this repository only, and only until the job ends. The workflows check the
   repository out with `persist-credentials: false`, so the token is not stored in `.git/config`, and

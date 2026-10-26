@@ -69,6 +69,8 @@ def revendor(owner: str, repo: str, path: str, sha: str, dest: Path) -> None:
             if not m.name.startswith(prefix) or m.isdir():
                 continue
             rel = m.name[len(prefix):]
+            if rel.startswith("/") or ".." in rel.split("/"):
+                raise RuntimeError(f"{m.name} points outside {path}; {dest.name} left as it was")
             target = tmp / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             f = tf.extractfile(m)

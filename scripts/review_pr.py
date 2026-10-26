@@ -52,8 +52,9 @@ SENSITIVE = (
     (r"^\.github/CODEOWNERS$", "decides who has to review"),
     (r"^(AGENTS\.md|opencode\.json|\.opencode/|\.github/(agents|skills)/|\.github/copilot-instructions\.md)",
      "instructions agents follow; the repair agent follows them while it holds the gateway key"),
-    (r"^scripts/(review_pr|check_fix|scrub_secrets|run_agent|report_fix|publish_release)\.py$"
-     r"|^scripts/lib/(agent|gateway|github|redact)\.py$", "handles a key or a token, or what gets published"),
+    (r"^scripts/(review_pr|check_fix|scrub_secrets|run_agent|run_sandboxed|key_relay|report_fix|publish_release)"
+     r"\.py$|^scripts/lib/(agent|bob|gateway|github|redact|sandbox)\.py$",
+     "handles a key or a token, keeps the repair agent in its sandbox, or decides what gets published"),
     (r"^scripts/verify_build\.py$", "the gate every deck has to pass"),
     (r"^(Dockerfile|requirements[^/]*\.txt|package(-lock)?\.json)$", "what gets installed on the runner"),
 )
