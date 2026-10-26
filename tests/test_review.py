@@ -110,7 +110,8 @@ class Verdict(unittest.TestCase):
     def test_the_paths_that_can_reach_the_keys_agents_or_the_deck_are_flagged(self):
         for path in ("ci/run.sh", ".github/actions/setup/action.yml", ".github/CODEOWNERS", "AGENTS.md",
                      ".github/agents/deck-data.agent.md", "scripts/lib/gateway.py", "scripts/review_pr.py",
-                     "scripts/run_agent.py", "scripts/verify_build.py", "requirements.txt", "Dockerfile"):
+                     "scripts/run_agent.py", "scripts/verify_build.py", "requirements.txt", "Dockerfile",
+                     "scripts/lib/sandbox.py", "scripts/lib/bob.py", "scripts/key_relay.py", "scripts/run_sandboxed.py"):
             self.assertTrue(review_pr.fixed_checks([path]), path)
         for path in ("scripts/plan_deck.py", "tests/test_plan.py", "config/deck.yaml", "README.md"):
             self.assertEqual(review_pr.fixed_checks([path]), [], path)

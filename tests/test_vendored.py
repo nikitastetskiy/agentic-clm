@@ -72,6 +72,12 @@ class Revendor(unittest.TestCase):
         self.revendor({"SKILL.md": "new"})
         self.assertEqual(self.read("LICENSE.txt"), self.OURS)
 
+    def test_a_file_pointing_outside_the_skill_leaves_it_as_it_was(self):
+        with self.assertRaises(RuntimeError):
+            self.revendor({"SKILL.md": "new", "../../escape.py": "x"})
+        self.assertEqual(self.read("scripts/gone.py"), "old")
+        self.assertFalse((self.dest.parent / "escape.py").exists())
+
     def test_an_empty_upstream_path_leaves_the_skill_as_it_was(self):
         with self.assertRaises(RuntimeError):
             self.revendor({})

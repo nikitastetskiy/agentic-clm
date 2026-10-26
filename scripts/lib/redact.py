@@ -31,15 +31,17 @@ SECRET_VARS = ("ICA_API_KEY", "BOB_API_KEY", "GIT_TOKEN", "GH_TOKEN", "GH_ENTERP
                "SELFHEAL_WEBHOOK_URL", "SELFHEAL_WEBHOOK_TOKEN", "IBMCLOUD_API_KEY")
 MIN_LENGTH = 8   # shorter values (the dry run's "dry-run" placeholder) would also match ordinary words
 # Variables that hold a credential by their name alone, whoever set them: kept from Bob Shell
-# (lib/bob.py) and from the sandbox (lib/sandbox.py).
+# (lib/bob.py) and from the sandbox (lib/sandbox.py), and treated as secrets here.
 SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH|SESSION|COOKIE|WEBHOOK", re.I)
 NESTING = 3   # archives inside archives (a workbook embedded in a slide) are opened this deep
 
 
 def secrets(env=None) -> list[tuple[str, str]]:
-    """(variable name, value) of every secret set in `env` (default: this process's environment)."""
+    """(variable name, value) of every secret set in `env` (default: this process's environment): the
+    pipeline's own, and any other variable whose name says it holds a credential."""
     env = os.environ if env is None else env
-    return [(name, env[name]) for name in SECRET_VARS if len(env.get(name) or "") >= MIN_LENGTH]
+    names = [*SECRET_VARS, *sorted(n for n in env if n not in SECRET_VARS and SECRET_NAME.search(n))]
+    return [(name, env[name]) for name in names if len(env.get(name) or "") >= MIN_LENGTH]
 
 
 def scrub(text: str, env=None) -> str:

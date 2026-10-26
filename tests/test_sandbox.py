@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -101,7 +102,8 @@ class Environment(unittest.TestCase):
 
 
 class Upstream(BaseHTTPRequestHandler):
-    """The gateway: answers a chat in two pieces, and a refused key by echoing it, as the ICA gateway does."""
+    """The gateway: answers a chat in two pieces (echoing its key, cut in two, when asked to), and a refused
+    key by echoing it, as the ICA gateway does."""
     protocol_version = "HTTP/1.0"
     seen: list = []
 
@@ -111,10 +113,13 @@ class Upstream(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        answer = json.dumps({"choices": [{"message": {"content": "OK"}}]}).encode()
-        self.wfile.write(answer[:10])
+        said = self.headers["Authorization"].split()[-1] if json.loads(body).get("echo") else "OK"
+        answer = json.dumps({"choices": [{"message": {"content": said}}]}).encode()
+        cut = answer.index(b'"content": "') + 14   # two characters into what it says
+        self.wfile.write(answer[:cut])
         self.wfile.flush()
-        self.wfile.write(answer[10:])
+        time.sleep(0.1)
+        self.wfile.write(answer[cut:])
 
     def do_GET(self):
         Upstream.seen.append((self.path, self.headers["Authorization"], None))
@@ -138,8 +143,8 @@ class Relay(unittest.TestCase):
         self.addCleanup(self.relay.server.shutdown)
         self.stand_ins = key_relay.stand_ins([self.relay])
 
-    def call(self, path: str, token: str | None, method: str = "GET") -> tuple[int, str]:
-        req = urllib.request.Request(self.relay.url + path, method=method, data=b"{}" if method == "POST" else None,
+    def call(self, path: str, token: str | None, method: str = "GET", body: bytes = b"{}") -> tuple[int, str]:
+        req = urllib.request.Request(self.relay.url + path, method=method, data=body if method == "POST" else None,
                                      headers={"Authorization": f"Bearer {token}"} if token else {})
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
@@ -165,6 +170,12 @@ class Relay(unittest.TestCase):
         self.assertEqual(status, 401)
         self.assertNotIn(KEY, said)
         self.assertIn("[ica key removed]", said)
+
+    def test_a_key_cut_across_two_pieces_of_an_answer_does_not_come_back(self):
+        status, said = self.call("/chat/completions", self.relay.token, "POST", b'{"echo": true}')
+        self.assertEqual(status, 200)
+        self.assertNotIn(KEY, said)
+        self.assertEqual(json.loads(said)["choices"][0]["message"]["content"], "[ica key removed]")
 
     def test_without_the_token_or_off_the_model_paths_nothing_is_sent(self):
         self.assertEqual(self.call("/models", None)[0], 403)
@@ -298,10 +309,10 @@ class CopyAndStage(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertEqual(done.stdout.splitlines()[-2:], ['{"verdict": "rejected"}{}', "True"])
 
-    def test_on_github_actions_no_sandbox_means_no_repair(self):
-        env_script = 'GITHUB_ACTIONS=true SELFHEAL_SANDBOX=auto; export GITHUB_ACTIONS SELFHEAL_SANDBOX; '
-        done = self.sh(env_script + 'if [[ "$(uname -s)" == Linux ]] && sudo -n true 2>/dev/null; then exit 0; fi; '
-                                    'ci_sandbox_start; echo "rc=$?"')
+    def test_no_sandbox_means_no_repair(self):
+        done = self.sh('SELFHEAL_SANDBOX=auto; export SELFHEAL_SANDBOX; '
+                       'if [[ "$(uname -s)" == Linux ]] && sudo -n true 2>/dev/null; then exit 0; fi; '
+                       'ci_sandbox_start; echo "rc=$?"')
         if "rc=" in done.stdout:
             self.assertIn("rc=1", done.stdout)
             self.assertIn("cannot isolate the repair agent", done.stdout)

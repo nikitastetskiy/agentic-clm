@@ -304,6 +304,12 @@ class SecretRedaction(unittest.TestCase):
                          "key=[ICA_API_KEY removed] token=[GIT_TOKEN removed] again [ICA_API_KEY removed]")
         self.assertEqual(redact.found_in(["nothing here", text], SECRET_ENV), ["ICA_API_KEY", "GIT_TOKEN"])
 
+    def test_any_variable_named_as_a_credential_is_a_secret_too(self):
+        env = {"AWS_SECRET_ACCESS_KEY": "aws-0123456789abcdef", "FIX_MODEL": "ica-gateway/claude-sonnet-5-5"}
+        text = "aws-0123456789abcdef with ica-gateway/claude-sonnet-5-5"
+        self.assertEqual(redact.scrub(text, env), "[AWS_SECRET_ACCESS_KEY removed] with ica-gateway/claude-sonnet-5-5")
+        self.assertEqual(redact.found_in([text], env), ["AWS_SECRET_ACCESS_KEY"])
+
     def test_short_placeholders_are_not_treated_as_secrets(self):
         env = {"GIT_TOKEN": "dry-run"}            # the dry run's stand-in token
         self.assertEqual(redact.scrub("a dry-run of the build", env), "a dry-run of the build")
