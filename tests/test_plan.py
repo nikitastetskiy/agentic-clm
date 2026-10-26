@@ -242,7 +242,7 @@ class Events(unittest.TestCase):
             {"title": "Y", "date": "2026-11-05", "type": "WORKSHOP", "products": ["terraform"],
              "url": "https://example.test/y", "abstract": ""}]}}
         p = planner(slides=[self.TF], events=events,
-                    enrich={"events": {"hashicorp.com/events/webinars/x": {"description": "Curated."}}})
+                    enrich={"events": {"hashicorp.com/events/webinars/x": {"description": "**Curated.**"}}})
         first, second = p.build()["slides"][0]["slots"]
         self.assertEqual(first["description_options"][:2], ["Curated.", "The page abstract."])
         self.assertEqual(second["description_options"], [plan_deck.GENERIC_EVENT_LINE["WORKSHOP"]])
