@@ -1,0 +1,47 @@
+# The token exposure check: after every run of the pipelines, look for a credential in what the run
+# left (its logs, its artifacts, the release it published). A find fails this check, deletes the logs
+# and files that held it and opens an issue; the key still has to be rotated. See
+# scripts/check_run_exposure.py and docs/pipelines.md.
+#
+# workflow_run runs this file as it is on main, with the keys (to recognise them), for runs from any
+# branch; nothing from the run it checks is executed, only read.
+name: Token exposure check
+
+on:
+  workflow_run:
+    workflows: [Weekly deck, Self-heal, Pull request review]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: The run to check (the number in its URL)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: exposure-check-${{ github.event.workflow_run.id || inputs.run-id }}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # As in the other workflows: where KEY_ENVIRONMENT holds the keys, only runs from main get them.
+    environment: ${{ github.ref == 'refs/heads/main' && vars.KEY_ENVIRONMENT || '' }}
+    permissions:
+      actions: write    # read the run's logs and artifacts; delete them on a find
+      contents: write   # delete a release asset that holds a token
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the run
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run-id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ICA_API_KEY: ${{ secrets.ICA_API_KEY }}
+          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+        run: python3 scripts/check_run_exposure.py --repo "$GITHUB_REPOSITORY" --run "$RUN_ID"
