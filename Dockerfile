@@ -7,7 +7,7 @@ FROM node:22-bookworm-slim
 
 ARG INSTALL_OFFICE=true
 # Pinned: this is the opencode version the agents in .opencode/agents/ were written and tested against.
-ARG OPENCODE_VERSION=1.19.3
+ARG OPENCODE_VERSION=1.19.4
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     VIRTUAL_ENV=/opt/venv \

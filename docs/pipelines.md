@@ -529,6 +529,8 @@ from `FIX_MODEL` and `FIX_FALLBACK_MODEL`.
   After the move to opencode 1.19.3 (the newest on npm; OpenCode 2 is not on npm), both repair models
   repaired the same planted fault again, with the tests and a full rebuild passing: Sonnet 5.5 in
   3.5 minutes, GPT-6.1 Sol in 3.
+  On 2026-10-26, after OpenCode's Console breach, the pin moved to 1.19.4 (a patch release, not
+  drilled again) and the gateway and Bob keys were rotated.
   **Not yet exercised:** a repair on Sonnet 5.5; the `pipeline-state` branch on GitHub; the pull
   request review on GitHub (its models answered a one-token check on 2026-10-22: GPT-6.1 Sol through
   the gateway); Bob as the last resort inside a real outage of the gateway (it was drilled with the
