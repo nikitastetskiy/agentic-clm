@@ -202,6 +202,13 @@
       "source": "llm:ica-gateway/claude-haiku-5-5",
       "written": "2026-10-16"
     },
+    "hcp-vault/2026-10-29": {
+      "bullets": [
+        "**Opt-in protection against CVE-2026-5006** is available for templated policy paths in HCP Vault Dedicated. Customers running Vault 2.0.4 or later can contact HashiCorp Support to enable it."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-02"
+    },
     "terraform-enterprise/1.2.4": {
       "bullets": [
         "Focuses on security hardening, addressing vulnerabilities and strengthening content boundary enforcement for VCS-based module ingestion, including remediation for CVE-2026-14468"
@@ -231,6 +238,13 @@
         "Improves deployment reliability by fixing Sidekiq startup failures when using a separate Redis instance with mTLS and password authentication."
       ],
       "source": "reference-deck"
+    },
+    "terraform-enterprise/2.1.0": {
+      "bullets": [
+        "**Terraform policy support** and project-level run tasks arrive in Terraform Enterprise, alongside Stacks migration. The release also addresses CVE-2026-111943."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-02"
     },
     "vault/1.21.10": {
       "bullets": [

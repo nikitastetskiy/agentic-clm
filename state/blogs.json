@@ -6,6 +6,11 @@
       "url": "https://www.hashicorp.com/en/blog/introducing-terraform-developer-portal"
     },
     {
+      "date": "2026-10-26",
+      "title": "Terraform advances infrastructure lifecycle management for the agentic era",
+      "url": "https://www.hashicorp.com/en/blog/terraform-advances-infrastructure-lifecycle-management-for-the-agentic-era"
+    },
+    {
       "date": "2026-10-23",
       "title": "The barriers to autonomous infrastructure",
       "url": "https://www.hashicorp.com/en/blog/the-barriers-to-autonomous-infrastructure"
@@ -67,6 +72,21 @@
     }
   ],
   "vault": [
+    {
+      "date": "2026-10-26",
+      "title": "Announcing the public preview of HashiCorp Secure Hub: Govern Vault at scale",
+      "url": "https://www.hashicorp.com/en/blog/announcing-the-public-preview-of-hashicorp-secure-hub-govern-vault-at-scale"
+    },
+    {
+      "date": "2026-10-26",
+      "title": "Announcing the public preview of HashiCorp Vault Arc: Evolve security for emerging workloads",
+      "url": "https://www.hashicorp.com/en/blog/announcing-the-public-preview-of-hashicorp-vault-arc-evolve-security-for-emerging"
+    },
+    {
+      "date": "2026-10-25",
+      "title": "Strengthen security for agentic AI with new Vault, Verify, Boundary, and Secure Hub capabilities",
+      "url": "https://www.hashicorp.com/en/blog/strengthen-security-for-agentic-ai-with-new-vault-verify-boundary-and-secure-hub"
+    },
     {
       "date": "2026-10-22",
       "title": "Drive adoption and operations across hybrid environments with Vault",
