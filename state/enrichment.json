@@ -12,6 +12,36 @@
       "source": "reference-deck",
       "title_markup": "Announcing the public beta of **Vault Kubernetes key management**"
     },
+    "hashicorp.com/blog/announcing-the-public-preview-of-hashicorp-secure-hub-govern-vault-at-scale": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Announcing the public preview of **HashiCorp Secure Hub**: Govern Vault at scale",
+      "written": "2026-11-05"
+    },
+    "hashicorp.com/blog/announcing-the-public-preview-of-hashicorp-vault-arc-evolve-security-for-emerging": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Announcing the public preview of **HashiCorp Vault Arc**: Evolve security for emerging workloads",
+      "written": "2026-11-05"
+    },
+    "hashicorp.com/blog/bring-cloud-cost-insights-to-terraform-with-ibm-cloudability": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Bring **cloud cost insights** to Terraform with IBM Cloudability",
+      "written": "2026-11-05"
+    },
+    "hashicorp.com/blog/drive-adoption-and-operations-across-hybrid-environments-with-vault": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Drive adoption and operations across **hybrid environments** with Vault",
+      "written": "2026-11-05"
+    },
+    "hashicorp.com/blog/eliminate-secret-zero-for-on-prem-workloads-with-vault": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Eliminate **Secret Zero** for on-prem workloads with Vault 2.2",
+      "written": "2026-11-05"
+    },
+    "hashicorp.com/blog/govern-human-and-agentic-identities-with-confidence-with-vault": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Securely govern **human and agentic identities** with Vault",
+      "written": "2026-11-05"
+    },
     "hashicorp.com/blog/hashicorp-vault-agentic-iam-is-now-generally-available": {
       "source": "reference-deck",
       "title_markup": "HashiCorp Vault **agentic IAM** is now generally available"
@@ -32,17 +62,48 @@
       "source": "reference-deck",
       "title_markup": "Introducing **HCP Terraform Metrics**: operational visibility at scale"
     },
+    "hashicorp.com/blog/introducing-ibm-cloud-secrets-manager-vault-dedicated": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Introducing **IBM Cloud Secrets Manager Vault Dedicated**: HashiCorp Vault Enterprise, managed by IBM",
+      "written": "2026-11-05"
+    },
+    "hashicorp.com/blog/introducing-provider-sets-bring-more-terraform-modules-to-no-code-provisioning": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Introducing **Provider Sets**: Bring more Terraform modules to no-code provisioning",
+      "written": "2026-11-05"
+    },
+    "hashicorp.com/blog/introducing-terraform-developer-portal": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Building Self-Service into Terraform: Introducing **Terraform Developer Portal** (Public Preview)",
+      "written": "2026-11-05"
+    },
+    "hashicorp.com/blog/modernize-pki-improve-crypto-agility-and-prepare-for-post-quantum-readiness": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Modernize PKI, improve crypto-agility and prepare for **post-quantum readiness**",
+      "written": "2026-11-05"
+    },
     "hashicorp.com/blog/simplify-compliance-with-a-native-pre-written-policy-experience-in-terraform": {
-      "source": "reference-deck",
-      "title_markup": "Simplify compliance with the **native pre-written policy** experience in HCP TF"
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Simplify compliance with the **native pre-written policy experience** in HCP Terraform",
+      "written": "2026-11-05"
     },
     "hashicorp.com/blog/simplifying-terraform-for-ibm-z-with-intent-driven-workflows": {
       "source": "reference-deck",
       "title_markup": "Simplify Terraform for IBM Z with **intent-driven workflows**"
     },
+    "hashicorp.com/blog/strengthen-security-for-agentic-ai-with-new-vault-verify-boundary-and-secure-hub": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Strengthen security for **agentic AI** with new Vault, Verify, Boundary, and Secure Hub capabilities",
+      "written": "2026-11-05"
+    },
     "hashicorp.com/blog/terraform-116-completes-actions-lifecycles-and-brings-imports-into-child-modules": {
       "source": "reference-deck",
       "title_markup": "**Terraform 1.16** completes **Actions lifecycles** and brings imports into child modules"
+    },
+    "hashicorp.com/blog/terraform-advances-infrastructure-lifecycle-management-for-the-agentic-era": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Terraform advances **infrastructure lifecycle management for the agentic era**",
+      "written": "2026-11-05"
     },
     "hashicorp.com/blog/terraform-azurerm-provider-50-now-generally-available": {
       "source": "reference-deck",
@@ -55,6 +116,11 @@
     "hashicorp.com/blog/terraform-stacks-explained": {
       "source": "reference-deck",
       "title_markup": "Terraform **Stacks**, explained"
+    },
+    "hashicorp.com/blog/the-barriers-to-autonomous-infrastructure": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "The barriers to **autonomous infrastructure**",
+      "written": "2026-11-05"
     },
     "hashicorp.com/blog/the-common-security-controls-behind-indias-regulatory-wave": {
       "source": "reference-deck",
@@ -252,6 +318,13 @@
       "source": "reference-deck, Vault style",
       "written": "2026-11-05"
     },
+    "terraform-enterprise/2.0.9": {
+      "bullets": [
+        "**Security:** Compromised eMudhra CA certificates rejected (CVE-2026-111943)."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
     "terraform-enterprise/2.1.0": {
       "bullets": [
         "**Terraform policy support** and project-level run tasks arrive in Terraform Enterprise, alongside Stacks migration. The release also addresses CVE-2026-111943."
@@ -266,6 +339,13 @@
       "source": "llm:ica-gateway/claude-haiku-5-5",
       "written": "2026-11-05"
     },
+    "terraform/1.15.9": {
+      "bullets": [
+        "**Bug fixes:** CVE-2026-14978 mitigated in go-slug, and child module validation fixed."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
     "terraform/1.16.0": {
       "bullets": [
         "Adds **import blocks inside modules** and a pre-built Linux s390x binary, alongside provider private plan data and on_failure modes for resource action triggers."
@@ -273,9 +353,58 @@
       "source": "llm:ica-gateway/claude-haiku-5-5",
       "written": "2026-11-05"
     },
+    "terraform/1.16.1": {
+      "bullets": [
+        "**Bug fixes:** CLI pause after run task failure and ignored import blocks fixed."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
+    "terraform/1.16.2": {
+      "bullets": [
+        "**Bug fixes:** Panic during module installation with invalid module calls fixed."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
+    "terraform/1.16.3": {
+      "bullets": [
+        "**Bug fixes:** Destroy=false handling, marked values and import provider resolution fixed."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
+    "terraform/1.16.4": {
+      "bullets": [
+        "**Bug fixes:** Older Terraform Enterprise policy rendering fixed, and stack deferral errors."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
+    "terraform/1.16.5": {
+      "bullets": [
+        "**Bug fixes:** A crash on tainted instance state and a nil resource identity during delete."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
+    "terraform/1.16.7": {
+      "bullets": [
+        "**Bug fixes:** eMudhra certificates now rejected (CVE-2026-111943), and a test panic fixed."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
     "terraform/1.17.0": {
       "bullets": [
         "**Terraform Policy is now generally available**, so the -policies flag for plan, apply and query no longer needs an experimental build. Also adds a -minimal-refresh planning option."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
+    "terraform/1.17.1": {
+      "bullets": [
+        "**Bug fixes:** fmt preserves files on write errors and policies run on destroy plans."
       ],
       "source": "llm:ica-gateway/claude-haiku-5-5",
       "written": "2026-11-05"
