@@ -100,27 +100,31 @@
   "highlights": {
     "hcp-terraform/2026-08-06": {
       "bullets": [
-        "HCP Terraform now sends notification emails when API tokens are nearing expiration (30 days and 7 days)."
+        "HCP Terraform now sends **notification emails when API tokens are nearing expiration** (30 days and 7 days)."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "hcp-terraform/2026-08-13": {
       "bullets": [
-        "Fixed the display of workspace and project counts in policy set summaries and indexes when the policy set is not a Terraform Policy VCS policy set."
+        "Policy set summaries and indexes now **show the correct workspace and project counts** for policy sets that are not Terraform Policy VCS policy sets."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "hcp-terraform/2026-08-20": {
       "bullets": [
-        "The add_team and remove_team project audit events now include team_id, team_name, permissions, and project_name, ensuring historical records remain reliable even if team names change."
+        "**Project audit events** for adding and removing teams now include the team ID, name and permissions and the project name, so records stay reliable even if team names change."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "hcp-terraform/2026-08-25": {
       "bullets": [
-        "An Actions dropdown is now available, providing options for Select All, Reset Selection, and Bulk Delete. A warning message and delete confirmation modal have been added to prevent accidental deletions."
+        "**Team tokens can now be deleted in bulk** from the API Tokens page, with a confirmation step against accidental deletions and filters by expiration status."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "hcp-terraform/2026-08-28": {
       "bullets": [
@@ -130,39 +134,45 @@
     },
     "hcp-terraform/2026-09-05": {
       "bullets": [
-        "Tags are now a valid scope for a policy set. Use matching logic of 'And'/'Or' to specify whether all or just one of the specified tags should be present on a workspace for it to be targeted by a policy set."
+        "**Tags can now scope a policy set**, with And/Or matching to target workspaces that carry all or any of the specified tags."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "hcp-terraform/2026-09-10": {
       "bullets": [
-        "Terraform policy can now evaluate policies against Stacks. Evaluations are triggered during a deployment run, and occur post-plan."
+        "**Terraform policy can now evaluate Stacks**, with evaluations triggered during a deployment run, after the plan."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "hcp-terraform/2026-09-16": {
       "bullets": [
-        "The Teams page now includes an \"ID\" copy link, allowing you to easily copy the team ID for use in other workflows. This addition enhances the usability of the Teams page by providing a quick and convenient way to access the team ID."
+        "The Teams page now has an **ID copy link**, so a team's ID can be copied for use in other workflows."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "hcp-terraform/2026-09-17": {
       "bullets": [
-        "Enhanced team management and auditability with team descriptions and richer, persistent audit metadata across organizations, memberships, permissions, teams, projects, and variable sets.."
+        "HCP Terraform enhances team management and auditability with **team descriptions** and richer, persistent audit metadata across organizations, memberships, permissions, teams, projects, and variable sets."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "hcp-terraform/2026-10-01": {
       "bullets": [
-        "HCP Terraform expands identity lifecycle management and auditability with SCIM provisioning and richer audit metadata for authentication tokens and SAML configuration changes."
+        "HCP Terraform expands identity lifecycle management and auditability with **SCIM provisioning** and richer audit metadata for authentication tokens and SAML configuration changes."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "hcp-terraform/2026-10-02": {
       "bullets": [
-        "HCP Terraform now supports Azure DevOps Org scoped Personal Access Tokens, allowing users to connect using tokens scoped to a specific organization, rather than globally. This change enables users to migrate their VCS connections before Microsoft retires global PATs on December 1, 2026."
+        "HCP Terraform now supports **Azure DevOps organization-scoped personal access tokens**, so VCS connections can move off global tokens before Microsoft retires them on December 1, 2026."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "hcp-terraform/2026-10-15": {
       "bullets": [
@@ -223,21 +233,24 @@
     },
     "terraform-enterprise/2.0.6": {
       "bullets": [
-        "Focused maintenance release that improves operational flexibility and platform reliability, while strengthening security and addressing issues across VCS operations, Terraform Stacks, Explorer, and multi-architecture deployments."
+        "Adds **password authentication for Redis mTLS connections**, improves operational flexibility and strengthens security, with fixes across VCS operations, Terraform Stacks, Explorer and multi-architecture deployments."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "terraform-enterprise/2.0.7": {
       "bullets": [
-        "Strengthens VCS integrations and Terraform 1.15 compatibility while improving drift detection, connectivity, and overall platform security."
+        "Strengthens **VCS integrations and Terraform 1.15 compatibility** while improving drift detection, connectivity, and overall platform security."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "terraform-enterprise/2.0.8": {
       "bullets": [
-        "Improves deployment reliability by fixing Sidekiq startup failures when using a separate Redis instance with mTLS and password authentication."
+        "Improves deployment reliability by **fixing Sidekiq startup failures** when using a separate Redis instance with mTLS and password authentication."
       ],
-      "source": "reference-deck"
+      "source": "reference-deck, Vault style",
+      "written": "2026-11-05"
     },
     "terraform-enterprise/2.1.0": {
       "bullets": [
