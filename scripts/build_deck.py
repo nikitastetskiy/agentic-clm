@@ -15,7 +15,8 @@ Per slide kind:
                 before it drops any content, and only then shortens the oldest entries away.
   * blogs     — the entry boxes are filled newest first; a box grows by a line for a long title.
   * webinars  — one card per event with its type, link, title, a description cut to whole sentences
-                that fit above the icon row, the product icon(s) it is badged with and a language flag.
+                that fit above the icon row, the product icon(s) it is badged with and a language flag;
+                events beyond the template's row of cards get a second row of copies under it.
   * featured  — one slide per featured event (the template slide is duplicated as needed).
   * cover     — month, build date and a "review before sharing" status.
 
@@ -336,14 +337,35 @@ def place_card_icons(ctx: Context, dom, rels_dom, slot_sp, products: list[str]) 
     return placed
 
 
+def add_second_row(ctx: Context, dom, slots: list, on_card: list, events: int) -> None:
+    """More events than the template's row of cards: copies of its cards (with their flags) as a
+    second row, placed by layout.place_second_row. `slots` and `on_card` are extended in place."""
+    row = layout.card_rows(slots)[0]
+    extra = min(events, 2 * len(row)) - len(slots)
+    if len(row) != len(slots) or extra <= 0:
+        return
+    cards = []
+    for src in row[:extra]:
+        copies = [src] + [n for n in on_card[slots.index(src)] if sl.is_flag(n)]
+        copies = [n.cloneNode(True) for n in copies]
+        for node in copies:
+            fresh_ids(node, dom)
+            sl.sp_tree(dom).appendChild(node)
+        cards.append(copies[0])
+        on_card.append(copies[1:])
+    layout.place_second_row(row, cards, ctx.slide_cy)
+    slots.extend(cards)
+
+
 def render_webinars(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dict]:
     dom, rels_dom = load(slide)
     slots = sl.webinar_slots(dom)
     if not slots:
         raise BuildError(f"{plan['role']}: no event cards found in the template slide")
-    events = plan["slots"][:len(slots)]
     on_card = [sl.slot_decorations(dom, slot) for slot in slots]   # before any card moves
     layout.align_cards(slots)
+    add_second_row(ctx, dom, slots, on_card, len(plan["slots"]))
+    events = plan["slots"][:len(slots)]
     written = []
     for i, (slot, decorations) in enumerate(zip(slots, on_card)):
         if i >= len(events):
@@ -369,7 +391,9 @@ def render_webinars(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], 
         _l, top, _r, _b = compose.insets(slot)
         room = (sl.box(slot)[3] - top - layout.CARD_ICON_ROW) / EMU_PT
         head_style, title_style = compose.style_of(paras[0]), compose.style_of(paras[1])
-        desc_style = compose.style_of(desc_proto, default_size=6.5)
+        gap = layout.description_gap_pt(head_style.after_pt, title_style.before_pt, title_style.after_pt)
+        # The description is the card's last paragraph: no space after it, which nothing would use.
+        desc_style = replace(compose.style_of(desc_proto, default_size=6.5), before_pt=gap, after_pt=0.0)
         fixed = (textfit.para_height([(sl.para_text(head), False)], head_style, width)
                  + textfit.para_height([(event["title"], True)], title_style, width))
         max_lines = int((room - fixed - desc_style.before_pt - desc_style.after_pt)
@@ -380,6 +404,8 @@ def render_webinars(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], 
             if description:
                 break
         desc = compose.paragraph(desc_proto, [{"text": description, "bold": False}])
+        compose.set_space_before(desc, gap)
+        compose.set_space_after(desc, 0.0)
         compose.replace_paragraphs(slot, [head, title, desc])
 
         flag = None
@@ -574,7 +600,7 @@ def main() -> int:
         for slide in order:
             dom, rels_dom = load(slide)
             cropped = layout.keep_inside(dom, ctx.slide_cx, ctx.slide_cy)
-            if cropped:
+            if compose.unlink_spaces(dom) or cropped:
                 save(slide, dom, rels_dom)
                 report.setdefault("layout", []).extend(f"{deck.get_role(slide)}: {c}" for c in cropped)
         deck.set_slide_order(tmp, order)

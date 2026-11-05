@@ -11,7 +11,10 @@ disagree.
 
 The rules (the card values follow a reviewer's corrections of a built deck, 2026-10-14):
   * nothing extends past the slide's edges — a picture that does is cropped, never squashed;
-  * event cards in a row share one top and one size, and are evenly spaced;
+  * event cards in a row share one top and one size, and are evenly spaced; more events than one row
+    holds get a second row of the same cards, as far below as the cards are apart and centred under
+    the first (a lone card under the middle one), every card shortened so both rows fit;
+  * a card's description is as far below its title as the title is below the date line;
   * a card's flag sits a fixed distance from its top-right corner;
   * a card's product icons share one top line near its bottom-left corner, left to right, separated
     by the same 13.5 pt as the first icon's distance from the card's edge;
@@ -34,6 +37,7 @@ CARD_ICON_LEFT = 171450      # 13.5 pt from a card's left edge to its first icon
 CARD_ICON_GAP = 171450       # 13.5 pt between two icons: the same as their inset (reviewer's correction)
 CARD_ICON_TOP = 401320       # 31.6 pt above a card's bottom edge: the icons' common top line
 CARD_ICON_ROW = 444500       # 35 pt at the bottom of a card that its text must leave free for the icons
+CARD_BOTTOM = 419100         # 33 pt above the slide's bottom edge: the lowest a card reaches (as a column)
 MIN_HIGHLIGHT_GAP_PT = 3.0   # least space between two highlights of one entry (the "tight" spacing)
 TOLERANCE = 2540             # 0.2 pt: how far off a line the gate still accepts
 
@@ -146,6 +150,33 @@ def align_cards(slots: list) -> None:
         spread(row, 0)
 
 
+def _pitch(row: list) -> float:
+    """x distance from one card of a row to the next."""
+    first, last = sl.box(row[0]), sl.box(row[-1])
+    return (last[0] - first[0]) / (len(row) - 1) if len(row) > 1 else first[2]
+
+
+def place_second_row(row: list, cards: list, slide_cy: int) -> None:
+    """`cards` as a second row under the full `row`: as far below it as two cards of the row are apart,
+    centred under it, and every card of both rows shortened to the height at which the second row ends
+    CARD_BOTTOM above the slide's bottom edge (never taller than the template's card)."""
+    x, y, cx, cy = sl.box(row[0])
+    pitch = _pitch(row)
+    gap = pitch - cx
+    cy = min(cy, int((slide_cy - CARD_BOTTOM - y - gap) // 2))
+    _pin(row, cy=cy)
+    start = x + (len(row) - len(cards)) * pitch / 2
+    for i, card in enumerate(cards):
+        sl.set_box(card, x=round(start + i * pitch), y=round(y + cy + gap), cx=cx, cy=cy)
+
+
+def description_gap_pt(head_after_pt: float, title_before_pt: float, title_after_pt: float) -> float:
+    """Space-before for a card's description: as far below the title as the title is below the date
+    line. (The reference deck's cards differ here: two of its titles carry 6 pt after them, the others
+    none, so most descriptions sat right under their title.)"""
+    return max(0.0, head_after_pt + title_before_pt - title_after_pt)
+
+
 def place_flag(flag, card) -> None:
     x, y, cx, _cy = sl.box(card)
     sl.set_box(flag, x=x + cx - CARD_FLAG_RIGHT - sl.box(flag)[2], y=y + CARD_FLAG_TOP)
@@ -160,10 +191,13 @@ def place_icons(icons: list, card) -> None:
         cursor += sl.box(icon)[2] + CARD_ICON_GAP
 
 
-def card_problems(dom) -> list[str]:
+def card_problems(dom, style_of=None) -> list[str]:
+    """`style_of(p)` -> textfit.ParaStyle, to check the space between a card's paragraphs (passed in,
+    so this module does not depend on compose; without it that check is skipped)."""
     slots = sl.webinar_slots(dom)
     out = []
-    for row in card_rows(slots):
+    rows = card_rows(slots)
+    for row in rows:
         first = sl.box(row[0])
         for slot in row[1:]:
             b = sl.box(slot)
@@ -172,9 +206,29 @@ def card_problems(dom) -> list[str]:
                            f"{_pt(b[1])}, size {_pt(first[2])} x {_pt(first[3])} / {_pt(b[2])} x {_pt(b[3])})")
         if _uneven([sl.box(s)[0] for s in row]):
             out.append("event cards are not evenly spaced")
+    if len(rows) > 1:
+        x, y, cx, cy = sl.box(rows[0][0])
+        pitch = _pitch(rows[0])
+        centre = (x + sl.box(rows[0][-1])[0] + cx) / 2
+        for above, row in zip(rows, rows[1:]):
+            boxes = [sl.box(s) for s in row]
+            if any(abs(b[2] - cx) > TOLERANCE or abs(b[3] - cy) > TOLERANCE for b in boxes):
+                out.append("the rows of event cards are not one card size")
+            if abs(boxes[0][1] - sl.box(above[0])[1] - cy - (pitch - cx)) > TOLERANCE:
+                out.append("the rows of event cards are not as far apart as the cards of a row")
+            if abs((boxes[0][0] + boxes[-1][0] + cx) / 2 - centre) > TOLERANCE or any(
+                    abs(b[0] - a[0] - pitch) > TOLERANCE for a, b in zip(boxes, boxes[1:])):
+                out.append("a second row of event cards is not centred under the first, a card's pitch apart")
     for i, slot in enumerate(slots, 1):
         x, y, cx, cy = sl.box(slot)
         title = sl.read_slot(slot, {})["title"][:40]
+        paras = [p for p in px.paragraphs(slot) if sl.para_text(p).strip()]
+        if style_of is not None and len(paras) == 3:
+            head, name, desc = (style_of(p) for p in paras)
+            want, got = head.after_pt + name.before_pt, name.after_pt + desc.before_pt
+            if abs(got - want) > 0.1:
+                out.append(f"card {i} ({title}): the description is {got:.0f} pt below the title, the title "
+                           f"{want:.0f} pt below the date line")
         decorations = sl.slot_decorations(dom, slot)
         for flag in [d for d in decorations if sl.is_flag(d)]:
             fx, fy, fw, _fh = sl.box(flag)

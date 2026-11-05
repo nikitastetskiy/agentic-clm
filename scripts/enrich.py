@@ -91,8 +91,11 @@ def collect_needs(plan: dict, deck_cfg: dict, data: dict, enrich: dict) -> list[
                     if key in known or key in needs or not src:
                         continue
                     if "items" in src:  # a changelog day
-                        if len(src["items"]) < 2 and not any(len(i["text"]) > 260 for i in src["items"]):
-                            continue  # one short change reads fine verbatim
+                        # One short change with a title of its own reads fine verbatim ("**Title:** text",
+                        # as on HCP Vault); any other day is summarised, which gives it a phrase in bold too.
+                        if len(src["items"]) < 2 and all(i.get("title") and len(i["text"]) <= 260
+                                                         for i in src["items"]):
+                            continue
                         lines = [f"{i['title']}: {i['text']}" if i.get("title") else i["text"] for i in src["items"]]
                         needs[key] = {"id": key, "kind": "changelog", "product": src["_display"],
                                       "date": src["date"], "max_bullets": 1, "max_chars": MAX_CHARS["changelog"],

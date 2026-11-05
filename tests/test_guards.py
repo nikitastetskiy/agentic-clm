@@ -58,6 +58,17 @@ class EnrichmentAnswers(unittest.TestCase):
                          ["expected 1-1 bullet(s)"])
         self.assertEqual(enrich.problems(self.NEED, "not a list"), ["expected 1-1 bullet(s)"])
 
+    def test_a_changelog_day_without_titles_is_summarised(self):
+        """A titled change reads as "**Title:** text" (HCP Vault); an untitled one (HCP Terraform) is
+        summarised however short, so it gets its phrase in bold too."""
+        days = [{"date": "2026-10-02", "items": [{"title": "", "text": "A short change."}]},
+                {"date": "2026-10-03", "items": [{"title": "Tester", "text": "A short change."}]}]
+        data = {"releases": {}, "changelogs": {"products": {"p": {"entries": days}}}, "events": {}}
+        cfg = {"slides": [{"role": "hcp", "kind": "columns", "source": {"type": "changelog", "product": "p"}}]}
+        plan = {"slides": [{"role": "hcp", "kind": "columns",
+                            "columns": [{"entries": [{"key": "p/2026-10-02"}, {"key": "p/2026-10-03"}]}]}]}
+        self.assertEqual([n["id"] for n in enrich.collect_needs(plan, cfg, data, {})], ["p/2026-10-02"])
+
 
 class BlogHistory(unittest.TestCase):
     def test_a_known_post_keeps_its_date_unless_the_listing_page_corrects_it(self):

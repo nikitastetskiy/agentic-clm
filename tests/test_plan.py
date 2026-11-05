@@ -234,6 +234,13 @@ class Events(unittest.TestCase):
         self.assertEqual(tf["slots"][0]["date_label"], "NOV 4, 2026")
         self.assertEqual(plan["omitted"], [{"role": "featured", "reason": "no upcoming featured events"}])
 
+    def test_sessions_of_no_product_fill_one_row_only(self):
+        rule = {**self.VAULT, "slots": 6, "fill": 3}
+        others = [self.event(f"Other {i}", f"2026-11-0{i}", []) for i in range(1, 6)]
+        plan = planner(slides=[rule], events={"status": "ok", "featured": [], "webinars": {
+            "terraform": [], "vault": [self.event("Vault", "2026-11-09", ["vault"])], "other": others}}).build()
+        self.assertEqual([s["title"] for s in plan["slides"][0]["slots"]], ["Other 1", "Other 2", "Vault"])
+
     def test_description_preference_and_fallback(self):
         url = "https://www.hashicorp.com/en/events/webinars/x"
         events = {"status": "ok", "featured": [], "webinars": {"vault": [], "other": [], "terraform": [
