@@ -181,6 +181,11 @@ class ReleasesApi(unittest.TestCase):
         self.assertEqual(by_version["1.21.12"]["line"], "1.21")
         self.assertEqual(by_version["2.1.2"]["url"], "https://example.test/v2.1.2")
 
+    def test_the_deck_lists_no_prereleases(self):
+        terraform = common.load_config()["releases"]["products"]["terraform"]
+        self.assertEqual([e["version"] for e in fetch_releases.deck_view(self.entries(), terraform)],
+                         ["2.1.2", "1.21.12"])
+
 
 class Blogs(unittest.TestCase):
     TERRAFORM = {"names": ["terraform"], "keywords": ["terraform", "infrastructure as code"]}

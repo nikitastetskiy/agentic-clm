@@ -11,6 +11,9 @@ deck:
   template: templates/cadence-template.pptx
   columns: 3                                   # month columns on the release / changelog slides
   cover_status: "AUTO-GENERATED: REVIEW BEFORE SHARING"
+  # Every release / changelog slide spaces and sizes its entries (heading, highlights) like this one's;
+  # the reference deck's slides each had their own. Colours and bullets stay each product's.
+  entries_from: hcp-vault-changelog
 
 # Output order. `detect` is a case-insensitive regex matched against the text of each shape on a
 # reference-deck slide. Roles are looked for in this order, each one after the previous role's slide
@@ -30,10 +33,9 @@ slides:
     detect: 'terraform core.*releases'
     source: {type: releases, product: terraform}
     style:
-      prerelease_label: "Pre-release"          # every alpha / beta / rc build gets this line
-      # As on the Vault slides, a release that adds something gets a short summary (worded once by the
-      # enrichment step) and one that only fixes things its category ("Bug fixes"), which keeps seven
-      # releases a month readable. `wording: label` would give every release its category instead.
+      # As on the Vault slides, a release that adds something gets a short summary and one that only
+      # fixes things "Bug fixes: <a short phrase>", both worded once by the enrichment step. `wording:
+      # label` would give every release its category instead. Pre-releases are not listed (sources.yaml).
       seed: false                              # the reference deck's labels are derived, not curated
 
   - role: terraform-enterprise-releases

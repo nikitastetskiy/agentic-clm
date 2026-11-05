@@ -9,10 +9,11 @@ cut from the reference deck by make_template.py) and writes each slide's whole c
 missed week costs nothing.
 
 Per slide kind:
-  * columns   — the three month columns are rewritten: header = month, body = that month's entries.
-                Each column uses the richest wording that fits its box; if the template's own line
-                spacing cannot hold a month (seven Terraform releases), the slide tightens its spacing
-                before it drops any content, and only then shortens the oldest entries away.
+  * columns   — the three month columns are rewritten: header = month, body = that month's entries,
+                spaced and sized as on the slide `deck.entries_from` names, in boxes of one height.
+                Each column uses the richest wording that fits its box; if that spacing cannot hold a
+                month, the slide tightens it before it drops any content, and only then shortens the
+                oldest entries away.
   * blogs     — the entry boxes are filled newest first; a box grows by a line for a long title;
                 the topic buttons keep their labels on one line.
   * webinars  — one card per event with its type, link, title, a description cut to whole sentences
@@ -32,7 +33,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import re
 import shutil
 import sys
@@ -53,7 +53,7 @@ from lib.textfit import EMU_PT  # noqa: E402
 OUTPUT_DIR = REPO_ROOT / "output"
 SPACING_MODES = ("template", "single", "tight")
 FIT_MARGIN = 0.98                # use at most this share of a box's height
-BOTTOM_MARGIN = 419100           # EMU (33 pt): how close to the slide bottom a column box may reach
+BOTTOM_MARGIN = 419100           # EMU (33 pt): how close to the slide bottom the column boxes reach
 VAULT_ICON_SIZE = (238264, 322485)   # EMU, as placed on the reference deck's cards
 TERRAFORM_PURPLE = "7B42BC"
 BLOG_TITLE_LINES = 2             # a blog title longer than this is cut with an ellipsis
@@ -78,6 +78,7 @@ class Context:
         self.terraform_icon = None   # prototype <p:grpSp>, found on any webinar slide of the template
         self.city_photos = build_city_photo_cache(None)
         self.bullet_like: dict = {}  # role -> highlight paragraph whose bullet that role's columns take
+        self.entry_like = None       # (heading, highlight) every slide's entries are spaced and sized like
 
 
 def load(slide: Path):
@@ -137,13 +138,17 @@ def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], d
     layout.align_columns(cols)
     bodies = [c["body"] for c in cols]
     heading_proto, bullet_proto = column_prototypes(bodies)
+    if ctx.entry_like:   # every slide's entries spaced and sized alike (deck.entries_from)
+        heading_proto, bullet_proto = heading_proto.cloneNode(True), bullet_proto.cloneNode(True)
+        compose.take_entry_style(heading_proto, ctx.entry_like[0])
+        compose.take_entry_style(bullet_proto, ctx.entry_like[1])
     if plan["role"] in ctx.bullet_like:   # one product, one bullet: the HCP slide takes the release slide's
         bullet_proto = bullet_proto.cloneNode(True)
         compose.take_bullet(bullet_proto, ctx.bullet_like[plan["role"]])
     base_h, base_b = compose.style_of(heading_proto), compose.style_of(bullet_proto, default_size=6.5)
     width = inner_width_pt(bodies[0])
     _l, top, _r, bottom = compose.insets(bodies[0])
-    _x, y, _cx, template_cy = sl.box(bodies[0])
+    y = sl.box(bodies[0])[1]
     max_cy = ctx.slide_cy - BOTTOM_MARGIN - y
     room = (max_cy - top - bottom) / EMU_PT * FIT_MARGIN
 
@@ -202,7 +207,7 @@ def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], d
             compose.set_space_before(p, next_style.before_pt)
         return p
 
-    report_cols, tallest = [], 0.0
+    report_cols = []
     for col, cplan, entries, level, cut in zip(cols, plan["columns"], shown, levels, trimmed):
         paragraphs, written = [], []
         for entry in entries:
@@ -221,16 +226,16 @@ def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], d
         header_paras = px.paragraphs(col["header"])
         if not header_paras or not compose.set_text(header_paras[0], cplan["header"]):
             raise BuildError(f"{plan['role']}: month header shape has no text run to write into")
+        compose.match_end_mark(header_paras[0])
         used = height(entries, level, mode)
-        tallest = max(tallest, used)
         report_cols.append({"header": cplan["header"], "month": cplan["month"], "level": level,
                             "trimmed": cut, "height_pt": round(used, 1), "entries": written})
-    needed_cy = math.ceil(tallest / FIT_MARGIN * EMU_PT) + top + bottom
-    new_cy = min(max_cy, max(template_cy, needed_cy))
+    # Every release slide's boxes reach down to the same line, however much this one holds: boxes that
+    # grew only as far as their text needed came out a different height on each slide.
     for body in bodies:
-        sl.set_box(body, cy=new_cy)
+        sl.set_box(body, cy=max_cy)
     save(slide, dom, rels_dom)
-    return [slide], {"spacing": mode, "box_height_pt": round(new_cy / EMU_PT, 1),
+    return [slide], {"spacing": mode, "box_height_pt": round(max_cy / EMU_PT, 1),
                      "room_pt": round(room, 1), "columns": report_cols}
 
 
@@ -291,6 +296,8 @@ def render_blogs(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dic
         written.append({"date_display": entry["date_display"], "title": sl.strip_markup(title),
                         "url": entry["url"], "title_lines": lines})
     button_scale = fit_buttons(dom)
+    for sp in sl.link_buttons(dom):   # the label clicks through too, not only the pill around it
+        compose.link_label(sp)
     save(slide, dom, rels_dom)
     return [slide], {"boxes": len(groups), "entries": written, "button_scale": button_scale}
 
@@ -629,13 +636,16 @@ def main() -> int:
         for slides in roles.values():   # icon prototypes come from the pristine template
             if ctx.terraform_icon is None:
                 ctx.terraform_icon = find_terraform_icon(minidom.parse(str(slides[0])))
-        for rule in cfg["slides"]:      # and so do the bullets one slide borrows from another
+        def prototypes(source: str, key: str):   # and so do the entries one slide borrows from another
+            if source not in roles:
+                raise BuildError(f"{key} names '{source}', which the template lacks")
+            return column_prototypes([c["body"] for c in sl.columns(minidom.parse(str(roles[source][0])))])
+        if cfg["deck"].get("entries_from"):
+            ctx.entry_like = prototypes(cfg["deck"]["entries_from"], "deck.entries_from")
+        for rule in cfg["slides"]:
             source = (rule.get("style") or {}).get("bullets_from")
             if source:
-                if source not in roles:
-                    raise BuildError(f"{rule['role']}: bullets_from names '{source}', which the template lacks")
-                bodies = [c["body"] for c in sl.columns(minidom.parse(str(roles[source][0])))]
-                ctx.bullet_like[rule["role"]] = column_prototypes(bodies)[1]
+                ctx.bullet_like[rule["role"]] = prototypes(source, f"{rule['role']}: bullets_from")[1]
         order: list[Path] = []
         for slide_plan in plan["slides"]:
             role = slide_plan["role"]
