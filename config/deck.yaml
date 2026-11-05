@@ -31,11 +31,10 @@ slides:
     source: {type: releases, product: terraform}
     style:
       prerelease_label: "Pre-release"          # every alpha / beta / rc build gets this line
-      # The reference deck describes each Terraform release by category ("Bug fixes"), which is what
-      # keeps seven releases a month readable. Remove this line to show a sentence per release instead
-      # wherever it fits.
-      wording: label
-      seed: false                              # labels are derived, not curated
+      # As on the Vault slides, a release that adds something gets a short summary (worded once by the
+      # enrichment step) and one that only fixes things its category ("Bug fixes"), which keeps seven
+      # releases a month readable. `wording: label` would give every release its category instead.
+      seed: false                              # the reference deck's labels are derived, not curated
 
   - role: terraform-enterprise-releases
     kind: columns
@@ -58,7 +57,9 @@ slides:
     kind: webinars
     detect: 'terraform upcoming webinars'
     source: {type: webinars, product: terraform}
-    slots: 3                                   # the soonest N events; later ones are listed in the summary
+    slots: 6                                   # the soonest N events: a row of 3 cards, a second row under
+                                               # it for more; later ones are listed in the summary
+    fill: 3                                    # sessions of no deck product fill up to N cards, one row
 
   - role: vault-enterprise-releases
     kind: columns
@@ -82,7 +83,8 @@ slides:
     kind: webinars
     detect: 'vault upcoming webinars'
     source: {type: webinars, product: vault}
-    slots: 3
+    slots: 6
+    fill: 3
 
   - role: featured-event
     kind: featured

@@ -253,6 +253,36 @@ class WeeklyBuild(unittest.TestCase):
                             lambda x: nudge(x, 'name="Google Shape;397;p78"', dy=19050))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
 
+    def test_more_events_than_a_row_get_a_second_row_centred_under_it(self):
+        from lib import slides as sl
+        from lib.layout import CARD_BOTTOM, card_rows
+        dom = minidom.parseString(helpers.slide_text(self.deck, "terraform-webinars"))
+        first, second = card_rows(sl.webinar_slots(dom))                  # the snapshot's 4 Terraform events
+        (x0, y, cx, cy), (x1, *_), _ = (sl.box(c) for c in first)
+        self.assertEqual(len(second), 1)
+        x, y2, w, h = sl.box(second[0])
+        self.assertEqual((x, w, h), (x1, cx, cy))                         # under the middle card, one size
+        self.assertAlmostEqual(y2 - y - cy, x1 - x0 - cx, delta=1)        # as far below as the cards are apart
+        with zipfile.ZipFile(self.deck) as z:
+            size = minidom.parseString(z.read("ppt/presentation.xml")).getElementsByTagName("p:sldSz")[0]
+        self.assertLessEqual(y2 + cy, int(size.getAttribute("cy")) - CARD_BOTTOM)   # 33 pt above the bottom
+
+    def test_gate_catches_a_second_row_off_centre(self):
+        xml = helpers.slide_text(self.deck, "terraform-webinars")
+        last = xml.rindex('name="Google Shape;397;p78"')                      # the card copied for the 4th event
+        deck = self.damaged("row-off-centre", "terraform-webinars",
+                            lambda x: x[:last] + nudge(x[last:], 'name="Google Shape;397;p78"', dx=-63500))
+        self.assertEqual(self.failed(self.verify(deck)), {"layout"})
+
+    def test_gate_catches_a_description_against_its_title(self):
+        gap = '<a:spcBef><a:spcPts val="600"/></a:spcBef>'                   # the reference deck had none
+        deck = self.damaged("no-title-gap", "vault-webinars", lambda x: x.replace(gap, "", 1))
+        self.assertEqual(self.failed(self.verify(deck)), {"layout"})
+
+    def test_gate_catches_a_link_that_underlines_a_space(self):
+        deck = self.damaged("link-space", "vault-webinars", lambda x: x.replace(">here</a:t>", ">here </a:t>", 1))
+        self.assertEqual(self.failed(self.verify(deck)), {"links"})
+
     def test_gate_catches_a_picture_past_the_slide_edge(self):
         deck = self.damaged("overhang", "cover", lambda x: nudge(x, 'name="Picture 11"', dcy=106045))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})

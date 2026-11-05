@@ -77,21 +77,31 @@ def set_spacing(p, mode: str) -> None:
 
 def set_space_before(p, pt: float) -> None:
     """Store `pt` as the paragraph's space-before (replacing any it has)."""
+    _set_space(p, "a:spcBef", pt)
+
+
+def set_space_after(p, pt: float) -> None:
+    """Store `pt` as the paragraph's space-after (replacing any it has)."""
+    _set_space(p, "a:spcAft", pt)
+
+
+def _set_space(p, tag: str, pt: float) -> None:
     pprs = _own(p, "a:pPr")
     if pprs:
         ppr = pprs[0]
     else:
         ppr = p.ownerDocument.createElement("a:pPr")
         p.insertBefore(ppr, p.firstChild)
-    for el in _own(ppr, "a:spcBef"):
+    for el in _own(ppr, tag):
         ppr.removeChild(el)
-    bef = p.ownerDocument.createElement("a:spcBef")
+    space = p.ownerDocument.createElement(tag)
     pts = p.ownerDocument.createElement("a:spcPts")
     pts.setAttribute("val", str(round(pt * 100)))
-    bef.appendChild(pts)
+    space.appendChild(pts)
     # schema order inside a:pPr: lnSpc, spcBef, spcAft, bullet properties, …
-    ref = next((c for c in ppr.childNodes if c.nodeType == c.ELEMENT_NODE and c.nodeName != "a:lnSpc"), None)
-    ppr.insertBefore(bef, ref)
+    earlier = ("a:lnSpc",) if tag == "a:spcBef" else ("a:lnSpc", "a:spcBef")
+    ref = next((c for c in ppr.childNodes if c.nodeType == c.ELEMENT_NODE and c.nodeName not in earlier), None)
+    ppr.insertBefore(space, ref)
 
 
 def empty_clone(proto):
@@ -179,6 +189,33 @@ def replace_paragraphs(sp, paragraphs: list) -> None:
         body.removeChild(p)
     for p in paragraphs:
         body.appendChild(p)
+
+
+def unlink_spaces(dom) -> int:
+    """Move the spaces at either end of a hyperlink's text into plain runs beside it. PowerPoint
+    underlines a link's spaces too, so the reference deck's "here " showed its line running on past
+    the word. Returns how many links were trimmed."""
+    trimmed = 0
+    for run in list(dom.getElementsByTagName("a:r")):
+        text = px.run_text(run)
+        core = text.strip()
+        if px.run_hyperlink(run) is None or not core or core == text:
+            continue
+        px.set_run_text(run, core)
+        for space, before in ((text[:text.index(core)], True), (text[text.index(core) + len(core):], False)):
+            if not space:
+                continue
+            plain = run.cloneNode(True)
+            hl = px.run_hyperlink(plain)
+            hl.parentNode.removeChild(hl)
+            for rpr in plain.getElementsByTagName("a:rPr"):
+                if rpr.hasAttribute("u"):
+                    rpr.removeAttribute("u")
+            px.set_run_text(plain, space)
+            plain.getElementsByTagName("a:t")[0].setAttribute("xml:space", "preserve")
+            run.parentNode.insertBefore(plain, run if before else run.nextSibling)
+        trimmed += 1
+    return trimmed
 
 
 def set_text(p, text: str) -> bool:

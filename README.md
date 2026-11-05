@@ -25,11 +25,11 @@ open output/hashicorp-product-updates-<date>.pptx
 | Terraform Enterprise Upgrades | Every TFE release, one line each | [TFE releases] |
 | HCP Terraform Upgrades | The dated changelog entries | [HCP Terraform changelog] |
 | Terraform Recent Blogs | The 8 newest Terraform posts | [blog] feed + Terraform listing page |
-| Terraform Upcoming Webinars | The 3 soonest Terraform webinars / workshops | [events page] |
+| Terraform Upcoming Webinars | The 6 soonest Terraform webinars / workshops, three cards to a row | [events page] |
 | Vault Enterprise Release Updates | Vault 2.x and the Enterprise LTS patches, grouped per release day | [releases API] + [Vault release notes] |
 | HCP Vault Release Updates | The dated changelog entries | [HCP Vault changelog] |
 | Vault Recent Blogs | The 8 newest Vault posts | [blog] feed + Vault listing page |
-| Vault Upcoming Webinars | The 3 soonest Vault webinars / workshops | [events page] |
+| Vault Upcoming Webinars | The 6 soonest Vault webinars / workshops, three cards to a row | [events page] |
 | Featured event (one slide each) | In-person events: public ones and the ones in `config/featured-events.yaml` | [events page] + that file |
 
 A slide with nothing to show (no upcoming event, say) is **left out** — never shipped empty or stale.
@@ -127,9 +127,9 @@ These mirror how the reference deck is maintained by hand.
 
 - **Month columns** show the three most recent months that *have* entries (Vault can skip a month),
   oldest on the left, newest entry first within a month.
-- **Terraform Core** lists every GitHub release, alpha / beta / rc included, each described by its
-  category — `Bug fixes`, `Pre-release`, `New features, enhancements and bug fixes`. Release dates come
-  from the changelog heading, which is what the release page shows.
+- **Terraform Core** lists every GitHub release, alpha / beta / rc included. As on the Vault slides, a
+  release that adds something gets a short summary; the others their category — `Bug fixes`,
+  `Pre-release`. Release dates come from the changelog heading, which is what the release page shows.
 - **Vault** versions released on the same day share one entry — `v2.1.2 / v1.21.12 / v1.20.17 /
   v1.19.23 (2026-10-07)` — each version linked to its own release notes.
 - **Wording**: stored wording first (a person's, or the enrichment step's); otherwise what the release
@@ -138,7 +138,8 @@ These mirror how the reference deck is maintained by hand.
   never does. The 8 newest are shown; `state/blogs.json` remembers posts the live sources no longer
   reach back to.
 - **Event cards** show webinars and workshops badged for the product, soonest first, each with its type,
-  product icon(s) and language flag. A session badged for both products appears on both slides. The
+  product icon(s) and language flag; up to six, three to a row, a shorter second row centred under the
+  first. A session badged for both products appears on both slides. The
   dated events come from the events page's own search index (the data the page renders its cards
   from), so they do not depend on getting a browser past hashicorp.com's bot check; the page itself
   is rendered for the abstracts and its undated promotions (see docs/pipelines.md).
@@ -149,8 +150,10 @@ These mirror how the reference deck is maintained by hand.
   into online and in-person, so a date can be added in `config/featured-events.yaml`.
 - **Layout** (`scripts/lib/layout.py`): the template inherits the hand-made deck's small drifts, so
   every build re-aligns what repeats — event cards on one line, each flag in the same corner, product
-  icons on one top line 13.5 pt apart, month headers level, the blog grid square, a gap between two
-  highlights of the same release — and crops any picture that runs past the slide's edge.
+  icons on one top line 13.5 pt apart, a card's description as far below its title as the title is below
+  its date, month headers level, the blog grid square, a gap between two highlights of the same
+  release — crops any picture that runs past the slide's edge, and keeps a link's underline off the
+  spaces beside it.
 - **Text fitting**: if a month does not fit at the template's spacing, the slide tightens its spacing
   before it shortens any wording, and only as a last resort trims the oldest entries (and says so).
 
@@ -165,8 +168,8 @@ These mirror how the reference deck is maintained by hand.
 | `blogs` | a post is missing, mislinked, out of order or shown twice |
 | `events` | a card differs from the plan, lacks a description, or its event is already in the past |
 | `fit` | any column, card or title is predicted to overflow its box (measured again from the deck) |
-| `layout` | anything extends past the slide, or a card, flag, icon, month header or blog entry is off its line, or two highlights run together |
-| `links` | a link is dangling, not http(s), or points at an internal host (w3, GitHub Enterprise, Box, Slack …) |
+| `layout` | anything extends past the slide, or a card, flag, icon, month header or blog entry is off its line, a second row of cards is off-centre, a card's description runs into its title, or two highlights run together |
+| `links` | a link is dangling, not http(s), points at an internal host (w3, GitHub Enterprise, Box, Slack …), or underlines a space beside its word |
 | `disclosure` | the deck names a CVE that the fetched public release notes do not |
 | `formatting` | a slide uses a colour or typeface the template does not, or the deck embeds a font under another font's name |
 | `freshness` | the cover shows the wrong month or claims the deck is ready to publish |
@@ -195,7 +198,7 @@ Credentials live in the pipeline's secret store, never in this repository.
 |------------|---------|
 | add an in-person event that is not on the public events page | add it to `config/featured-events.yaml` |
 | correct or rewrite a highlight | edit its entry in `state/enrichment.json` (or delete it to have it regenerated) — on the `pipeline-state` branch, which the builds on GitHub read it from |
-| show Terraform releases as sentences instead of labels | remove `wording: label` in `config/deck.yaml` |
+| show every Terraform Core release by its category only | add `wording: label` to its style in `config/deck.yaml` |
 | change the region scope for events | `events.scope_regions` in `config/sources.yaml`, or `EVENT_SCOPE` for one run |
 | follow a redesigned cadence deck | `make template DECK="new deck.pptx"` |
 | automate another slide | add a role to `config/deck.yaml`, re-cut the template, teach `plan_deck.py` what goes on it |

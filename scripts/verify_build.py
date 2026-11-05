@@ -16,10 +16,12 @@ uses, and checks it against three independent things — the plan, the fetched d
   fit          no column, card or blog title is predicted to overflow its box (measured again from
                the deck itself, not taken from the build report)
   layout       nothing extends past the slide's edges; event cards, their flags and product icons sit
-               on their lines; month headers are level; the blog grid is square; two highlights of
-               one entry never run together (the rules in lib/layout.py)
+               on their lines, a second row of cards centred under the first, a card's description
+               as far below its title as the title is below its date; month headers are level; the
+               blog grid is square; two highlights of one entry never run together (lib/layout.py)
   links        every hyperlink resolves to a relationship, is http(s), and does not point at an
-               internal host (w3, GitHub Enterprise, Box, Slack …) — this deck goes to customers
+               internal host (w3, GitHub Enterprise, Box, Slack …) — this deck goes to customers;
+               no link underlines a space beside its word
   disclosure   every CVE id in the deck is named by the public release notes that were fetched
   formatting   no colour or typeface that the template does not already use, and no embedded font
                whose data is another font than its name
@@ -263,7 +265,7 @@ def check_layout(c: Check, slides: list[Path], kinds: dict, slide_cx: int, slide
         elif kind == "blogs":
             problems += layout.blog_problems(sl.blog_groups(dom, slide_cx), slide_cx)
         elif kind == "webinars":
-            problems += layout.card_problems(dom)
+            problems += layout.card_problems(dom, lambda p: compose.style_of(p, default_size=6.5))
         for problem in problems:
             c.fail(f"{role or slide.name}: {problem}")
 
@@ -273,6 +275,10 @@ def check_links(c: Check, slides: list[Path]) -> None:
         dom = minidom.parse(str(slide))
         rels = minidom.parse(str(deck.rels_path(slide)))
         by_id = {r.getAttribute("Id"): r for r in rels.getElementsByTagName("Relationship")}
+        for run in dom.getElementsByTagName("a:r"):
+            text = px.run_text(run)
+            if px.run_hyperlink(run) is not None and text.strip() and text != text.strip():
+                c.fail(f"{slide.name}: the link {text!r} underlines the space beside its word")
         for hl in dom.getElementsByTagName("a:hlinkClick"):
             rid = hl.getAttribute("r:id")
             if not rid:

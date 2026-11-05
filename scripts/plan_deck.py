@@ -295,14 +295,15 @@ class Planner:
             self.omitted.append({"role": rule["role"], "reason": "events source unavailable"})
             return None
         slots = int(rule.get("slots", 3))
+        fill = min(slots, int(rule.get("fill", slots)))
         webinars = events.get("webinars") or {}
         every = sorted(webinars.get(product) or [], key=lambda e: e["date"])
         own, later = every[:slots], every[slots:]
-        # Leftover slots are backfilled with sessions that belong to no deck product; each of those
+        # Up to `fill` slots are backfilled with sessions that belong to no deck product; each of those
         # is shown on one slide only. A session badged for both products appears on both slides.
         for ev in sorted(webinars.get("other") or [], key=lambda e: e["date"]):
             ident = (ev["title"].strip().lower(), ev["date"])
-            if len(own) >= slots:
+            if len(own) >= fill:
                 break
             if ident not in used_other:
                 used_other.add(ident)
