@@ -13,7 +13,8 @@ Per slide kind:
                 Each column uses the richest wording that fits its box; if the template's own line
                 spacing cannot hold a month (seven Terraform releases), the slide tightens its spacing
                 before it drops any content, and only then shortens the oldest entries away.
-  * blogs     — the entry boxes are filled newest first; a box grows by a line for a long title.
+  * blogs     — the entry boxes are filled newest first; a box grows by a line for a long title;
+                the topic buttons keep their labels on one line.
   * webinars  — one card per event with its type, link, title, a description cut to whole sentences
                 that fit above the icon row, the product icon(s) it is badged with and a language flag;
                 events beyond the template's row of cards get a second row of copies under it.
@@ -57,6 +58,7 @@ VAULT_ICON_SIZE = (238264, 322485)   # EMU, as placed on the reference deck's ca
 TERRAFORM_PURPLE = "7B42BC"
 BLOG_TITLE_LINES = 2             # a blog title longer than this is cut with an ellipsis
 BLOG_LINE = 139700               # EMU (11 pt) a blog box grows per extra title line
+BUTTON_INSET = 45720             # EMU (3.6 pt): a topic button's side insets, as its top and bottom ones
 VAULT_ICON = REPO_ROOT / "assets" / "product-icons" / "vault.png"
 MONTH_YEAR_RE = re.compile(r"^(January|February|March|April|May|June|July|August|September|October|"
                            r"November|December) \d{4}$")
@@ -75,6 +77,7 @@ class Context:
         self.slide_cy = int(size.getAttribute("cy"))
         self.terraform_icon = None   # prototype <p:grpSp>, found on any webinar slide of the template
         self.city_photos = build_city_photo_cache(None)
+        self.bullet_like: dict = {}  # role -> highlight paragraph whose bullet that role's columns take
 
 
 def load(slide: Path):
@@ -134,6 +137,9 @@ def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], d
     layout.align_columns(cols)
     bodies = [c["body"] for c in cols]
     heading_proto, bullet_proto = column_prototypes(bodies)
+    if plan["role"] in ctx.bullet_like:   # one product, one bullet: the HCP slide takes the release slide's
+        bullet_proto = bullet_proto.cloneNode(True)
+        compose.take_bullet(bullet_proto, ctx.bullet_like[plan["role"]])
     base_h, base_b = compose.style_of(heading_proto), compose.style_of(bullet_proto, default_size=6.5)
     width = inner_width_pt(bodies[0])
     _l, top, _r, bottom = compose.insets(bodies[0])
@@ -229,6 +235,20 @@ def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], d
 
 
 # --------------------------------------------------------------------------- blogs ----------------
+def blog_title(title: str, style: textfit.ParaStyle, width: float) -> tuple[str, int]:
+    """(the title as it goes in its box, the lines it takes): at most BLOG_TITLE_LINES. Bold is wider, so
+    a title loses its emphasis before any of its words, and is cut with an ellipsis only if it is too
+    long even plain."""
+    plain = sl.strip_markup(title)
+    lines = textfit.line_count(sl.split_markup(title), style.size_pt, width)
+    plain_lines = textfit.line_count([(plain, False)], style.size_pt, width)
+    if lines <= BLOG_TITLE_LINES:
+        return title, lines
+    if plain_lines <= BLOG_TITLE_LINES:
+        return plain, plain_lines
+    return textfit.fit_text(plain, style, width, BLOG_TITLE_LINES, whole_sentences=False), BLOG_TITLE_LINES
+
+
 def render_blogs(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dict]:
     dom, rels_dom = load(slide)
     groups = sl.blog_groups(dom, ctx.slide_cx)
@@ -256,14 +276,7 @@ def render_blogs(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dic
         compose.add_run(date_line, date_run, f"{lead}{entry['date_display']} – ")
         compose.add_run(date_line, link_run, "See here", url=entry["url"], rels_dom=rels_dom)
 
-        title = entry["title"]
-        style = compose.style_of(paras[1])
-        width = inner_width_pt(box_sp)
-        lines = textfit.line_count(sl.split_markup(title), style.size_pt, width)
-        if lines > BLOG_TITLE_LINES:
-            title = textfit.fit_text(sl.strip_markup(title), style, width, BLOG_TITLE_LINES,
-                                     whole_sentences=False)
-            lines = BLOG_TITLE_LINES
+        title, lines = blog_title(entry["title"], compose.style_of(paras[1]), inner_width_pt(box_sp))
         title_line = compose.paragraph(paras[1], compose.markup_segments(title))
         compose.replace_paragraphs(box_sp, [date_line, title_line])
         # The box is "resize shape to fit text", which PowerPoint only recomputes when the text is
@@ -277,8 +290,27 @@ def render_blogs(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dic
                         child.setAttribute("cy", str(new_cy))
         written.append({"date_display": entry["date_display"], "title": sl.strip_markup(title),
                         "url": entry["url"], "title_lines": lines})
+    button_scale = fit_buttons(dom)
     save(slide, dom, rels_dom)
-    return [slide], {"boxes": len(groups), "entries": written}
+    return [slide], {"boxes": len(groups), "entries": written, "button_scale": button_scale}
+
+
+def fit_buttons(dom) -> int:
+    """Every topic button's label on one line ("Explore Topics!"): the reference deck's 7 pt labels need
+    two lines in their pills and spill out of them. The side insets shrink to the top and bottom ones,
+    and where a label still does not fit, every button takes the same font scale (PowerPoint's "shrink
+    text on overflow"), so the labels stay one size. Returns that scale in percent."""
+    buttons = sl.link_buttons(dom)
+    for sp in buttons:
+        body = sp.getElementsByTagName("a:bodyPr")[0]
+        body.setAttribute("lIns", str(BUTTON_INSET))
+        body.setAttribute("rIns", str(BUTTON_INSET))
+    ratio = min([room / need for need, room in map(compose.one_line_pt, buttons) if need] + [1.0])
+    percent = 100 if ratio >= 1 else max(60, int(ratio * 100) // 5 * 5)
+    if percent < 100:
+        for sp in buttons:
+            set_font_scale(sp, percent)
+    return percent
 
 
 # --------------------------------------------------------------------------- webinars -------------
@@ -452,6 +484,12 @@ def shrink_to_fit(sp, paragraphs: list[list[tuple[str, bool]]], *, one_line: boo
     if ratio >= 1.0:
         return 100
     percent = max(60, int(ratio * 100) // 5 * 5)
+    set_font_scale(sp, percent)
+    return percent
+
+
+def set_font_scale(sp, percent: int) -> None:
+    """Store a font scale on a text box (PowerPoint's "shrink text on overflow")."""
     body = sp.getElementsByTagName("a:bodyPr")[0]
     for tag in ("a:spAutoFit", "a:normAutofit", "a:noAutofit"):
         for el in list(body.getElementsByTagName(tag)):
@@ -459,7 +497,6 @@ def shrink_to_fit(sp, paragraphs: list[list[tuple[str, bool]]], *, one_line: boo
     fit = sp.ownerDocument.createElement("a:normAutofit")
     fit.setAttribute("fontScale", str(percent * 1000))
     body.insertBefore(fit, body.firstChild)
-    return percent
 
 
 def write_featured(ctx: Context, slide: Path, event: dict) -> dict:
@@ -486,6 +523,8 @@ def write_featured(ctx: Context, slide: Path, event: dict) -> dict:
     desc_proto = next(p for p in px.paragraphs(parts["description"]) if sl.para_text(p).strip())
     points = [compose.paragraph(desc_proto, compose.markup_segments(pt)) for pt in event["description_points"]]
     compose.replace_paragraphs(parts["description"], points)
+    # The points sit level with the middle of the event picture beside them, not at its top.
+    parts["description"].getElementsByTagName("a:bodyPr")[0].setAttribute("anchor", "ctr")
     desc_scale = shrink_to_fit(parts["description"],
                                [sl.split_markup(pt) for pt in event["description_points"]])
 
@@ -586,6 +625,13 @@ def main() -> int:
         for slides in roles.values():   # icon prototypes come from the pristine template
             if ctx.terraform_icon is None:
                 ctx.terraform_icon = find_terraform_icon(minidom.parse(str(slides[0])))
+        for rule in cfg["slides"]:      # and so do the bullets one slide borrows from another
+            source = (rule.get("style") or {}).get("bullets_from")
+            if source:
+                if source not in roles:
+                    raise BuildError(f"{rule['role']}: bullets_from names '{source}', which the template lacks")
+                bodies = [c["body"] for c in sl.columns(minidom.parse(str(roles[source][0])))]
+                ctx.bullet_like[rule["role"]] = column_prototypes(bodies)[1]
         order: list[Path] = []
         for slide_plan in plan["slides"]:
             role = slide_plan["role"]

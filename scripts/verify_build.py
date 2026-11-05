@@ -13,10 +13,10 @@ uses, and checks it against three independent things — the plan, the fetched d
   blogs        the planned posts, newest first, each linked to its own URL, none twice
   events       the planned cards / featured slides; nothing dated before the build day; no card
                without a description
-  fit          no column, card or blog title is predicted to overflow its box (measured again from
-               the deck itself, not taken from the build report)
+  fit          no column, card, blog title or topic button is predicted to overflow its box (measured
+               again from the deck itself, not taken from the build report)
   layout       nothing extends past the slide's edges; event cards, their flags and product icons sit
-               on their lines, a second row of cards centred under the first, a card's description
+               on their lines, a second row of cards from the left under the first, a card's description
                as far below its title as the title is below its date; month headers are level; the
                blog grid is square; two highlights of one entry never run together (lib/layout.py)
   links        every hyperlink resolves to a relationship, is http(s), and does not point at an
@@ -187,6 +187,11 @@ def check_blogs(checks: dict, role: str, dom, rid_target: dict, plan: dict, slid
         if lines > holds:
             fit.fail(f"{role}: title '{norm(sl.para_text(paras[1]))[:50]}' needs {lines} lines, "
                      f"its box holds {holds}")
+    for button in sl.link_buttons(dom):
+        need, room = compose.one_line_pt(button)
+        if need > room * FIT_TOLERANCE:
+            fit.fail(f"{role}: the button '{norm(px.shape_text(button))}' needs {need:.0f} pt on one line, "
+                     f"it has {room:.0f}")
 
 
 def check_webinars(checks: dict, role: str, dom, rid_target: dict, plan: dict, build_date: str) -> None:

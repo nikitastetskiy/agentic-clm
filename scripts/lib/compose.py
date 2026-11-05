@@ -8,12 +8,18 @@ the per-product accent colours (Terraform purple, Vault orange) that differ from
 from __future__ import annotations
 
 from lib import pptx_edit as px
+from lib import slides as sl
+from lib import textfit
 from lib.textfit import DEFAULT_INSET, EMU_PT, ParaStyle
 
 DEFAULT_INSET_TB = 45720   # a text box's default top/bottom inset (0.05 in), in EMU
 RUN_LIKE = ("a:r", "a:br", "a:fld")
 # <a:rPr> children that must come AFTER a hyperlink element (schema order).
 AFTER_HLINK = ("a:hlinkMouseOver", "a:rtl", "a:extLst")
+BULLET_TAGS = ("a:buClrTx", "a:buClr", "a:buSzTx", "a:buSzPct", "a:buSzPts", "a:buFontTx", "a:buFont",
+               "a:buNone", "a:buAutoNum", "a:buChar", "a:buBlip")
+HEAVY_FACES = ("Black", "ExtraBold", "Heavy")
+HEAVY_WIDTH = 1.05         # how much wider such a face runs than the bundled Inter Bold it is measured with
 
 
 def insets(sp) -> tuple[int, int, int, int]:
@@ -189,6 +195,48 @@ def replace_paragraphs(sp, paragraphs: list) -> None:
         body.removeChild(p)
     for p in paragraphs:
         body.appendChild(p)
+
+
+def take_bullet(p, source) -> None:
+    """Give paragraph `p` the bullet of paragraph `source` — character, colour, size, font and indent —
+    keeping the rest of its own formatting. `source` may belong to another slide."""
+    pprs = _own(p, "a:pPr")
+    if pprs:
+        ppr = pprs[0]
+    else:
+        ppr = p.ownerDocument.createElement("a:pPr")
+        p.insertBefore(ppr, p.firstChild)
+    for el in [c for c in ppr.childNodes if c.nodeName in BULLET_TAGS]:
+        ppr.removeChild(el)
+    src = (_own(source, "a:pPr") or [None])[0]
+    for attr in ("marL", "indent"):
+        value = src.getAttribute(attr) if src is not None else ""
+        if value:
+            ppr.setAttribute(attr, value)
+        elif ppr.hasAttribute(attr):
+            ppr.removeAttribute(attr)
+    # schema order inside a:pPr: lnSpc, spcBef, spcAft, the bullet properties, tabLst, defRPr, extLst
+    ref = next((c for c in ppr.childNodes if c.nodeName in ("a:tabLst", "a:defRPr", "a:extLst")), None)
+    for el in [c for c in src.childNodes if c.nodeName in BULLET_TAGS] if src is not None else []:
+        ppr.insertBefore(p.ownerDocument.importNode(el, True), ref)
+
+
+def one_line_pt(sp) -> tuple[float, float]:
+    """(width the shape's label needs on one line at its stored font scale, width the shape gives it),
+    in points — whether a button's label fits on one line."""
+    scale = 1.0
+    for fit in sp.getElementsByTagName("a:normAutofit"):
+        if fit.getAttribute("fontScale"):
+            scale = int(fit.getAttribute("fontScale")) / 100000
+    need = 0.0
+    for run in sp.getElementsByTagName("a:r"):
+        rpr = run.getElementsByTagName("a:rPr")
+        size = int(rpr[0].getAttribute("sz")) / 100 if rpr and rpr[0].getAttribute("sz") else 18.0
+        heavy = any(f.getAttribute("typeface").endswith(HEAVY_FACES) for f in run.getElementsByTagName("a:latin"))
+        width = textfit.text_width(px.run_text(run), size * scale, heavy or sl.is_bold(run))
+        need += width * (HEAVY_WIDTH if heavy else 1.0)
+    left, _top, right, _bottom = insets(sp)
+    return need * textfit.SAFETY, (sl.box(sp)[2] - left - right) / EMU_PT
 
 
 def unlink_spaces(dom) -> int:

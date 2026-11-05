@@ -191,8 +191,10 @@ class Planner:
             heading.append({"text": f"v{rel['version']}", "url": rel["url"]})
         heading.append({"text": f" ({group[0]['date']})"})
         if lead is None:
-            options = [[style.get("lts_label", "Bug fixes and improvements")]]
             key = f"{product}/{group[0]['version']}"
+            stored = self.curated(key, *group)
+            label = [style.get("lts_label", "Bug fixes and improvements")]
+            options = [stored, label] if stored else [label]
         else:
             key = f"{product}/{lead['version']}"
             options = self.notes_options(key, lead, style)

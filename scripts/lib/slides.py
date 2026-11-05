@@ -213,6 +213,14 @@ def blog_groups(dom, slide_cx: int) -> list[dict]:
     return out
 
 
+def link_buttons(dom) -> list:
+    """Shapes that are links themselves and carry a label: the topic buttons beside the blog entries
+    ("Explore Topics!"), whose click opens a page whatever part of the button is clicked."""
+    return [sp for sp in dom.getElementsByTagName("p:sp")
+            if sp.getElementsByTagName("p:cNvPr")[0].getElementsByTagName("a:hlinkClick")
+            and px.shape_text(sp).strip()]
+
+
 def read_blog_entry(box_sp, rid_target: dict) -> dict:
     """``{"date_display", "title" (markup), "url"}`` of a blog entry box."""
     paras = px.paragraphs(box_sp)

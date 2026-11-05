@@ -12,8 +12,8 @@ disagree.
 The rules (the card values follow a reviewer's corrections of a built deck, 2026-10-14):
   * nothing extends past the slide's edges — a picture that does is cropped, never squashed;
   * event cards in a row share one top and one size, and are evenly spaced; more events than one row
-    holds get a second row of the same cards, as far below as the cards are apart and centred under
-    the first (a lone card under the middle one), every card shortened so both rows fit;
+    holds get a second row of the same cards, as far below as the cards are apart and filled from the
+    left under the first row's cards, every card shortened so both rows fit;
   * a card's description is as far below its title as the title is below the date line;
   * a card's flag sits a fixed distance from its top-right corner;
   * a card's product icons share one top line near its bottom-left corner, left to right, separated
@@ -158,16 +158,15 @@ def _pitch(row: list) -> float:
 
 def place_second_row(row: list, cards: list, slide_cy: int) -> None:
     """`cards` as a second row under the full `row`: as far below it as two cards of the row are apart,
-    centred under it, and every card of both rows shortened to the height at which the second row ends
-    CARD_BOTTOM above the slide's bottom edge (never taller than the template's card)."""
-    x, y, cx, cy = sl.box(row[0])
-    pitch = _pitch(row)
-    gap = pitch - cx
+    each under the row's card in its place from the left, and every card of both rows shortened to the
+    height at which the second row ends CARD_BOTTOM above the slide's bottom edge (never taller than the
+    template's card)."""
+    _x, y, cx, cy = sl.box(row[0])
+    gap = _pitch(row) - cx
     cy = min(cy, int((slide_cy - CARD_BOTTOM - y - gap) // 2))
     _pin(row, cy=cy)
-    start = x + (len(row) - len(cards)) * pitch / 2
-    for i, card in enumerate(cards):
-        sl.set_box(card, x=round(start + i * pitch), y=round(y + cy + gap), cx=cx, cy=cy)
+    for above, card in zip(row, cards):
+        sl.set_box(card, x=sl.box(above)[0], y=round(y + cy + gap), cx=cx, cy=cy)
 
 
 def description_gap_pt(head_after_pt: float, title_before_pt: float, title_after_pt: float) -> float:
@@ -207,18 +206,16 @@ def card_problems(dom, style_of=None) -> list[str]:
         if _uneven([sl.box(s)[0] for s in row]):
             out.append("event cards are not evenly spaced")
     if len(rows) > 1:
-        x, y, cx, cy = sl.box(rows[0][0])
-        pitch = _pitch(rows[0])
-        centre = (x + sl.box(rows[0][-1])[0] + cx) / 2
+        _x, _y, cx, cy = sl.box(rows[0][0])
+        gap = _pitch(rows[0]) - cx
         for above, row in zip(rows, rows[1:]):
             boxes = [sl.box(s) for s in row]
             if any(abs(b[2] - cx) > TOLERANCE or abs(b[3] - cy) > TOLERANCE for b in boxes):
                 out.append("the rows of event cards are not one card size")
-            if abs(boxes[0][1] - sl.box(above[0])[1] - cy - (pitch - cx)) > TOLERANCE:
+            if abs(boxes[0][1] - sl.box(above[0])[1] - cy - gap) > TOLERANCE:
                 out.append("the rows of event cards are not as far apart as the cards of a row")
-            if abs((boxes[0][0] + boxes[-1][0] + cx) / 2 - centre) > TOLERANCE or any(
-                    abs(b[0] - a[0] - pitch) > TOLERANCE for a, b in zip(boxes, boxes[1:])):
-                out.append("a second row of event cards is not centred under the first, a card's pitch apart")
+            if any(abs(b[0] - sl.box(a)[0]) > TOLERANCE for a, b in zip(above, boxes)):
+                out.append("a second row of event cards does not start from the left under the first row's cards")
     for i, slot in enumerate(slots, 1):
         x, y, cx, cy = sl.box(slot)
         title = sl.read_slot(slot, {})["title"][:40]

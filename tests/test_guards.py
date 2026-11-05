@@ -69,6 +69,27 @@ class EnrichmentAnswers(unittest.TestCase):
                             "columns": [{"entries": [{"key": "p/2026-10-02"}, {"key": "p/2026-10-03"}]}]}]}
         self.assertEqual([n["id"] for n in enrich.collect_needs(plan, cfg, data, {})], ["p/2026-10-02"])
 
+    def test_a_fix_only_release_gets_a_phrase_and_a_blog_title_its_emphasis(self):
+        rel = {"version": "1.16.6", "date": "2026-10-14",
+               "sections": {"BUG FIXES": [{"text": "Import blocks respect provider local names."}]}}
+        data = {"releases": {"products": {"terraform": {"releases": [rel]}}}, "changelogs": {}, "events": {}}
+        cfg = {"slides": [{"role": "tf", "kind": "columns"}, {"role": "blogs", "kind": "blogs"}]}
+        plan = {"slides": [
+            {"role": "tf", "kind": "columns",
+             "columns": [{"entries": [{"key": "terraform/1.16.6", "options": [["Bug fixes"]]}]}]},
+            {"role": "blogs", "kind": "blogs", "entries": [
+                {"url": "https://www.hashicorp.com/en/blog/a", "title": "Vault 2.2 is GA"},
+                {"url": "https://www.hashicorp.com/en/blog/b", "title": "**Vault** news"}]}]}   # emphasised already
+        needs = {n["id"]: n for n in enrich.collect_needs(plan, cfg, data, {})}
+        self.assertEqual(sorted(needs), ["hashicorp.com/blog/a", "terraform/1.16.6"])
+        fixes, blog = needs["terraform/1.16.6"], needs["hashicorp.com/blog/a"]
+        self.assertEqual((fixes["kind"], fixes["label"]), ("fixes", "Bug fixes"))
+        self.assertEqual(enrich.problems(fixes, ["Import blocks now respect provider local names."]), [])
+        self.assertTrue(enrich.problems(fixes, ["Import blocks now respect **provider local names**."]))
+        self.assertEqual(enrich.problems(blog, ["**Vault 2.2** is GA"]), [])
+        self.assertTrue(enrich.problems(blog, ["**Vault 2.2** is generally available"]))   # the title changed
+        self.assertTrue(enrich.problems(blog, ["**Vault 2.2 is GA**"]))                    # bold all through
+
 
 class BlogHistory(unittest.TestCase):
     def test_a_known_post_keeps_its_date_unless_the_listing_page_corrects_it(self):
@@ -242,9 +263,13 @@ class WordingGateway(BaseHTTPRequestHandler):
             self.end_headers()
             return
         items = json.loads(body["messages"][1]["content"])["items"]
+
+        def bullet(item):   # a blog title comes back as it is, its first word in bold
+            first, _, rest = item["source"].get("title", "").partition(" ")
+            return f"**{first}** {rest}" if item["kind"] == "blog" else \
+                "Adds what its release notes describe, in one plain sentence."
         text = "I could not do that." if behaviour == "garbled" else json.dumps({"items": [
-            {"id": item["id"], "bullets": ["Adds what its release notes describe, in one plain sentence."]}
-            for item in items]})
+            {"id": item["id"], "bullets": [bullet(item)]} for item in items]})
         data = json.dumps({"choices": [{"message": {"role": "assistant", "content": text}}]}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")

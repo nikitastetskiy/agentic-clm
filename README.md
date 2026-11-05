@@ -128,18 +128,20 @@ These mirror how the reference deck is maintained by hand.
 - **Month columns** show the three most recent months that *have* entries (Vault can skip a month),
   oldest on the left, newest entry first within a month.
 - **Terraform Core** lists every GitHub release, alpha / beta / rc included. As on the Vault slides, a
-  release that adds something gets a short summary; the others their category — `Bug fixes`,
-  `Pre-release`. Release dates come from the changelog heading, which is what the release page shows.
+  release that adds something gets a short summary, one that only fixes things its category and a
+  phrase (`Bug fixes: …`), a pre-release `Pre-release`. Release dates come from the changelog heading,
+  which is what the release page shows.
 - **Vault** versions released on the same day share one entry — `v2.1.2 / v1.21.12 / v1.20.17 /
   v1.19.23 (2026-10-07)` — each version linked to its own release notes.
 - **Wording**: stored wording first (a person's, or the enrichment step's); otherwise what the release
-  *adds*, as one sentence; a release that only fixes things gets its category label.
+  *adds*, as one sentence; a release that only fixes things gets its category label, followed by a
+  short phrase of what it fixes once the enrichment step has written one (`Bug fixes: …`).
 - **Blogs**: a post belongs to a product when its *title* names it; a title naming another product
-  never does. The 8 newest are shown; `state/blogs.json` remembers posts the live sources no longer
-  reach back to.
+  never does. The 8 newest are shown, each title with its key phrase in bold (marked once by the
+  enrichment step, dropped rather than cut a word); `state/blogs.json` remembers posts the live
+  sources no longer reach back to.
 - **Event cards** show webinars and workshops badged for the product, soonest first, each with its type,
-  product icon(s) and language flag; up to six, three to a row, a shorter second row centred under the
-  first. A session badged for both products appears on both slides. The
+  product icon(s) and language flag; up to six, three to a row, a second row filled from the left. A session badged for both products appears on both slides. The
   dated events come from the events page's own search index (the data the page renders its cards
   from), so they do not depend on getting a browser past hashicorp.com's bot check; the page itself
   is rendered for the abstracts and its undated promotions (see docs/pipelines.md).
@@ -152,8 +154,10 @@ These mirror how the reference deck is maintained by hand.
   every build re-aligns what repeats — event cards on one line, each flag in the same corner, product
   icons on one top line 13.5 pt apart, a card's description as far below its title as the title is below
   its date, month headers level, the blog grid square, a gap between two highlights of the same
-  release — crops any picture that runs past the slide's edge, and keeps a link's underline off the
-  spaces beside it.
+  release, an event's points level with the middle of its picture — crops any picture that runs past
+  the slide's edge, and keeps a link's underline off the spaces beside it. An HCP slide's bullets are
+  those of its product's release slide (`bullets_from`), and the blog slides' topic buttons keep their
+  labels on one line, one size.
 - **Text fitting**: if a month does not fit at the template's spacing, the slide tightens its spacing
   before it shortens any wording, and only as a last resort trims the oldest entries (and says so).
 
@@ -167,8 +171,8 @@ These mirror how the reference deck is maintained by hand.
 | `columns` | a column's entries, links or wording differ from the plan — or the newest release **in the data** is not on the slide |
 | `blogs` | a post is missing, mislinked, out of order or shown twice |
 | `events` | a card differs from the plan, lacks a description, or its event is already in the past |
-| `fit` | any column, card or title is predicted to overflow its box (measured again from the deck) |
-| `layout` | anything extends past the slide, or a card, flag, icon, month header or blog entry is off its line, a second row of cards is off-centre, a card's description runs into its title, or two highlights run together |
+| `fit` | any column, card, title or topic button is predicted to overflow its box (measured again from the deck) |
+| `layout` | anything extends past the slide, or a card, flag, icon, month header or blog entry is off its line, a second row of cards is off its place, a card's description runs into its title, or two highlights run together |
 | `links` | a link is dangling, not http(s), points at an internal host (w3, GitHub Enterprise, Box, Slack …), or underlines a space beside its word |
 | `disclosure` | the deck names a CVE that the fetched public release notes do not |
 | `formatting` | a slide uses a colour or typeface the template does not, or the deck embeds a font under another font's name |
