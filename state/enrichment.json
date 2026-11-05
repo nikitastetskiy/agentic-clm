@@ -388,6 +388,13 @@
       "source": "llm:ica-gateway/claude-haiku-5-5",
       "written": "2026-11-05"
     },
+    "terraform/1.16.6": {
+      "bullets": [
+        "**Bug fixes:** Workspace lookup by uppercase tag keys and deprecated outputs in tests fixed."
+      ],
+      "source": "hand-written (the model's two answers were rejected)",
+      "written": "2026-11-05"
+    },
     "terraform/1.16.7": {
       "bullets": [
         "**Bug fixes:** eMudhra certificates now rejected (CVE-2026-111943), and a test panic fixed."
