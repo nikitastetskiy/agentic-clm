@@ -259,6 +259,27 @@
       "source": "llm:ica-gateway/claude-haiku-5-5",
       "written": "2026-11-02"
     },
+    "terraform-enterprise/2.1.1": {
+      "bullets": [
+        "Terraform Enterprise now **rejects certificates from eight compromised eMudhra intermediate certificate authorities**, addressing CVE-2026-111943. It also allows up to 1,000 SAML identity provider certificates per instance."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
+    "terraform/1.16.0": {
+      "bullets": [
+        "Adds **import blocks inside modules** and a pre-built Linux s390x binary, alongside provider private plan data and on_failure modes for resource action triggers."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
+    "terraform/1.17.0": {
+      "bullets": [
+        "**Terraform Policy is now generally available**, so the -policies flag for plan, apply and query no longer needs an experimental build. Also adds a -minimal-refresh planning option."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
+    },
     "vault/1.21.10": {
       "bullets": [
         "Bug fixes and improvements"
@@ -318,6 +339,13 @@
         "The release also **expands PKI flexibility** by supporting additional CSR subject attributes, while delivering security patches and fixes across Secrets Sync, Agent Registry, leases, and the Vault UI."
       ],
       "source": "reference-deck"
+    },
+    "vault/2.1.2": {
+      "bullets": [
+        "Vault 2.1.2 **closes several security bypasses in ACL policies and the plugin catalog**, and ACME finalization now rejects CSRs that contain URI, email or Other SANs."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-05"
     },
     "vault/2.2.0": {
       "bullets": [

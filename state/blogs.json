@@ -3,27 +3,27 @@
     {
       "date": "2026-10-27",
       "title": "Building Self-Service into Terraform: Introducing Terraform Developer Portal (Public Preview)",
-      "url": "https://www.hashicorp.com/en/blog/introducing-terraform-developer-portal"
+      "url": "https://www.hashicorp.com/blog/introducing-terraform-developer-portal"
     },
     {
       "date": "2026-10-26",
       "title": "Terraform advances infrastructure lifecycle management for the agentic era",
-      "url": "https://www.hashicorp.com/en/blog/terraform-advances-infrastructure-lifecycle-management-for-the-agentic-era"
+      "url": "https://www.hashicorp.com/blog/terraform-advances-infrastructure-lifecycle-management-for-the-agentic-era"
     },
     {
       "date": "2026-10-23",
       "title": "The barriers to autonomous infrastructure",
-      "url": "https://www.hashicorp.com/en/blog/the-barriers-to-autonomous-infrastructure"
+      "url": "https://www.hashicorp.com/blog/the-barriers-to-autonomous-infrastructure"
     },
     {
       "date": "2026-10-22",
       "title": "Bring cloud cost insights to Terraform with IBM Cloudability",
-      "url": "https://www.hashicorp.com/en/blog/bring-cloud-cost-insights-to-terraform-with-ibm-cloudability"
+      "url": "https://www.hashicorp.com/blog/bring-cloud-cost-insights-to-terraform-with-ibm-cloudability"
     },
     {
       "date": "2026-10-22",
       "title": "Introducing Provider Sets: Bring more Terraform modules to no-code provisioning",
-      "url": "https://www.hashicorp.com/en/blog/introducing-provider-sets-bring-more-terraform-modules-to-no-code-provisioning"
+      "url": "https://www.hashicorp.com/blog/introducing-provider-sets-bring-more-terraform-modules-to-no-code-provisioning"
     },
     {
       "date": "2026-09-28",
@@ -73,44 +73,49 @@
   ],
   "vault": [
     {
+      "date": "2026-11-03",
+      "title": "Introducing IBM Cloud Secrets Manager Vault Dedicated: HashiCorp Vault Enterprise, managed by IBM",
+      "url": "https://www.hashicorp.com/blog/introducing-ibm-cloud-secrets-manager-vault-dedicated"
+    },
+    {
       "date": "2026-10-26",
       "title": "Announcing the public preview of HashiCorp Secure Hub: Govern Vault at scale",
-      "url": "https://www.hashicorp.com/en/blog/announcing-the-public-preview-of-hashicorp-secure-hub-govern-vault-at-scale"
+      "url": "https://www.hashicorp.com/blog/announcing-the-public-preview-of-hashicorp-secure-hub-govern-vault-at-scale"
     },
     {
       "date": "2026-10-26",
       "title": "Announcing the public preview of HashiCorp Vault Arc: Evolve security for emerging workloads",
-      "url": "https://www.hashicorp.com/en/blog/announcing-the-public-preview-of-hashicorp-vault-arc-evolve-security-for-emerging"
+      "url": "https://www.hashicorp.com/blog/announcing-the-public-preview-of-hashicorp-vault-arc-evolve-security-for-emerging"
     },
     {
       "date": "2026-10-25",
       "title": "Strengthen security for agentic AI with new Vault, Verify, Boundary, and Secure Hub capabilities",
-      "url": "https://www.hashicorp.com/en/blog/strengthen-security-for-agentic-ai-with-new-vault-verify-boundary-and-secure-hub"
+      "url": "https://www.hashicorp.com/blog/strengthen-security-for-agentic-ai-with-new-vault-verify-boundary-and-secure-hub"
     },
     {
       "date": "2026-10-22",
       "title": "Drive adoption and operations across hybrid environments with Vault",
-      "url": "https://www.hashicorp.com/en/blog/drive-adoption-and-operations-across-hybrid-environments-with-vault"
+      "url": "https://www.hashicorp.com/blog/drive-adoption-and-operations-across-hybrid-environments-with-vault"
     },
     {
       "date": "2026-10-22",
       "title": "Eliminate Secret Zero for on-prem workloads with Vault 2.2",
-      "url": "https://www.hashicorp.com/en/blog/eliminate-secret-zero-for-on-prem-workloads-with-vault"
+      "url": "https://www.hashicorp.com/blog/eliminate-secret-zero-for-on-prem-workloads-with-vault"
     },
     {
       "date": "2026-10-20",
       "title": "Modernize PKI, improve crypto-agility and prepare for post-quantum readiness",
-      "url": "https://www.hashicorp.com/en/blog/modernize-pki-improve-crypto-agility-and-prepare-for-post-quantum-readiness"
+      "url": "https://www.hashicorp.com/blog/modernize-pki-improve-crypto-agility-and-prepare-for-post-quantum-readiness"
     },
     {
       "date": "2026-10-15",
       "title": "Securely govern human and agentic identities with Vault",
-      "url": "https://www.hashicorp.com/en/blog/govern-human-and-agentic-identities-with-confidence-with-vault"
+      "url": "https://www.hashicorp.com/blog/govern-human-and-agentic-identities-with-confidence-with-vault"
     },
     {
       "date": "2026-10-13",
       "title": "Vault Enterprise 2.2 advances identity security, PKI, and crypto-agility",
-      "url": "https://www.hashicorp.com/en/blog/vault-enterprise-advances-identity-security-pki-and-crypto-agility"
+      "url": "https://www.hashicorp.com/blog/vault-enterprise-advances-identity-security-pki-and-crypto-agility"
     },
     {
       "date": "2026-10-08",
