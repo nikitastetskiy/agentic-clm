@@ -6,8 +6,8 @@ Writes data/releases.json. Per product:
   * ``releases`` — EVERY release in the history window (config ``releases.history_months``), newest
     first, paging through the API (20 per page). This is what the weekly deck is built from: each
     month column lists every release of that month, so the whole window has to be re-derivable from
-    the source on every run. Pre-releases are included when the product sets ``deck_prereleases``
-    (the Terraform Core slide lists alpha/beta/rc builds next to the stable patches). Vault publishes
+    the source on every run. Pre-releases are left out unless the product sets ``deck_prereleases``
+    (none does: their "Pre-release" lines crowded the Terraform Core slide). Vault publishes
     each version as several build variants (+ent, +ent.hsm, …) which are folded into one entry.
   * ``latest`` / ``recent`` / ``month_window`` — the stable-only view the in-place deck updater
     (edit_release_slides.py) reads. Unchanged.
@@ -32,6 +32,11 @@ MAX_PAGES = 40   # hard stop; Vault needs ~1 page per release date (4 lines x 5 
 def base_semver(version: str) -> str:
     """Strip build metadata: '2.0.3+ent.hsm.fips1403' -> '2.0.3'."""
     return version.split("+", 1)[0]
+
+
+def deck_view(entries: list[dict], pcfg: dict) -> list[dict]:
+    """The releases the weekly deck lists: stable ones, and pre-releases only if the product asks."""
+    return entries if pcfg.get("deck_prereleases") else [e for e in entries if not e["is_prerelease"]]
 
 
 def is_stable(version: str, is_prerelease: bool) -> bool:
@@ -130,7 +135,7 @@ def main() -> int:
         )
         stable_only = bool(pcfg.get("stable_only", True))
         full = [e for e in entries if not (stable_only and e["is_prerelease"])]
-        deck = entries if pcfg.get("deck_prereleases") else [e for e in entries if not e["is_prerelease"]]
+        deck = deck_view(entries, pcfg)
         recent = full[:recent_count]
         latest = full[0] if full else None
         # month_window: every stable release on the SAME release line (major.minor) as the latest —

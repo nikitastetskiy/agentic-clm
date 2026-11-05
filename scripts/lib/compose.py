@@ -16,10 +16,17 @@ DEFAULT_INSET_TB = 45720   # a text box's default top/bottom inset (0.05 in), in
 RUN_LIKE = ("a:r", "a:br", "a:fld")
 # <a:rPr> children that must come AFTER a hyperlink element (schema order).
 AFTER_HLINK = ("a:hlinkMouseOver", "a:rtl", "a:extLst")
+SPACING_TAGS = ("a:lnSpc", "a:spcBef", "a:spcAft")   # schema order, first inside a:pPr
 BULLET_TAGS = ("a:buClrTx", "a:buClr", "a:buSzTx", "a:buSzPct", "a:buSzPts", "a:buFontTx", "a:buFont",
                "a:buNone", "a:buAutoNum", "a:buChar", "a:buBlip")
 HEAVY_FACES = ("Black", "ExtraBold", "Heavy")
 HEAVY_WIDTH = 1.05         # how much wider such a face runs than the bundled Inter Bold it is measured with
+# PowerPoint's "this link keeps the colour of its text" (rather than the theme's link colour).
+TEXT_COLOUR_LINK = ("{A12FA001-AC4F-418D-AE19-62706E023703}",
+                    "http://schemas.microsoft.com/office/drawing/2018/hyperlinkcolor")
+FILLS = ("a:noFill", "a:solidFill", "a:gradFill", "a:blipFill", "a:pattFill", "a:grpFill")
+# <a:rPr> children that must come AFTER the underline's fill (schema order).
+AFTER_UFILL = ("a:latin", "a:ea", "a:cs", "a:sym", "a:hlinkClick") + AFTER_HLINK
 
 
 def insets(sp) -> tuple[int, int, int, int]:
@@ -221,6 +228,73 @@ def take_bullet(p, source) -> None:
         ppr.insertBefore(p.ownerDocument.importNode(el, True), ref)
 
 
+def take_entry_style(p, source) -> None:
+    """Give paragraph `p` the line spacing, space before and after, text size and underline of
+    paragraph `source` (which may belong to another slide), keeping its own colours, fonts and bullet:
+    the reference deck spaced and sized each release slide's entries differently."""
+    pprs = _own(p, "a:pPr")
+    if pprs:
+        ppr = pprs[0]
+    else:
+        ppr = p.ownerDocument.createElement("a:pPr")
+        p.insertBefore(ppr, p.firstChild)
+    for el in [c for c in ppr.childNodes if c.nodeName in SPACING_TAGS]:
+        ppr.removeChild(el)
+    src = (_own(source, "a:pPr") or [None])[0]
+    first = next((c for c in ppr.childNodes if c.nodeType == c.ELEMENT_NODE), None)   # spacing comes first
+    for el in [c for c in src.childNodes if c.nodeName in SPACING_TAGS] if src is not None else []:
+        ppr.insertBefore(p.ownerDocument.importNode(el, True), first)
+    run = first_run(source)
+    ref = (run.getElementsByTagName("a:rPr") or [None])[0] if run is not None else None
+    for props in p.getElementsByTagName("a:rPr") + p.getElementsByTagName("a:endParaRPr"):
+        for attr in ("sz", "u"):
+            value = ref.getAttribute(attr) if ref is not None else ""
+            if value:
+                props.setAttribute(attr, value)
+            elif props.hasAttribute(attr):
+                props.removeAttribute(attr)
+
+
+def link_label(sp) -> int:
+    """Make the label of a link button a link too, to the button's own page, in the label's own colour
+    and with no visible underline: the text then reads and clicks as a link while the pill keeps its
+    look. PowerPoint underlines a link whatever its `u` says (it did so to the reference deck's
+    u="none" Vault headings), so the underline is drawn with no fill. Returns how many runs were linked."""
+    doc = sp.ownerDocument
+    rid = sp.getElementsByTagName("p:cNvPr")[0].getElementsByTagName("a:hlinkClick")[0].getAttribute("r:id")
+    colour = next((c for ref in sp.getElementsByTagName("a:fontRef") for c in ref.childNodes
+                   if c.nodeType == c.ELEMENT_NODE), None)
+    runs = [r for r in sp.getElementsByTagName("a:r") if px.run_text(r).strip()]
+    for run in runs:
+        rpr = (run.getElementsByTagName("a:rPr") or [None])[0]
+        if rpr is None:
+            rpr = doc.createElement("a:rPr")
+            rpr.setAttribute("lang", "en-US")
+            run.insertBefore(rpr, run.firstChild)
+        rpr.setAttribute("u", "none")   # what other renderers go by
+        for old in [c for c in rpr.childNodes if c.nodeName in ("a:uFillTx", "a:uFill", "a:hlinkClick")]:
+            rpr.removeChild(old)
+        # A renderer that ignores the colour flag below still keeps the label's colour (the shape's).
+        if colour is not None and not [c for c in rpr.childNodes if c.nodeName in FILLS]:
+            fill = doc.createElement("a:solidFill")
+            fill.appendChild(colour.cloneNode(True))
+            rpr.insertBefore(fill, next((c for c in rpr.childNodes if c.nodeName != "a:ln"), None))
+        no_line = doc.createElement("a:uFill")
+        no_line.appendChild(doc.createElement("a:noFill"))
+        rpr.insertBefore(no_line, next((c for c in rpr.childNodes if c.nodeName in AFTER_UFILL), None))
+        link = doc.createElement("a:hlinkClick")
+        link.setAttribute("r:id", rid)
+        ext_lst, ext, flag = (doc.createElement(t) for t in ("a:extLst", "a:ext", "ahyp:hlinkClr"))
+        ext.setAttribute("uri", TEXT_COLOUR_LINK[0])
+        flag.setAttribute("xmlns:ahyp", TEXT_COLOUR_LINK[1])
+        flag.setAttribute("val", "tx")
+        ext.appendChild(flag)
+        ext_lst.appendChild(ext)
+        link.appendChild(ext_lst)
+        rpr.insertBefore(link, next((c for c in rpr.childNodes if c.nodeName in AFTER_HLINK), None))
+    return len(runs)
+
+
 def one_line_pt(sp) -> tuple[float, float]:
     """(width the shape's label needs on one line at its stored font scale, width the shape gives it),
     in points — whether a button's label fits on one line."""
@@ -264,6 +338,21 @@ def unlink_spaces(dom) -> int:
             run.parentNode.insertBefore(plain, run if before else run.nextSibling)
         trimmed += 1
     return trimmed
+
+
+def match_end_mark(p) -> None:
+    """Give the paragraph's end mark its first run's text properties: PowerPoint sizes a line by its end
+    mark too, and one in another font lifted the HCP Vault slide's "September" header above the others."""
+    run = first_run(p)
+    rprs = run.getElementsByTagName("a:rPr") if run is not None else []
+    for end in _own(p, "a:endParaRPr") if rprs else []:
+        mark = p.ownerDocument.createElement("a:endParaRPr")
+        for name, value in rprs[0].attributes.items():
+            mark.setAttribute(name, value)
+        for child in rprs[0].childNodes:
+            if child.nodeName != "a:hlinkClick":   # a link on the end mark would make the whole line one
+                mark.appendChild(child.cloneNode(True))
+        p.replaceChild(mark, end)
 
 
 def set_text(p, text: str) -> bool:

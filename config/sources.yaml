@@ -15,9 +15,10 @@ releases:
       # The in-place updater's view (latest / recent / month_window) is stable-only: a 1.17.0-alpha
       # ships most weeks and is superseded the same day by the latest stable patch.
       stable_only: true
-      # The weekly deck's "Terraform Core/CLI – GitHub Releases" slide lists EVERY GitHub release of
-      # the month, pre-releases (alpha / beta / rc) included, each tagged "Pre-release".
-      deck_prereleases: true
+      # The weekly deck's "Terraform Core/CLI – GitHub Releases" slide lists every STABLE release of the
+      # month: an alpha / beta / rc ships most weeks, and their "Pre-release" lines crowded the slide.
+      # `deck_prereleases: true` would list them too.
+      deck_prereleases: false
       link_template: "https://github.com/hashicorp/terraform/releases/tag/v{version}"
     vault:
       slug: vault

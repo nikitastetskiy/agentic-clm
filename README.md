@@ -21,7 +21,7 @@ open output/hashicorp-product-updates-<date>.pptx
 | Slide | Content | Source |
 |-------|---------|--------|
 | Cover | Month, build date, "review before sharing" status | — |
-| Terraform Core/CLI – GitHub Releases | Every release of the last three months, pre-releases included | [releases API] + Terraform `CHANGELOG.md` |
+| Terraform Core/CLI – GitHub Releases | Every stable release of the last three months | [releases API] + Terraform `CHANGELOG.md` |
 | Terraform Enterprise Upgrades | Every TFE release, one line each | [TFE releases] |
 | HCP Terraform Upgrades | The dated changelog entries | [HCP Terraform changelog] |
 | Terraform Recent Blogs | The 8 newest Terraform posts | [blog] feed + Terraform listing page |
@@ -127,10 +127,13 @@ These mirror how the reference deck is maintained by hand.
 
 - **Month columns** show the three most recent months that *have* entries (Vault can skip a month),
   oldest on the left, newest entry first within a month.
-- **Terraform Core** lists every GitHub release, alpha / beta / rc included. As on the Vault slides, a
-  release that adds something gets a short summary, one that only fixes things its category and a
-  phrase (`Bug fixes: …`), a pre-release `Pre-release`. Release dates come from the changelog heading,
-  which is what the release page shows.
+- **Terraform Core** lists every stable GitHub release; alpha / beta / rc builds are left out (one
+  ships most weeks, `deck_prereleases` in `config/sources.yaml`). As on the Vault slides, a release that
+  adds something gets a short summary, one that only fixes things its category and a phrase
+  (`Bug fixes: …`). Release dates come from the changelog heading, which is what the release page shows.
+- **Entries look alike on every release slide**: heading and highlights spaced and sized as on the HCP
+  Vault slide (`entries_from` in `config/deck.yaml`), in month boxes of one height; each product keeps
+  its colours and bullet.
 - **Vault** versions released on the same day share one entry — `v2.1.2 / v1.21.12 / v1.20.17 /
   v1.19.23 (2026-10-07)` — each version linked to its own release notes.
 - **Wording**: stored wording first (a person's, or the enrichment step's); otherwise what the release
@@ -157,8 +160,9 @@ These mirror how the reference deck is maintained by hand.
   release, an event's points level with the middle of its picture — crops any picture that runs past
   the slide's edge, and keeps a link's underline off the spaces beside it. An HCP slide's bullets are
   those of its product's release slide (`bullets_from`), and the blog slides' topic buttons keep their
-  labels on one line, one size.
-- **Text fitting**: if a month does not fit at the template's spacing, the slide tightens its spacing
+  labels on one line, one size, the label a link to the button's page like the pill around it (white,
+  its underline drawn without a fill: PowerPoint underlines every link).
+- **Text fitting**: if a month does not fit at that spacing, the slide tightens it (3 pt instead of 6)
   before it shortens any wording, and only as a last resort trims the oldest entries (and says so).
 
 ### What the gate checks

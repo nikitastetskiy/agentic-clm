@@ -87,7 +87,8 @@ class WeeklyBuild(unittest.TestCase):
 
     def test_month_columns_follow_the_data(self):
         columns = {s["role"]: [c["header"] for c in s["columns"]] for s in self.plan["slides"] if s["kind"] == "columns"}
-        self.assertEqual(columns["terraform-core-releases"], ["August", "September", "October"])
+        # By October 13 only a 1.17.0 release candidate had shipped that month, and pre-releases are not listed.
+        self.assertEqual(columns["terraform-core-releases"], ["July", "August", "September"])
         self.assertEqual(columns["terraform-enterprise-releases"], ["July", "August", "September"])
         self.assertEqual(columns["vault-enterprise-releases"], ["August", "September", "October"])
 
@@ -288,6 +289,51 @@ class WeeklyBuild(unittest.TestCase):
             self.assertEqual(colours[0], colours[1], hcp)
             self.assertEqual(len(colours[0]), 1, hcp)
 
+    def test_every_release_slide_spaces_its_entries_like_hcp_vault(self):
+        """The reference deck spaced and sized each release slide's entries its own way (deck.entries_from
+        names the one to follow), its boxes grew to different heights, and an unsized end mark lifted
+        one month header above the others."""
+        from lib import compose, pptx_edit as px, slides as sl, textfit
+        report = json.loads((self.tmp / "data" / "build-report.json").read_text(encoding="utf-8"))
+        spacing = {s["role"]: s["spacing"] for s in report["slides"] if "spacing" in s}
+        looks, boxes = {}, set()
+        for role in spacing:
+            cols = sl.columns(minidom.parseString(helpers.slide_text(self.deck, role)))
+            looks[role] = {(sl.is_heading(p), compose.style_of(p, default_size=6.5))
+                           for c in cols for p in px.paragraphs(c["body"]) if sl.para_text(p).strip()}
+            boxes |= {sl.box(c["body"])[3] for c in cols}
+            for c in cols:   # a month header's end mark is set like its text
+                p = px.paragraphs(c["header"])[0]
+                text = p.getElementsByTagName("a:rPr")[0].toxml()
+                for end in p.getElementsByTagName("a:endParaRPr"):
+                    self.assertEqual(end.toxml().replace("a:endParaRPr", "a:rPr"), text, role)
+
+        def look(styles, mode: str) -> set:   # a slide that cannot hold a month tightens its spacing
+            return {(h, s.size_pt, s.line_pct, s.before_pt, s.after_pt)
+                    for h, s in ((h, textfit.spaced(s, mode)) for h, s in styles)}
+        self.assertEqual(spacing.pop("hcp-vault-changelog"), "template")
+        reference = looks["hcp-vault-changelog"]
+        self.assertEqual(len(reference), 2)
+        for role, mode in spacing.items():
+            self.assertEqual(look(looks[role], "template"), look(reference, mode), role)
+        self.assertEqual(len(spacing), 4)
+        self.assertEqual(len(boxes), 1)
+
+    def test_topic_labels_are_links_without_a_visible_underline(self):
+        """PowerPoint underlines a link whatever its u= says, so the underline has no fill."""
+        from lib import slides as sl
+        for role in ("terraform-blogs", "vault-blogs"):
+            buttons = sl.link_buttons(minidom.parseString(helpers.slide_text(self.deck, role)))
+            self.assertTrue(buttons, role)
+            for sp in buttons:
+                page = sp.getElementsByTagName("p:cNvPr")[0].getElementsByTagName("a:hlinkClick")[0]
+                for rpr in sp.getElementsByTagName("a:rPr"):
+                    link = rpr.getElementsByTagName("a:hlinkClick")[0]
+                    self.assertEqual(link.getAttribute("r:id"), page.getAttribute("r:id"))
+                    self.assertEqual(rpr.getAttribute("u"), "none")
+                    self.assertTrue(rpr.getElementsByTagName("a:uFill")[0].getElementsByTagName("a:noFill"))
+                    self.assertEqual(link.getElementsByTagName("ahyp:hlinkClr")[0].getAttribute("val"), "tx")
+
     def test_the_event_points_sit_level_with_the_picture(self):
         from lib import slides as sl
         dom = minidom.parseString(helpers.slide_text(self.deck, "featured-event"))
@@ -310,9 +356,9 @@ class WeeklyBuild(unittest.TestCase):
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
 
     def test_gate_catches_highlights_that_run_together(self):
-        follow = '<a:spcBef><a:spcPts val="600"/></a:spcBef><a:spcAft><a:spcPts val="0"/>'
+        apart = '<a:spcAft><a:spcPts val="600"/></a:spcAft><a:buClr>'   # a highlight's space after
         deck = self.damaged("no-gap", "vault-enterprise-releases",
-                            lambda x: x.replace(follow, follow.replace('val="600"', 'val="0"', 1)))
+                            lambda x: x.replace(apart, apart.replace('val="600"', 'val="0"')))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
 
     def test_gate_catches_a_month_header_off_its_line(self):
