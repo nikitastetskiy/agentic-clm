@@ -298,8 +298,10 @@ def render_blogs(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dic
 def fit_buttons(dom) -> int:
     """Every topic button's label on one line ("Explore Topics!"): the reference deck's 7 pt labels need
     two lines in their pills and spill out of them. The side insets shrink to the top and bottom ones,
-    and where a label still does not fit, every button takes the same font scale (PowerPoint's "shrink
-    text on overflow"), so the labels stay one size. Returns that scale in percent."""
+    and where a label still does not fit, every label takes the template's size scaled down by one
+    factor, so they stay one size. The size is written into the labels: a stored "shrink on overflow"
+    scale is worked out again box by box by other renderers (the PDF preview), which mixed sizes.
+    Returns the factor in percent."""
     buttons = sl.link_buttons(dom)
     for sp in buttons:
         body = sp.getElementsByTagName("a:bodyPr")[0]
@@ -309,7 +311,9 @@ def fit_buttons(dom) -> int:
     percent = 100 if ratio >= 1 else max(60, int(ratio * 100) // 5 * 5)
     if percent < 100:
         for sp in buttons:
-            set_font_scale(sp, percent)
+            for props in sp.getElementsByTagName("a:rPr") + sp.getElementsByTagName("a:endParaRPr"):
+                if props.getAttribute("sz"):
+                    props.setAttribute("sz", str(int(props.getAttribute("sz")) * percent // 100))
     return percent
 
 

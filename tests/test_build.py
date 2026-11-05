@@ -296,8 +296,8 @@ class WeeklyBuild(unittest.TestCase):
 
     def test_gate_catches_a_topic_button_that_overflows(self):
         def unscaled(xml: str) -> str:                       # the widest label at its full 7 pt again
-            at = xml.rindex('<a:normAutofit fontScale="', 0, xml.index(">Culture &amp; Collaboration<"))
-            return xml[:at] + xml[at:].replace(re.match(r'<a:normAutofit fontScale="\d+"/>', xml[at:]).group(0), "", 1)
+            at = xml.rindex('sz="', 0, xml.index(">Culture &amp; Collaboration<"))
+            return xml[:at] + 'sz="700"' + xml[xml.index('"', at + 4) + 1:]
         deck = self.damaged("button", "vault-blogs", unscaled)
         self.assertEqual(self.failed(self.verify(deck)), {"fit"})
 
