@@ -3,8 +3,9 @@
 
 The plan (plan_deck.py) fills every slide from fixed rules. For a NEW release with features, or a
 changelog day with several changes, a rule can only quote the first note; a person would write one
-sentence that sums the release up. This step asks a small model for that sentence
-and stores it in state/enrichment.json, so:
+sentence that sums the release up. A release that only fixes things gets a short phrase after its
+category ("Bug fixes: …"), and a blog title its key phrase in bold. This step asks a small model for
+that wording and stores it in state/enrichment.json, so:
 
   * each item is worded ONCE — later builds reuse the stored text instead of rewording the deck
     every week (and a person can correct it by editing the state file);
@@ -42,7 +43,7 @@ from lib.common import DATA_DIR, REPO_ROOT, load_config, log, read_json, today  
 
 DEFAULT_MODEL = "ica-gateway/claude-haiku-5-5"
 DEFAULT_FALLBACK_MODEL = "ica-gateway/gpt-6-luna"   # another vendor's, when the first gives no answer
-MAX_CHARS = {"release": 230, "changelog": 260, "event": 330}
+MAX_CHARS = {"release": 230, "changelog": 260, "event": 330, "fixes": 80}
 EVENT_MIN_ABSTRACT = 300   # shorter abstracts fit a card as they are
 MIN_CHARS = 25
 BANNED = ("leverage", "seamless", "robust", "delve", "cutting-edge", "game-chang", "revolution",
@@ -53,6 +54,8 @@ NUMBER_RE = re.compile(r"\b\d{2,}\b")
 # Sections that say what a release adds; a release with none of them is described by a label instead.
 ADDS = ("new features", "features", "highlights", "enhancements", "improvements",
         "improvements and behavior changes")
+# Sections of a release that only fixes things: it gets a short phrase after its category label.
+FIXES = ("bug fixes", "bugfixes", "bug fixes and security patches", "security", "security fixes")
 
 
 def source_index(data: dict) -> dict[str, dict]:
@@ -103,12 +106,24 @@ def collect_needs(plan: dict, deck_cfg: dict, data: dict, enrich: dict) -> list[
                     elif not src.get("is_prerelease"):
                         notes = {name: [f"{i['lead']}: {i['text']}" if i.get("lead") else i["text"] for i in items]
                                  for name, items in (src.get("sections") or {}).items() if items}
-                        if not any(name.strip().lower() in ADDS for name in notes):
-                            continue
-                        needs[key] = {"id": key, "kind": "release", "product": src["_display"],
-                                      "version": src["version"], "date": src["date"],
-                                      "max_bullets": int(style.get("bullets", 1)),
-                                      "max_chars": MAX_CHARS["release"], "source": {"notes": notes}}
+                        names = {name.strip().lower() for name in notes}
+                        if names & set(ADDS):
+                            needs[key] = {"id": key, "kind": "release", "product": src["_display"],
+                                          "version": src["version"], "date": src["date"],
+                                          "max_bullets": int(style.get("bullets", 1)),
+                                          "max_chars": MAX_CHARS["release"], "source": {"notes": notes}}
+                        elif names & set(FIXES):
+                            # Shown after the category the entry falls back to: "Bug fixes: <phrase>".
+                            needs[key] = {"id": key, "kind": "fixes", "product": src["_display"],
+                                          "version": src["version"], "date": src["date"],
+                                          "label": entry["options"][-1][0], "max_bullets": 1,
+                                          "max_chars": MAX_CHARS["fixes"], "source": {"notes": notes}}
+        elif slide["kind"] == "blogs":
+            for post in slide["entries"]:
+                key = state.norm_url(post["url"])
+                if "**" in post["title"] or key in needs:
+                    continue   # already emphasised (stored wording that matches the exact title)
+                needs[key] = {"id": key, "kind": "blog", "max_bullets": 1, "source": {"title": post["title"]}}
         elif slide["kind"] == "webinars":
             for slot in slide["slots"]:
                 key = state.event_key(slot["url"])
@@ -132,6 +147,16 @@ def problems(need: dict, bullets) -> list[str]:
         if not isinstance(bullet, str):
             return ["a bullet is not text"]
         plain = bullet.replace("**", "")
+        if need["kind"] == "blog":   # the title itself, with its key phrase marked
+            spans = bullet.split("**")[1::2]
+            if " ".join(plain.split()) != " ".join(need["source"]["title"].split()):
+                out.append("the title was changed")
+            if len(spans) not in (1, 2) or bullet.count("**") % 2 or not all(s.strip() for s in spans) \
+                    or " ".join(spans).strip() == plain.strip():
+                out.append("expected one or two phrases of the title in bold")
+            continue
+        if need["kind"] == "fixes" and "**" in bullet:
+            out.append("no emphasis: the category label before the phrase is bold")
         if bullet.count("**") % 2 or bullet.count("**") > 4:
             out.append("unbalanced or excessive ** emphasis")
         if not MIN_CHARS <= len(plain) <= need["max_chars"]:
@@ -318,7 +343,11 @@ def main() -> int:
             continue
         if need["kind"] == "event":
             enrich.setdefault("events", {})[need["id"]] = {"description": bullets[0], **stamp}
+        elif need["kind"] == "blog":
+            enrich.setdefault("blog_titles", {})[need["id"]] = {"title_markup": bullets[0], **stamp}
         else:
+            if need["kind"] == "fixes":
+                bullets = [f"**{need['label']}:** {bullets[0]}"]
             enrich.setdefault("highlights", {})[need["id"]] = {"bullets": bullets, **stamp}
         report["accepted"].append({"id": need["id"], "bullets": bullets})
         log(f"  accepted {need['id'][-60:]}: {bullets[0][:90]}")

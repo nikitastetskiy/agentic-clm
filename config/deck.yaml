@@ -47,6 +47,8 @@ slides:
     kind: columns
     detect: 'hcp terraform (upgrades|changelog|releases)'
     source: {type: changelog, product: hcp-terraform}
+    style:
+      bullets_from: terraform-enterprise-releases   # one product, one bullet (the reference deck had none here)
 
   - role: terraform-blogs
     kind: blogs
@@ -58,7 +60,7 @@ slides:
     detect: 'terraform upcoming webinars'
     source: {type: webinars, product: terraform}
     slots: 6                                   # the soonest N events: a row of 3 cards, a second row under
-                                               # it for more; later ones are listed in the summary
+                                               # it from the left for more; later ones are in the summary
     fill: 3                                    # sessions of no deck product fill up to N cards, one row
 
   - role: vault-enterprise-releases
@@ -73,6 +75,8 @@ slides:
     kind: columns
     detect: 'hcp vault release'
     source: {type: changelog, product: hcp-vault}
+    style:
+      bullets_from: vault-enterprise-releases       # Vault's yellow bullet (the reference deck's were black)
 
   - role: vault-blogs
     kind: blogs

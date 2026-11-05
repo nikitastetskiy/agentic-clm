@@ -253,7 +253,7 @@ class WeeklyBuild(unittest.TestCase):
                             lambda x: nudge(x, 'name="Google Shape;397;p78"', dy=19050))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
 
-    def test_more_events_than_a_row_get_a_second_row_centred_under_it(self):
+    def test_more_events_than_a_row_get_a_second_row_from_the_left(self):
         from lib import slides as sl
         from lib.layout import CARD_BOTTOM, card_rows
         dom = minidom.parseString(helpers.slide_text(self.deck, "terraform-webinars"))
@@ -261,16 +261,16 @@ class WeeklyBuild(unittest.TestCase):
         (x0, y, cx, cy), (x1, *_), _ = (sl.box(c) for c in first)
         self.assertEqual(len(second), 1)
         x, y2, w, h = sl.box(second[0])
-        self.assertEqual((x, w, h), (x1, cx, cy))                         # under the middle card, one size
+        self.assertEqual((x, w, h), (x0, cx, cy))                         # under the first card, one size
         self.assertAlmostEqual(y2 - y - cy, x1 - x0 - cx, delta=1)        # as far below as the cards are apart
         with zipfile.ZipFile(self.deck) as z:
             size = minidom.parseString(z.read("ppt/presentation.xml")).getElementsByTagName("p:sldSz")[0]
         self.assertLessEqual(y2 + cy, int(size.getAttribute("cy")) - CARD_BOTTOM)   # 33 pt above the bottom
 
-    def test_gate_catches_a_second_row_off_centre(self):
+    def test_gate_catches_a_second_row_off_its_place(self):
         xml = helpers.slide_text(self.deck, "terraform-webinars")
         last = xml.rindex('name="Google Shape;397;p78"')                      # the card copied for the 4th event
-        deck = self.damaged("row-off-centre", "terraform-webinars",
+        deck = self.damaged("row-off-place", "terraform-webinars",
                             lambda x: x[:last] + nudge(x[last:], 'name="Google Shape;397;p78"', dx=-63500))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
 
@@ -278,6 +278,28 @@ class WeeklyBuild(unittest.TestCase):
         gap = '<a:spcBef><a:spcPts val="600"/></a:spcBef>'                   # the reference deck had none
         deck = self.damaged("no-title-gap", "vault-webinars", lambda x: x.replace(gap, "", 1))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
+
+    def test_hcp_slides_take_their_products_bullet(self):
+        """The reference deck's HCP Vault bullets were black and its HCP Terraform highlights had none."""
+        for hcp, release in (("hcp-vault-changelog", "vault-enterprise-releases"),
+                             ("hcp-terraform-changelog", "terraform-enterprise-releases")):
+            colours = [set(re.findall(r'<a:buClr><a:srgbClr val="(\w+)"/>', helpers.slide_text(self.deck, role)))
+                       for role in (hcp, release)]
+            self.assertEqual(colours[0], colours[1], hcp)
+            self.assertEqual(len(colours[0]), 1, hcp)
+
+    def test_the_event_points_sit_level_with_the_picture(self):
+        from lib import slides as sl
+        dom = minidom.parseString(helpers.slide_text(self.deck, "featured-event"))
+        self.assertEqual(sl.featured_parts(dom)["description"].getElementsByTagName("a:bodyPr")[0]
+                         .getAttribute("anchor"), "ctr")
+
+    def test_gate_catches_a_topic_button_that_overflows(self):
+        def unscaled(xml: str) -> str:                       # the widest label at its full 7 pt again
+            at = xml.rindex('<a:normAutofit fontScale="', 0, xml.index(">Culture &amp; Collaboration<"))
+            return xml[:at] + xml[at:].replace(re.match(r'<a:normAutofit fontScale="\d+"/>', xml[at:]).group(0), "", 1)
+        deck = self.damaged("button", "vault-blogs", unscaled)
+        self.assertEqual(self.failed(self.verify(deck)), {"fit"})
 
     def test_gate_catches_a_link_that_underlines_a_space(self):
         deck = self.damaged("link-space", "vault-webinars", lambda x: x.replace(">here</a:t>", ">here </a:t>", 1))
@@ -301,6 +323,19 @@ class WeeklyBuild(unittest.TestCase):
     def test_gate_catches_a_blog_entry_off_the_grid(self):
         deck = self.damaged("blog-grid", "vault-blogs", lambda x: nudge(x, 'name="Group 5"', dx=-33020))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
+
+
+class BlogTitles(unittest.TestCase):
+    def test_emphasis_never_costs_a_title_its_text(self):
+        import build_deck
+        from lib import textfit
+        style = textfit.ParaStyle(size_pt=8.0)
+        title = "Announcing the public preview of HashiCorp Secure Hub: Govern Vault at scale"
+        marked = f"**{title}**"                                # bold all through: wider than plain
+        width = next(w / 2 for w in range(100, 800)
+                     if textfit.line_count([(title, False)], 8.0, w / 2) <= 2 < textfit.line_count([(title, True)], 8.0, w / 2))
+        self.assertEqual(build_deck.blog_title(marked, style, width), (title, 2))
+        self.assertEqual(build_deck.blog_title(marked, style, width * 2)[0], marked)
 
 
 if __name__ == "__main__":
