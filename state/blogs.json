@@ -1,6 +1,11 @@
 {
   "terraform": [
     {
+      "date": "2026-11-05",
+      "title": "Migrate Sentinel and OPA policies to Terraform policy faster with the Terraform policy agent",
+      "url": "https://www.hashicorp.com/en/blog/migrate-sentinel-and-opa-policies-to-terraform-policy-faster"
+    },
+    {
       "date": "2026-10-27",
       "title": "Building Self-Service into Terraform: Introducing Terraform Developer Portal (Public Preview)",
       "url": "https://www.hashicorp.com/blog/introducing-terraform-developer-portal"
@@ -72,6 +77,11 @@
     }
   ],
   "vault": [
+    {
+      "date": "2026-11-05",
+      "title": "Secure AI credentials from discovery to remediation with Vault Radar and Vault",
+      "url": "https://www.hashicorp.com/en/blog/secure-ai-credentials-from-discovery-to-remediation-with-vault-radar-and-vault"
+    },
     {
       "date": "2026-11-03",
       "title": "Introducing IBM Cloud Secrets Manager Vault Dedicated: HashiCorp Vault Enterprise, managed by IBM",

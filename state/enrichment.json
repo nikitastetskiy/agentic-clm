@@ -77,10 +77,20 @@
       "title_markup": "Building Self-Service into Terraform: Introducing **Terraform Developer Portal** (Public Preview)",
       "written": "2026-11-05"
     },
+    "hashicorp.com/blog/migrate-sentinel-and-opa-policies-to-terraform-policy-faster": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Migrate Sentinel and OPA policies to Terraform policy faster with the **Terraform policy agent**",
+      "written": "2026-11-09"
+    },
     "hashicorp.com/blog/modernize-pki-improve-crypto-agility-and-prepare-for-post-quantum-readiness": {
       "source": "llm:ica-gateway/claude-haiku-5-5",
       "title_markup": "Modernize PKI, improve crypto-agility and prepare for **post-quantum readiness**",
       "written": "2026-11-05"
+    },
+    "hashicorp.com/blog/secure-ai-credentials-from-discovery-to-remediation-with-vault-radar-and-vault": {
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "title_markup": "Secure AI credentials from discovery to remediation with **Vault Radar** and Vault",
+      "written": "2026-11-09"
     },
     "hashicorp.com/blog/simplify-compliance-with-a-native-pre-written-policy-experience-in-terraform": {
       "source": "llm:ica-gateway/claude-haiku-5-5",
@@ -246,6 +256,13 @@
       ],
       "source": "llm:ica-gateway/claude-haiku-5-5",
       "written": "2026-10-16"
+    },
+    "hcp-terraform/2026-11-05": {
+      "bullets": [
+        "HCP Terraform adds **native tasks**, including the Cloudability native task in beta, which provides cost estimates, evaluates FinOps policies, and delivers resource recommendations within a run."
+      ],
+      "source": "llm:ica-gateway/claude-haiku-5-5",
+      "written": "2026-11-09"
     },
     "hcp-vault/2026-07-07": {
       "bullets": [
