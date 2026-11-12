@@ -27,6 +27,7 @@ FACES = {False: "Inter-Regular.ttf", True: "Inter-Bold.ttf"}
 REF_SIZE = 1000         # measure at 1000 units and scale: widths are linear in font size
 LINE_FACTOR = 1.22      # height of one single-spaced line of Inter, per point of font size
 SAFETY = 1.01           # widths are inflated by this much before wrapping
+FLAG_RE = re.compile(r"[(\"']?--?[A-Za-z]")   # a command-line flag: -minimal-refresh, --force
 EMU_PT = 12700
 DEFAULT_INSET = 91440   # a text box's default left/right/top/bottom inset (0.1 in), in EMU
 
@@ -89,45 +90,54 @@ def _words(segments: list[tuple[str, bool]]) -> list[tuple[str, bool]]:
 
 def line_count(segments: list[tuple[str, bool]], size_pt: float, width_pt: float) -> int:
     """Lines needed for a paragraph made of ``(text, bold)`` segments in a `width_pt` wide column."""
-    return _wrapped(_words(segments), size_pt, width_pt)
+    return _wrapped(_words(segments), size_pt, width_pt)[0]
 
 
-def last_word_may_split(segments: list[tuple[str, bool]], size_pt: float, width_pt: float) -> bool:
-    """Whether the paragraph's last word contains a hyphen and has to open a new line.
+def cut_points(segments: list[tuple[str, bool]], size_pt: float, width_pt: float,
+               heading: bool = False) -> list[int]:
+    """Offsets, in the paragraph's text, of the words that need a line break before them to stay whole.
 
-    The wrap above breaks only at spaces, but PowerPoint also breaks after a hyphen: where a date such
-    as "(2026-09-16)" does not fit at the end of a line, it fills the line with "(2026-09-" and sets
-    "16)" on the next. The line count is the same either way; it is where the date is cut."""
+    The wrap below breaks only at spaces, but PowerPoint also breaks after a hyphen: where a date such
+    as "(2026-09-16)" does not fit at the end of a line it fills the line with "(2026-09-" and sets
+    "16)" on the next, and of a flag such as "-minimal-refresh" it leaves a lone "-" behind. A break
+    before the word costs no line, since the word opens the next line either way. Kept whole are the
+    date that closes a heading and, in any other text, a command-line flag; an ordinary hyphenated word
+    ("multi-architecture", a CVE id) may wrap at its hyphen."""
     words = _words(segments)
-    while words and words[-1][0] == " ":
-        words.pop()
-    if len(words) < 2 or "-" not in words[-1][0]:
-        return False
-    before = words[:-1]
-    while before and before[-1][0] == " ":
-        before.pop()
-    return bool(before) and _wrapped(words, size_pt, width_pt) > _wrapped(before, size_pt, width_pt)
+    last = max((i for i, (word, _bold) in enumerate(words) if word != " "), default=-1)
+    starts = [0]
+    for word, _bold in words:
+        starts.append(starts[-1] + len(word))
+
+    def whole(i: int) -> bool:
+        word = words[i][0]
+        return (i == last and "-" in word) if heading else bool(FLAG_RE.match(word))
+
+    return [starts[i] for i in _wrapped(words, size_pt, width_pt)[1] if whole(i)]
 
 
-def _wrapped(words: list[tuple[str, bool]], size_pt: float, width_pt: float) -> int:
+def _wrapped(words: list[tuple[str, bool]], size_pt: float, width_pt: float) -> tuple[int, list[int]]:
+    """(lines, the indices of the words that open a line after the first)."""
     if width_pt <= 0:
-        return 1
+        return 1, []
     lines, used = 1, 0.0
     pending_space = 0.0
-    for word, bold in words:
+    openers = []
+    for i, (word, bold) in enumerate(words):
         w = text_width(word, size_pt, bold) * SAFETY
         if word == " ":
             pending_space += w
             continue
         if used and used + pending_space + w > width_pt:
             lines += 1
+            openers.append(i)
             used, pending_space = 0.0, 0.0
         used += pending_space + w
         pending_space = 0.0
         while used > width_pt:        # one unbreakable word wider than the column
             lines += 1
             used -= width_pt
-    return lines
+    return lines, openers
 
 
 def para_height(segments: list[tuple[str, bool]], style: ParaStyle, width_pt: float) -> float:

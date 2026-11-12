@@ -120,22 +120,24 @@ def entry_bullets(entry: dict, level: int) -> list[str]:
     return entry["options"][min(level, len(entry["options"]) - 1)]
 
 
-def heading_segments(segments: list[dict], style: textfit.ParaStyle, width: float) -> list[dict]:
-    """The heading's segments, with a line break before the date where it would not fit whole. PowerPoint
-    breaks after a hyphen, so it left "(2026-09-" at the end of a line and "16)" at the start of the
-    next; a non-breaking hyphen is not in the deck's font, so the break is made before the date."""
-    texts = [(seg["text"], True) for seg in segments]
-    if not segments or not textfit.last_word_may_split(texts, style.size_pt, width - style.indent_pt):
-        return segments
-    *head, last = segments
-    text = last["text"]
-    gap = text.rstrip().rfind(" ")
-    if gap < 0:
-        return segments
-    own = {k: v for k, v in last.items() if k != "text"}
-    plain = {k: v for k, v in own.items() if k != "url"}
-    return [*head, *([{**own, "text": text[:gap]}] if text[:gap] else []), {**plain, "text": " "},
-            {"break": True}, {**own, "text": text[gap + 1:]}]
+def kept_whole(segments: list[dict], style: textfit.ParaStyle, width: float, heading: bool = False) -> list[dict]:
+    """`segments` with a line break before each word PowerPoint would otherwise cut at a hyphen: a
+    heading's date ("(2026-09-" / "16)") or a flag ("-" / "minimal-refresh"). A non-breaking hyphen is
+    not in the deck's font, so the word is sent whole to the line it opens anyway (textfit.cut_points)."""
+    points = textfit.cut_points([(seg["text"], seg.get("bold", heading)) for seg in segments],
+                                style.size_pt, width - style.indent_pt, heading)
+    out, at = [], 0
+    for seg in segments:
+        text, start = seg["text"], 0
+        unlinked = {k: v for k, v in seg.items() if k != "url"}
+        for point in (p - at for p in points if at <= p < at + len(text)):
+            head = text[start:point].rstrip(" ")
+            # the space the line ends with is left out of a link, which would underline it
+            out += [{**seg, "text": head}, {**unlinked, "text": text[start + len(head):point]}, {"break": True}]
+            start = point
+        out.append({**seg, "text": text[start:]})
+        at += len(text)
+    return [seg for seg in out if seg.get("break") or seg["text"]]
 
 
 def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dict]:
@@ -211,7 +213,7 @@ def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], d
     _h, b_style, next_style = styles(mode)
 
     def highlight(segments: list[dict], follows_highlight: bool):
-        p = compose.paragraph(bullet_proto, segments, spacing=mode)
+        p = compose.paragraph(bullet_proto, kept_whole(segments, base_b, width), spacing=mode)
         if follows_highlight and next_style.before_pt != b_style.before_pt:
             compose.set_space_before(p, next_style.before_pt)
         return p
@@ -220,7 +222,7 @@ def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], d
     for col, cplan, entries, level, cut in zip(cols, plan["columns"], shown, levels, trimmed):
         paragraphs, written = [], []
         for entry in entries:
-            paragraphs.append(compose.paragraph(heading_proto, heading_segments(entry["heading"], base_h, width),
+            paragraphs.append(compose.paragraph(heading_proto, kept_whole(entry["heading"], base_h, width, True),
                                                 rels_dom, spacing=mode))
             bullets = entry_bullets(entry, level)
             for j, bullet in enumerate(bullets):

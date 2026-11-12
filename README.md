@@ -177,7 +177,7 @@ These mirror how the reference deck is maintained by hand.
 | `blogs` | a post is missing, mislinked, out of order or shown twice |
 | `events` | a card differs from the plan, lacks a description, or its event is already in the past |
 | `fit` | any column, card, title or topic button is predicted to overflow its box (measured again from the deck) |
-| `layout` | anything extends past the slide, or a card, flag, icon, month header or blog entry is off its line, a second row of cards is off its place, a card's description runs into its title, two highlights run together, a release heading is cut inside its date, blog entries differ in height, a subtitle is off the other slides' line, or a slide placed like another (`placed_like`) is not where that one is |
+| `layout` | anything extends past the slide, or a card, flag, icon, month header or blog entry is off its line, a second row of cards is off its place, a card's description runs into its title, two highlights run together, a release heading's date or a command-line flag is cut at a hyphen, blog entries differ in height, a subtitle is off the other slides' line, or a slide placed like another (`placed_like`) is not where that one is |
 | `links` | a link is dangling, not http(s), points at an internal host (w3, GitHub Enterprise, Box, Slack …), or underlines a space beside its word |
 | `disclosure` | the deck names a CVE that the fetched public release notes do not |
 | `formatting` | a slide uses a colour or typeface the template does not, or the deck embeds a font under another font's name |

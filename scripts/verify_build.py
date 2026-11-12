@@ -267,19 +267,24 @@ def check_cover(checks: dict, dom, plan: dict) -> None:
 
 
 # --------------------------------------------------------------------------- whole-deck checks ----
-def split_date_problems(cols: list[dict]) -> list[str]:
-    """Headings whose trailing date PowerPoint would cut at a hyphen ("(2026-09-" / "16)"): it breaks
-    after a hyphen, so a date that does not fit whole at the end of a line must start the next one."""
+def cut_word_problems(cols: list[dict]) -> list[str]:
+    """Words PowerPoint would cut at a hyphen that are to stay whole (textfit.cut_points: a heading's
+    date, "(2026-09-" / "16)", and a flag, "-" / "minimal-refresh"): each needs a line break before it."""
     out = []
     for col in cols:
         left, _t, right, _b = compose.insets(col["body"])
         width = (sl.box(col["body"])[2] - left - right) / EMU_PT
         for p in px.paragraphs(col["body"]):
-            if not sl.is_heading(p) or p.getElementsByTagName("a:br"):
-                continue
+            text, breaks = "", set()
+            for node in p.childNodes:
+                if node.nodeName == "a:br":
+                    breaks.add(len(text))
+                elif node.nodeName == "a:r":
+                    text += px.run_text(node)
             style = compose.style_of(p, default_size=6.5)
-            if textfit.last_word_may_split(segments(p), style.size_pt, width - style.indent_pt):
-                out.append(f"{sl.header_text(col['header'])}: heading '{sl.para_text(p)}' is cut inside its date")
+            points = textfit.cut_points(segments(p), style.size_pt, width - style.indent_pt, sl.is_heading(p))
+            out += [f"{sl.header_text(col['header'])}: '{text[at:].split(' ')[0]}' is cut at a hyphen in '{text[:60]}'"
+                    for at in points if at not in breaks]
     return out
 
 
@@ -298,7 +303,7 @@ def check_layout(c: Check, slides: list[Path], rules: dict, slide_cx: int, slide
         if kind == "columns":
             problems += layout.column_problems(sl.columns(dom),
                                                lambda p: compose.style_of(p, default_size=6.5))
-            problems += split_date_problems(sl.columns(dom))
+            problems += cut_word_problems(sl.columns(dom))
         elif kind == "blogs":
             problems += layout.blog_problems(sl.blog_groups(dom, slide_cx), slide_cx)
         elif kind == "webinars":

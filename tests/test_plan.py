@@ -53,6 +53,22 @@ class Labels(unittest.TestCase):
         self.assertEqual(plan_deck.lead_sentence({"Improvements": [note("Now faster.", lead="Planner")]}),
                          "**Planner:** Now faster.")
 
+    def test_a_label_the_text_opens_with_is_not_said_twice(self):
+        self.assertEqual(plan_deck.lead_sentence({"New features": [note(
+            "Vault Client is generally available. It is a client-only edition.", lead="Vault Client")]}),
+            "**Vault Client** is generally available.")
+        self.assertEqual(plan_deck.clean_markup("**Vault 2.0.4:** Vault 2.0.4 is now available."),
+                         "**Vault 2.0.4** is now available.")
+
+    def test_long_wording_is_made_shorter_never_cut_with_an_ellipsis(self):
+        text = ("Team token descriptions now have a 400-character limit, with a live character counter in the UI, "
+                "preventing unexpectedly long values from being stored and displayed. New tokens cannot pass it.")
+        self.assertEqual(plan_deck.first_sentences(text, 300, 2), text)
+        self.assertEqual(plan_deck.first_sentences(text, 150, 2), "Team token descriptions now have a 400-character "
+                         "limit, with a live character counter in the UI.")
+        whole = "Workspaces, projects, and teams can now be filtered by any tag key or value in the organization."
+        self.assertEqual(plan_deck.first_sentences(whole + " More follows.", 60), whole)   # no clause to drop
+
     def test_a_fix_only_release_has_no_lead_sentence(self):
         # quoting one arbitrary fix would misrepresent a maintenance or security release
         self.assertIsNone(plan_deck.lead_sentence(FIXES))

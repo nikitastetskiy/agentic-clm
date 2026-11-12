@@ -96,11 +96,17 @@ class Wrapping(unittest.TestCase):
         self.assertEqual(textfit.fit_sentences(text, style, 185, 9), text)
 
     def test_a_date_that_wraps_is_cut_at_its_hyphen_by_powerpoint(self):
-        heading = [("v2.1.1 / v1.21.11 / v1.20.16 / v1.19.22 (2026-09-16)", True)]
-        self.assertTrue(textfit.last_word_may_split(heading, 8, 185.1))
-        self.assertFalse(textfit.last_word_may_split(heading, 8, 400))                     # fits whole
-        self.assertFalse(textfit.last_word_may_split([("2026-09-16", True)], 8, 20))       # nothing to wrap after
-        self.assertFalse(textfit.last_word_may_split([("v2.2.0 / v1.21.13 (October)", True)], 8, 60))   # no hyphen
+        text = "v2.1.1 / v1.21.11 / v1.20.16 / v1.19.22 (2026-09-16)"
+        self.assertEqual(textfit.cut_points([(text, True)], 8, 185.1, heading=True), [text.index("(")])
+        self.assertEqual(textfit.cut_points([(text, True)], 8, 400, heading=True), [])             # fits whole
+        self.assertEqual(textfit.cut_points([("2026-09-16", True)], 8, 20, heading=True), [])      # nothing before it
+        self.assertEqual(textfit.cut_points([("v2.2.0 / v1.21.13 (October)", True)], 8, 60, heading=True), [])
+
+    def test_a_flag_that_wraps_would_leave_its_dash_behind(self):
+        text = "Also adds a -minimal-refresh planning option for multi-architecture builds."
+        self.assertEqual(textfit.cut_points([(text, False)], 7, 90), [text.index("-minimal")])
+        # the flag fits; "multi-architecture" opens a line, and an ordinary hyphenated word may wrap
+        self.assertEqual(textfit.cut_points([(text, False)], 7, 100), [])
 
     def test_a_title_is_cut_at_a_word_with_an_ellipsis(self):
         title = "Simplify compliance with the native pre-written policy experience. In HCP Terraform and beyond"

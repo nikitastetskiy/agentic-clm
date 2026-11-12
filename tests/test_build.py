@@ -373,7 +373,7 @@ class WeeklyBuild(unittest.TestCase):
         deck = self.damaged("date-cut", "vault-enterprise-releases", lambda x: re.sub(r"<a:br>.*?</a:br>", "", x))
         verdict = self.verify(deck)
         self.assertEqual(self.failed(verdict), {"layout"})
-        self.assertIn("cut inside its date", " ".join(verdict["checks"]["layout"]["notes"]))
+        self.assertIn("is cut at a hyphen", " ".join(verdict["checks"]["layout"]["notes"]))
 
     def test_gate_catches_a_blog_entry_off_the_grid(self):
         deck = self.damaged("blog-grid", "vault-blogs", lambda x: nudge(x, 'name="Group 5"', dx=-33020))
@@ -450,7 +450,7 @@ class HeadingDates(unittest.TestCase):
     def segments(self, width):
         import build_deck
         from lib import textfit
-        return build_deck.heading_segments(self.VERSIONS, textfit.ParaStyle(size_pt=8.0, bold=True), width)
+        return build_deck.kept_whole(self.VERSIONS, textfit.ParaStyle(size_pt=8.0, bold=True), width, heading=True)
 
     def test_a_date_that_would_be_cut_moves_whole_to_the_next_line(self):
         out = self.segments(185.1)
@@ -461,6 +461,15 @@ class HeadingDates(unittest.TestCase):
 
     def test_a_heading_that_fits_is_left_alone(self):
         self.assertEqual(self.segments(400), self.VERSIONS)
+
+    def test_a_flag_moves_whole_to_the_next_line(self):
+        import build_deck
+        from lib import compose, textfit
+        bullet = compose.markup_segments("**Now faster**. Also adds a -minimal-refresh planning option.")
+        out = build_deck.kept_whole(bullet, textfit.ParaStyle(size_pt=7.0), 110)
+        self.assertEqual(out[-2:], [{"break": True}, {"text": "-minimal-refresh planning option.", "bold": False}])
+        self.assertEqual("".join(s.get("text", "") for s in out), "".join(s["text"] for s in bullet))
+        self.assertEqual(out[0], bullet[0])
 
 
 class BlogTitles(unittest.TestCase):

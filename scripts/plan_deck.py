@@ -38,6 +38,12 @@ from lib.regions import event_region  # noqa: E402
 CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
 DATED_ALPHA_RE = re.compile(r"^(\d+\.\d+\.\d+)-alpha\d{8}$")
 SENTENCE_RE = re.compile(r".+?(?:[.!?](?=\s|$)|$)")
+# Where a sentence can stop early and still say the same thing: before a clause that only adds to it
+# ("…, allowing X", "…, which Y"). Not before a condition ("…, when Z"), whose loss would change it.
+CLAUSE_RE = re.compile(r",\s+(?=(?:with|so|which|including|allowing|enabling|ensuring|preventing|making|giving|"
+                       r"letting|providing|reducing|improving|helping|removing|simplifying|avoiding|keeping)\b)")
+MIN_CLAUSE = 40   # what is left of a shortened sentence is at least this long
+REPEATED_LABEL_RE = re.compile(r"\*\*([^*]+):\*\*\s+\1\b", re.I)
 # Section headings of the various changelog / release-notes formats, by what they mean.
 SECTION_KINDS = {
     "features": ("new features", "features", "highlights"),
@@ -58,17 +64,32 @@ GENERIC_EVENT_LINE = {
 
 # --------------------------------------------------------------------------- small helpers --------
 def first_sentences(text: str, max_chars: int, max_sentences: int = 1) -> str:
-    """The first sentence(s) of `text`, cut at a word boundary (with an ellipsis) if still too long."""
+    """The first sentence(s) of `text`, made shorter where they pass `max_chars`: fewer sentences, then
+    the first one without its closing clauses ("…, allowing X"). Wording is never cut at a word with an
+    ellipsis: a sentence that cannot be shortened stays whole, and the builder leaves out an entry
+    before it runs out of room."""
     text = " ".join((text or "").split())
-    out = " ".join(s.strip() for s in SENTENCE_RE.findall(text)[:max_sentences]).strip() or text
+    sentences = [s.strip() for s in SENTENCE_RE.findall(text)[:max_sentences]]
+    while len(sentences) > 1 and len(" ".join(sentences)) > max_chars:
+        sentences.pop()
+    out = " ".join(sentences).strip() or text
     if len(out) > max_chars:
-        out = out[:max_chars].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+        ends = [m.start() for m in CLAUSE_RE.finditer(out) if MIN_CLAUSE <= m.start() < max_chars]
+        if ends:
+            out = out[:ends[-1]] + "."
     return out
 
 
 def clean_markup(text: str) -> str:
-    """Curated wording as stored, minus slips that are plainly typos (doubled full stop)."""
-    return re.sub(r"\.\.(?!\.)", ".", " ".join((text or "").split()))
+    """Wording as stored, minus its slips: a doubled full stop, a label the text then says again
+    ("**Vault 2.0.4:** Vault 2.0.4 is now available" reads "**Vault 2.0.4** is now available")."""
+    text = re.sub(r"\.\.(?!\.)", ".", " ".join((text or "").split()))
+    return REPEATED_LABEL_RE.sub(r"**\1**", text)
+
+
+def labelled(label: str | None, text: str) -> str:
+    """`text` under its bold label, which is not said twice where the text opens with it."""
+    return clean_markup(f"**{label}:** {text}") if label else text
 
 
 def join_words(words: list[str]) -> str:
@@ -106,7 +127,7 @@ def lead_sentence(sections: dict, max_chars: int = 210) -> str | None:
                 if BOILERPLATE_RE.search(item.get("text", "")):
                     continue
                 text = first_sentences(item["text"], max_chars)
-                return f"**{item['lead']}:** {text}" if item.get("lead") else text
+                return labelled(item.get("lead"), text)
     return None
 
 
@@ -238,15 +259,13 @@ class Planner:
                 if stored:
                     options.append(stored)
                 elif any(it.get("title") for it in items):
-                    options.append([f"**{it['title']}:** {first_sentences(it['text'], 260, 2)}"
-                                    if it.get("title") else first_sentences(it["text"], 260, 2)
+                    options.append([labelled(it.get("title"), first_sentences(it["text"], 260, 2))
                                     for it in items[:3]])
                 else:
                     more = f" (+{len(items) - 1} more updates)" if len(items) > 1 else ""
                     options.append([first_sentences(items[0]["text"], 300, 2) + more])
                 first = items[0]
-                terse = first_sentences(first["text"], 150)
-                options.append([f"**{first['title']}:** {terse}" if first.get("title") else terse])
+                options.append([labelled(first.get("title"), first_sentences(first["text"], 150))])
                 planned.append({"key": key, "date": entry["date"],
                                 "heading": [{"text": entry["date"], "url": entry["url"]}],
                                 "options": options})
