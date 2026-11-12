@@ -174,14 +174,30 @@ def add_run(p, proto_run, text: str, *, bold: bool | None = None, url: str | Non
     p.insertBefore(run, ends[0] if ends else None)
 
 
+def add_break(p, proto_run) -> None:
+    """Append a line break that takes `proto_run`'s text properties (its size sets the height of the
+    line the break ends), without the run's link."""
+    br = p.ownerDocument.createElement("a:br")
+    for rpr in proto_run.getElementsByTagName("a:rPr")[:1]:
+        props = rpr.cloneNode(True)
+        for hl in props.getElementsByTagName("a:hlinkClick"):
+            hl.parentNode.removeChild(hl)
+        br.appendChild(props)
+    ends = _own(p, "a:endParaRPr")
+    p.insertBefore(br, ends[0] if ends else None)
+
+
 def paragraph(proto, segments: list[dict], rels_dom=None, *, spacing: str = "template"):
-    """A new paragraph in `proto`'s formatting. Each segment is ``{"text", "bold"?, "url"?}``.
-    Linked segments clone the prototype's hyperlinked run when it has one, the others its first
-    plain run, so each keeps the look of its kind."""
+    """A new paragraph in `proto`'s formatting. Each segment is ``{"text", "bold"?, "url"?}``, or
+    ``{"break": True}`` for a line break. Linked segments clone the prototype's hyperlinked run when it
+    has one, the others its first plain run, so each keeps the look of its kind."""
     plain = first_run(proto, linked=False) or first_run(proto)
     linked = first_run(proto, linked=True) or plain
     p = empty_clone(proto)
     for seg in segments:
+        if seg.get("break"):
+            add_break(p, plain)
+            continue
         if not seg.get("text"):
             continue
         add_run(p, linked if seg.get("url") else plain, seg["text"], bold=seg.get("bold"),

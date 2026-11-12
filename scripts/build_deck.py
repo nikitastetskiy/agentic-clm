@@ -120,6 +120,24 @@ def entry_bullets(entry: dict, level: int) -> list[str]:
     return entry["options"][min(level, len(entry["options"]) - 1)]
 
 
+def heading_segments(segments: list[dict], style: textfit.ParaStyle, width: float) -> list[dict]:
+    """The heading's segments, with a line break before the date where it would not fit whole. PowerPoint
+    breaks after a hyphen, so it left "(2026-09-" at the end of a line and "16)" at the start of the
+    next; a non-breaking hyphen is not in the deck's font, so the break is made before the date."""
+    texts = [(seg["text"], True) for seg in segments]
+    if not segments or not textfit.last_word_may_split(texts, style.size_pt, width - style.indent_pt):
+        return segments
+    *head, last = segments
+    text = last["text"]
+    gap = text.rstrip().rfind(" ")
+    if gap < 0:
+        return segments
+    own = {k: v for k, v in last.items() if k != "text"}
+    plain = {k: v for k, v in own.items() if k != "url"}
+    return [*head, *([{**own, "text": text[:gap]}] if text[:gap] else []), {**plain, "text": " "},
+            {"break": True}, {**own, "text": text[gap + 1:]}]
+
+
 def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dict]:
     dom, rels_dom = load(slide)
     cols = sl.columns(dom)
@@ -202,7 +220,8 @@ def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], d
     for col, cplan, entries, level, cut in zip(cols, plan["columns"], shown, levels, trimmed):
         paragraphs, written = [], []
         for entry in entries:
-            paragraphs.append(compose.paragraph(heading_proto, entry["heading"], rels_dom, spacing=mode))
+            paragraphs.append(compose.paragraph(heading_proto, heading_segments(entry["heading"], base_h, width),
+                                                rels_dom, spacing=mode))
             bullets = entry_bullets(entry, level)
             for j, bullet in enumerate(bullets):
                 paragraphs.append(highlight(compose.markup_segments(bullet), j > 0))

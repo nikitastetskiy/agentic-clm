@@ -75,10 +75,8 @@ def spaced(style: ParaStyle, mode: str) -> ParaStyle:
     return out
 
 
-def line_count(segments: list[tuple[str, bool]], size_pt: float, width_pt: float) -> int:
-    """Lines needed for a paragraph made of ``(text, bold)`` segments in a `width_pt` wide column."""
-    if width_pt <= 0:
-        return 1
+def _words(segments: list[tuple[str, bool]]) -> list[tuple[str, bool]]:
+    """``(text, bold)`` segments as words, each space between them a word of its own."""
     words: list[tuple[str, bool]] = []
     for text, bold in segments:
         for i, word in enumerate(text.split(" ")):
@@ -86,6 +84,34 @@ def line_count(segments: list[tuple[str, bool]], size_pt: float, width_pt: float
                 words.append((" ", bold))
             if word:
                 words.append((word, bold))
+    return words
+
+
+def line_count(segments: list[tuple[str, bool]], size_pt: float, width_pt: float) -> int:
+    """Lines needed for a paragraph made of ``(text, bold)`` segments in a `width_pt` wide column."""
+    return _wrapped(_words(segments), size_pt, width_pt)
+
+
+def last_word_may_split(segments: list[tuple[str, bool]], size_pt: float, width_pt: float) -> bool:
+    """Whether the paragraph's last word contains a hyphen and has to open a new line.
+
+    The wrap above breaks only at spaces, but PowerPoint also breaks after a hyphen: where a date such
+    as "(2026-09-16)" does not fit at the end of a line, it fills the line with "(2026-09-" and sets
+    "16)" on the next. The line count is the same either way; it is where the date is cut."""
+    words = _words(segments)
+    while words and words[-1][0] == " ":
+        words.pop()
+    if len(words) < 2 or "-" not in words[-1][0]:
+        return False
+    before = words[:-1]
+    while before and before[-1][0] == " ":
+        before.pop()
+    return bool(before) and _wrapped(words, size_pt, width_pt) > _wrapped(before, size_pt, width_pt)
+
+
+def _wrapped(words: list[tuple[str, bool]], size_pt: float, width_pt: float) -> int:
+    if width_pt <= 0:
+        return 1
     lines, used = 1, 0.0
     pending_space = 0.0
     for word, bold in words:

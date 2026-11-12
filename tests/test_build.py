@@ -362,6 +362,19 @@ class WeeklyBuild(unittest.TestCase):
                             lambda x: nudge(x, 'name="Google Shape;1262;p168"', dy=10160))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
 
+    def test_a_four_version_heading_keeps_its_date_on_one_line(self):
+        member = helpers.slide_member(self.deck, "vault-enterprise-releases")
+        with zipfile.ZipFile(self.deck) as z:
+            xml = z.read(member).decode("utf-8")
+        self.assertIn("<a:br>", xml)
+        self.assertEqual(self.failed(self.verify(self.deck)), set())
+
+    def test_gate_catches_a_date_cut_at_its_hyphen(self):
+        deck = self.damaged("date-cut", "vault-enterprise-releases", lambda x: re.sub(r"<a:br>.*?</a:br>", "", x))
+        verdict = self.verify(deck)
+        self.assertEqual(self.failed(verdict), {"layout"})
+        self.assertIn("cut inside its date", " ".join(verdict["checks"]["layout"]["notes"]))
+
     def test_gate_catches_a_blog_entry_off_the_grid(self):
         deck = self.damaged("blog-grid", "vault-blogs", lambda x: nudge(x, 'name="Group 5"', dx=-33020))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
@@ -426,6 +439,28 @@ class CardDescriptions(unittest.TestCase):
     def test_only_when_no_option_fits_is_one_cut(self):
         cut = self.describe([self.LONG], 2)
         self.assertTrue(cut.endswith("…") and self.LONG.startswith(cut[:-1]), cut)
+
+
+class HeadingDates(unittest.TestCase):
+    VERSIONS = [{"text": "v2.1.1", "url": "https://example.test/a"}, {"text": " / "},
+                {"text": "v1.21.11", "url": "https://example.test/b"}, {"text": " / "},
+                {"text": "v1.20.16", "url": "https://example.test/c"}, {"text": " / "},
+                {"text": "v1.19.22", "url": "https://example.test/d"}, {"text": " (2026-09-16)"}]
+
+    def segments(self, width):
+        import build_deck
+        from lib import textfit
+        return build_deck.heading_segments(self.VERSIONS, textfit.ParaStyle(size_pt=8.0, bold=True), width)
+
+    def test_a_date_that_would_be_cut_moves_whole_to_the_next_line(self):
+        out = self.segments(185.1)
+        self.assertEqual([s for s in out if s.get("break")], [{"break": True}])
+        self.assertEqual(out[-1], {"text": "(2026-09-16)"})
+        self.assertEqual("".join(s.get("text", "") for s in out), "v2.1.1 / v1.21.11 / v1.20.16 / v1.19.22 (2026-09-16)")
+        self.assertEqual([s["url"] for s in out if s.get("url")], [s["url"] for s in self.VERSIONS if s.get("url")])
+
+    def test_a_heading_that_fits_is_left_alone(self):
+        self.assertEqual(self.segments(400), self.VERSIONS)
 
 
 class BlogTitles(unittest.TestCase):
