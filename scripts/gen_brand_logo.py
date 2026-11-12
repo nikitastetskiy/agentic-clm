@@ -3,7 +3,7 @@
 LETTERS filled by the HashiCorp brand gradient (the same blue->purple->pink->orange used on the deck's
 "Featured / In Person Events" divider) plus a soft shadow for legibility, on a transparent background.
 
-The deterministic event editor (edit_event_slides.py) places this overlay in the bottom-left corner of
+The builder (lib/event_media.py) places this overlay in the bottom-left corner of
 each featured hero photo. This is a maintenance tool (like gen_flags.py): run it only to (re)generate
 assets/brand/hashicorp-ibm-gradient.png after changing the source logo, gradient, or tagline.
 

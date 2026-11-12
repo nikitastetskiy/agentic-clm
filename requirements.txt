@@ -1,11 +1,9 @@
 # Python dependencies for the auto-pptx pipeline.
 # Pipeline fetchers + helpers:
 PyYAML>=6.0
-# Anthropic pptx skill runtime deps (unpack/pack/clean/validate/thumbnail):
+# Reading the docs pages (release notes, changelogs):
 lxml>=5.0
-defusedxml>=0.7
+# Measuring text with the deck's fonts, and the pictures on event slides:
 Pillow>=10.0
-# Reading/extracting deck text (used by the pptx skill: `python -m markitdown deck.pptx`):
-markitdown[pptx]>=0.0.1a2
 # Rendering the bot-protected events page (passes the Vercel JS checkpoint a plain client can't):
 playwright>=1.40

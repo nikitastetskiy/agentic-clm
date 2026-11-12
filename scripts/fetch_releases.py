@@ -9,10 +9,8 @@ Writes data/releases.json. Per product:
     the source on every run. Pre-releases are left out unless the product sets ``deck_prereleases``
     (none does: their "Pre-release" lines crowded the Terraform Core slide). Vault publishes
     each version as several build variants (+ent, +ent.hsm, …) which are folded into one entry.
-  * ``latest`` / ``recent`` / ``month_window`` — the stable-only view the in-place deck updater
-    (edit_release_slides.py) reads. Unchanged.
 
-Highlights are added afterwards by fetch_changelogs.py / fetch_release_notes.py. Terraform Enterprise
+Each release's notes are added afterwards by fetch_changelogs.py / fetch_release_notes.py. Terraform Enterprise
 is not on this API (see fetch_tfe_releases.py).
 """
 from __future__ import annotations
@@ -105,7 +103,6 @@ def to_entries(raw: list[dict], *, normalize: bool, changelog_url_template: str 
             "url": link_template.format(version=key) if link_template else release_notes_url,
             "changelog_url": changelog_url,
             "release_notes_url": release_notes_url,
-            "highlight": None,   # filled by fetch_changelogs.py / the enrichment step
         }
     for entry in by_key.values():
         # "" = the community build. Lines that only ship +ent variants are Enterprise-only (Vault LTS).
@@ -118,7 +115,6 @@ def main() -> int:
     cfg = load_config()
     rel_cfg = cfg["releases"]
     api_base = rel_cfg["api_base"].rstrip("/")
-    recent_count = int(rel_cfg.get("recent_count", 4))
     months = int(rel_cfg.get("history_months", 6))
     since = window_start(months)
 
@@ -133,26 +129,11 @@ def main() -> int:
             release_notes_url_template=pcfg.get("release_notes_url_template"),
             link_template=pcfg.get("link_template"),
         )
-        stable_only = bool(pcfg.get("stable_only", True))
-        full = [e for e in entries if not (stable_only and e["is_prerelease"])]
         deck = deck_view(entries, pcfg)
-        recent = full[:recent_count]
-        latest = full[0] if full else None
-        # month_window: every stable release on the SAME release line (major.minor) as the latest —
-        # the set the in-place updater's newest-month column must show in full.
-        line = major_minor(latest["version"]) if latest else None
-        month_window = [r for r in full if line and major_minor(r["version"]) == line]
-        products[key] = {
-            "display": pcfg.get("display", key.title()),
-            "slug": slug,
-            "releases": deck,
-            "latest": latest,
-            "recent": recent,
-            "month_window": month_window,
-        }
+        products[key] = {"display": pcfg.get("display", key.title()), "slug": slug, "releases": deck}
+        stable = next((e["version"] for e in entries if not e["is_prerelease"]), "-")
         log(f"  {slug}: {len(deck)} releases in window "
-            f"({sum(1 for e in deck if e['is_prerelease'])} pre-release); latest stable "
-            f"{latest['version'] if latest else '-'}")
+            f"({sum(1 for e in deck if e['is_prerelease'])} pre-release); latest stable {stable}")
 
     tfe = cfg.get("terraform_enterprise", {})
     write_output(
@@ -165,7 +146,6 @@ def main() -> int:
                 "releases_page": tfe.get("releases_page"),
                 "note": "Not on the releases API; filled by fetch_tfe_releases.py.",
                 "releases": [],
-                "recent": [],
             },
         },
     )

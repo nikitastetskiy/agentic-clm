@@ -1,118 +1,36 @@
-"""Shared OOXML editing helpers for the deterministic slide editors (blogs, events, releases).
+"""Small helpers for editing a slide's XML: its text runs, its relationships, its pictures.
 
-These wrap the gritty, error-prone parts of editing a PowerPoint slide's XML by hand — unpack/pack,
-relationship (hyperlink) handling, and run/paragraph text edits — the CORRECT way, so each editor
-stays small and consistent. The golden rules encoded here (learned the hard way, see corrections):
+Two rules the helpers encode:
 
   * NEVER mutate an existing relationship's Target — rIds are frequently SHARED across entries, so
-    repointing one corrupts another. Always mint a FRESH rel with `add_rel()` and repoint the run.
+    repointing one corrupts another. Always mint a FRESH relationship and repoint the run or picture.
   * Edit text INSIDE existing `<a:t>` runs (preserving every `<a:rPr>`); to shorten content, blank
     or remove trailing runs/paragraphs rather than rebuilding a shape from scratch.
 """
 from __future__ import annotations
 
-import importlib.util
-import re
 import shutil
-import subprocess
-import sys
 from pathlib import Path
 from xml.dom import minidom
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-UNPACK = REPO_ROOT / ".github/skills/pptx/scripts/office/unpack.py"
-PACK = REPO_ROOT / ".github/skills/pptx/scripts/office/pack.py"
-ADD_SLIDE = REPO_ROOT / ".github/skills/pptx/scripts/add_slide.py"
-EMU_PER_IN = 914400
-HYPERLINK_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"
-IMAGE_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+from lib.package import REL_NS
+
+HYPERLINK_TYPE = REL_NS + "/hyperlink"
+IMAGE_TYPE = REL_NS + "/image"
+SLIDE_TYPE = REL_NS + "/slide"
+# Stray invisible characters that hide in hand-authored runs (a U+200B zero-width space in the
+# reference deck's "All global events here"): they render as nothing and break text matching.
+_INVISIBLES = dict.fromkeys([0x200B, 0x200C, 0x200D, 0xFEFF, 0x00AD, 0x2060], None)
+_PICTURE = (
+    '<p:pic xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+    'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="' + REL_NS + '">'
+    '<p:nvPicPr><p:cNvPr id="0" name=""/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>'
+    '<p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed=""/><a:stretch><a:fillRect/></a:stretch></p:blipFill>'
+    '<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm>'
+    '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>')
 
 
-# --------------------------------------------------------------------------- pack/unpack ----------
-def unpack(deck: Path, dest: Path) -> None:
-    subprocess.run([sys.executable, str(UNPACK), str(deck), str(dest)], check=True, capture_output=True)
-
-
-def pack(src: Path, deck: Path, *, original: Path) -> subprocess.CompletedProcess:
-    """Zip an unpacked deck, validated against `original` (the template, the reference deck, or the
-    deck an in-place edit started from: the check reports errors the edit introduced, not ones the
-    source already had). The vendored pack.py skips validation altogether when it has no original, so
-    every pack goes through here and must name one. That is upstream's behaviour and stays unpatched:
-    a local edit to a vendored file goes unnoticed by the skill-updater and is lost on a re-vendor."""
-    if not Path(original).is_file():
-        raise FileNotFoundError(f"no original deck to validate the pack against: {original}")
-    return subprocess.run([sys.executable, str(PACK), str(src), str(deck), "--validate", "true",
-                           "--original", str(original)], capture_output=True, text=True)
-
-
-def _load_add_slide():
-    spec = importlib.util.spec_from_file_location("pptx_add_slide", ADD_SLIDE)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-def duplicate_slide_after(unpacked: Path, src_n: int, anchor_n: int) -> int | None:
-    """Duplicate ppt/slides/slide{src_n}.xml as a NEW slide and place it RIGHT AFTER slide{anchor_n}
-    in the deck's display order. Reuses the vendored pptx skill's add_slide.py for the file/rels/
-    content-type/presentation-rels registration, then splices the <p:sldId> into presentation.xml.
-    Returns the new slide's file number, or None on failure (caller treats failure as non-fatal)."""
-    try:
-        add = _load_add_slide()
-        slides = unpacked / "ppt" / "slides"
-        src = f"slide{src_n}.xml"
-        if not (slides / src).exists():
-            return None
-        new_n = add.get_next_slide_number(slides)
-        dest = f"slide{new_n}.xml"
-        shutil.copy2(slides / src, slides / dest)
-        src_rels = slides / "_rels" / f"{src}.rels"
-        if src_rels.exists():
-            shutil.copy2(src_rels, slides / "_rels" / f"{dest}.rels")
-        add._add_to_content_types(unpacked, dest)
-        rid = add._add_to_presentation_rels(unpacked, dest)
-        if not _insert_sldid_after(unpacked, anchor_n, rid):
-            return None
-        return new_n
-    except Exception:  # noqa: BLE001 — slide growth is best-effort; never crash the editor
-        return None
-
-
-def _insert_sldid_after(unpacked: Path, anchor_n: int, new_rid: str) -> bool:
-    """Splice a <p:sldId> for `new_rid` into presentation.xml immediately after slide{anchor_n}'s."""
-    prels = (unpacked / "ppt" / "_rels" / "presentation.xml.rels").read_text(encoding="utf-8")
-    m = (re.search(rf'Id="(rId\d+)"[^>]*Target="slides/slide{anchor_n}\.xml"', prels)
-         or re.search(rf'Target="slides/slide{anchor_n}\.xml"[^>]*Id="(rId\d+)"', prels))
-    if not m:
-        return False
-    anchor_rid = m.group(1)
-    pres_path = unpacked / "ppt" / "presentation.xml"
-    txt = pres_path.read_text(encoding="utf-8")
-    ids = [int(x) for x in re.findall(r'<p:sldId[^>]*id="(\d+)"', txt)]
-    nid = (max(ids) + 1) if ids else 256
-    am = re.search(rf'<p:sldId[^>]*r:id="{anchor_rid}"\s*/>', txt)
-    if not am:
-        return False
-    new_el = f'<p:sldId id="{nid}" r:id="{new_rid}"/>'
-    pres_path.write_text(txt[:am.end()] + new_el + txt[am.end():], encoding="utf-8")
-    return True
-
-
-# --------------------------------------------------------------------------- geometry/text --------
-def emu_to_in(v: str | None) -> float | None:
-    try:
-        return round(int(v) / EMU_PER_IN, 2)
-    except (TypeError, ValueError):
-        return None
-
-
-def shape_xy(sp) -> tuple[float | None, float | None]:
-    off = sp.getElementsByTagName("a:off")
-    if not off:
-        return None, None
-    return emu_to_in(off[0].getAttribute("x")), emu_to_in(off[0].getAttribute("y"))
-
-
+# --------------------------------------------------------------------------- text -----------------
 def shape_name(sp) -> str:
     nv = sp.getElementsByTagName("p:cNvPr")
     return nv[0].getAttribute("name") if nv else ""
@@ -146,6 +64,13 @@ def run_hyperlink(run):
     return hl[0] if hl else None
 
 
+def strip_invisibles(dom) -> None:
+    """Remove stray zero-width characters from every text run of the slide."""
+    for t in dom.getElementsByTagName("a:t"):
+        if t.firstChild is not None and t.firstChild.data:
+            t.firstChild.data = t.firstChild.data.translate(_INVISIBLES)
+
+
 # --------------------------------------------------------------------------- relationships --------
 def load_rels(rels_file: Path) -> tuple[minidom.Document, dict]:
     dom = minidom.parse(str(rels_file))
@@ -154,74 +79,79 @@ def load_rels(rels_file: Path) -> tuple[minidom.Document, dict]:
     return dom, rid_target
 
 
-def add_rel(rels_dom, target: str) -> str:
-    """Append a NEW external-hyperlink relationship and return its rId (never mutate a shared one)."""
-    container = rels_dom.getElementsByTagName("Relationships")[0]
+def add_relationship(rels_dom, rel_type: str, target: str, *, external: bool = False) -> str:
+    """Append a NEW relationship and return its id (never repoint a shared one)."""
     nums = [int(r.getAttribute("Id")[3:]) for r in rels_dom.getElementsByTagName("Relationship")
             if r.getAttribute("Id").startswith("rId") and r.getAttribute("Id")[3:].isdigit()]
-    new_id = f"rId{(max(nums) + 1) if nums else 1}"
     rel = rels_dom.createElement("Relationship")
-    rel.setAttribute("Id", new_id)
-    rel.setAttribute("Type", HYPERLINK_TYPE)
+    rel.setAttribute("Id", f"rId{max(nums, default=0) + 1}")
+    rel.setAttribute("Type", rel_type)
     rel.setAttribute("Target", target)
-    rel.setAttribute("TargetMode", "External")
-    container.appendChild(rel)
-    return new_id
+    if external:
+        rel.setAttribute("TargetMode", "External")
+    rels_dom.documentElement.appendChild(rel)
+    return rel.getAttribute("Id")
 
 
-def add_image_rel(rels_dom, target: str) -> str:
-    """Append a NEW internal image relationship (Type=image, no TargetMode) and return its rId.
-
-    Used to repoint a picture's <a:blip r:embed> at a freshly added media file without mutating any
-    existing (possibly shared) image rel — the same shared-rId safety rule as hyperlinks.
-    """
-    container = rels_dom.getElementsByTagName("Relationships")[0]
-    nums = [int(r.getAttribute("Id")[3:]) for r in rels_dom.getElementsByTagName("Relationship")
-            if r.getAttribute("Id").startswith("rId") and r.getAttribute("Id")[3:].isdigit()]
-    new_id = f"rId{(max(nums) + 1) if nums else 1}"
-    rel = rels_dom.createElement("Relationship")
-    rel.setAttribute("Id", new_id)
-    rel.setAttribute("Type", IMAGE_TYPE)
-    rel.setAttribute("Target", target)
-    container.appendChild(rel)
-    return new_id
+def add_rel(rels_dom, url: str) -> str:
+    """A fresh hyperlink relationship to `url`."""
+    return add_relationship(rels_dom, HYPERLINK_TYPE, url, external=True)
 
 
-def relink_run(run, rels_dom, target: str) -> bool:
-    """Point a run's hyperlink at `target` via a FRESH rel (so shared rIds elsewhere are unaffected).
+def prune_orphan_rels(slide_dom, rels_dom) -> None:
+    """Remove the hyperlink and picture relationships nothing on the slide uses any more.
 
-    Returns False if the run has no <a:hlinkClick> (nothing to repoint).
-    """
-    hl = run_hyperlink(run)
-    if hl is None:
-        return False
-    hl.setAttribute("r:id", add_rel(rels_dom, target))
-    return True
-
-
-def prune_orphan_hyperlinks(slide_dom, rels_dom) -> list[str]:
-    """Remove External-hyperlink rels no longer referenced by any run in the slide.
-
-    Repointing a run via `add_rel`/`relink_run` mints a fresh rId and leaves the run's PREVIOUS
-    hyperlink rel dangling in the .rels (e.g. a refreshed release entry left rId11 -> an old
-    prerelease tag on slide 7). Such orphans are harmless but untidy; this sweeps them after edits.
-
-    SAFE BY CONSTRUCTION: only relationships of the hyperlink Type are ever removed, and only when no
-    element in the slide references their Id — so implicit/internal rels (slideLayout, image/media,
-    notesSlide, …) are never touched. Returns the list of pruned rIds.
-    """
-    referenced: set[str] = set()
-    for el in slide_dom.getElementsByTagName("*"):
-        for attr in ("r:id", "r:embed", "r:link"):
-            val = el.getAttribute(attr)
-            if val:
-                referenced.add(val)
-    pruned: list[str] = []
+    Repointing a run or a picture mints a fresh relationship and leaves the previous one behind; a
+    removed icon leaves its picture's. A left-over picture relationship would also keep its media file
+    in the deck (lib/package.py sweeps only what no relationship reaches). Only these two types are
+    touched, and only when no element references their id: the layout, notes … stay."""
+    used = {el.getAttribute(attr) for el in slide_dom.getElementsByTagName("*")
+            for attr in ("r:id", "r:embed", "r:link")}
     for rel in list(rels_dom.getElementsByTagName("Relationship")):
-        if rel.getAttribute("Type") == HYPERLINK_TYPE and rel.getAttribute("Id") not in referenced:
+        if rel.getAttribute("Type") in (HYPERLINK_TYPE, IMAGE_TYPE) and rel.getAttribute("Id") not in used:
             rel.parentNode.removeChild(rel)
-            pruned.append(rel.getAttribute("Id"))
-    return pruned
+
+
+# --------------------------------------------------------------------------- shapes, pictures -----
+def fresh_ids(node, dom) -> None:
+    """Give a new shape (and everything inside it) shape ids no other shape on the slide uses."""
+    used = [int(c.getAttribute("id")) for c in dom.getElementsByTagName("p:cNvPr")
+            if c.getAttribute("id").isdigit()]
+    nxt = max(used, default=1) + 1
+    for cnv in node.getElementsByTagName("p:cNvPr"):
+        cnv.setAttribute("id", str(nxt))
+        nxt += 1
+
+
+def embed_media(root: Path, rels_dom, source: Path, media_name: str) -> str:
+    """Store `source` in the deck as ppt/media/<media_name> behind a FRESH picture relationship of the
+    slide (never repoint an existing one: slides share them). Returns the relationship id."""
+    media = root / "ppt" / "media"
+    media.mkdir(parents=True, exist_ok=True)
+    shutil.copy(source, media / media_name)
+    return add_relationship(rels_dom, IMAGE_TYPE, f"../media/{media_name}")
+
+
+def new_picture(dom, rels_dom, root: Path, source: Path, media_name: str, name: str,
+                box: tuple[int, int, int, int], descr: str = ""):
+    """A new `<p:pic>` showing `source` in `box` (x, y, cx, cy), with an id of its own; the caller
+    puts it in the shape tree."""
+    pic = minidom.parseString(_PICTURE).documentElement
+    for attr in ("xmlns:p", "xmlns:a", "xmlns:r"):
+        pic.removeAttribute(attr)   # the slide root already declares these prefixes
+    pic = dom.importNode(pic, True)
+    cnv = pic.getElementsByTagName("p:cNvPr")[0]
+    cnv.setAttribute("name", name)
+    if descr:
+        cnv.setAttribute("descr", descr)
+    pic.getElementsByTagName("a:blip")[0].setAttribute("r:embed", embed_media(root, rels_dom, source, media_name))
+    off, ext = pic.getElementsByTagName("a:off")[0], pic.getElementsByTagName("a:ext")[0]
+    off.setAttribute("x", str(box[0]))
+    off.setAttribute("y", str(box[1]))
+    ext.setAttribute("cx", str(box[2]))
+    ext.setAttribute("cy", str(box[3]))
+    fresh_ids(pic, dom)
+    return pic
 
 
 # --------------------------------------------------------------------------- paragraphs -----------

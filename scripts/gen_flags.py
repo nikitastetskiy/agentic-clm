@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the small country-flag PNGs used for the per-webinar-slot language flag (the circular
-flag icon at each slot's top-right on slides 10/14). The editor (edit_event_slides.py) repoints a
-slot's flag to assets/flags/<lang>.png when the webinar it fills is detected to be in that language.
+flag icon at the top-right of each card on the webinar slides). The builder (lib/event_media.py) repoints
+a card's flag to assets/flags/<lang>.png when the webinar it shows is detected to be in that language.
 
 The simple tri-band flags are rendered deterministically here (no external downloads). The two flags
 the source deck already ships (Union Jack = en, Germany = de) are kept as-is under assets/flags and

@@ -21,7 +21,11 @@ The rules (the card values follow a reviewer's corrections of a built deck, 2026
   * month columns: headers on one top line, bodies on one top line, and two highlights of the same
     entry never run into each other (at least MIN_HIGHLIGHT_GAP_PT between them);
   * blog entries: one x per column, the left column's rows evenly spaced, the right column's rows
-    on the left column's.
+    on the left column's, every entry one height (so the gaps between rows are even too);
+  * the line under the title sits in the same box on every slide that has one;
+  * sibling slides (`placed_like` in config/deck.yaml): the Terraform and the Vault version of a
+    slide keep their event cards / blog entries at the same places, so nothing jumps when one follows
+    the other (the reference deck's pairs were up to 9 pt apart).
 """
 from __future__ import annotations
 
@@ -65,6 +69,11 @@ def spread(nodes: list, axis: int) -> None:
     step = (last - first) / (len(nodes) - 1)
     for i, node in enumerate(nodes[1:-1], 1):
         sl.set_box(node, **{"xy"[axis]: round(first + i * step)})
+
+
+def _usual(values: list):
+    """The value most of them share: the layout the deck means, whatever one element drifted to."""
+    return Counter(values).most_common(1)[0][0]
 
 
 def _uneven(values: list[int]) -> bool:
@@ -301,7 +310,7 @@ def align_blog_grid(groups: list[dict], slide_cx: int) -> None:
     left, right = blog_columns(groups, slide_cx)
     for column in (left, right):
         if column:
-            _pin(column, x=Counter(sl.box(g)[0] for g in column).most_common(1)[0][0])
+            _pin(column, x=_usual([sl.box(g)[0] for g in column]))
     spread(left, 1)
     rows = [sl.box(g)[1] for g in left]
     for group in right:
@@ -313,6 +322,9 @@ def align_blog_grid(groups: list[dict], slide_cx: int) -> None:
 def blog_problems(groups: list[dict], slide_cx: int) -> list[str]:
     out = []
     left, right = blog_columns(groups, slide_cx)
+    heights = [sl.box(g)[3] for g in left + right]
+    if heights and max(heights) - min(heights) > TOLERANCE:
+        out.append(f"blog entries are not one height ({', '.join(_pt(h) for h in heights)})")
     for name, column in (("left", left), ("right", right)):
         xs = [sl.box(g)[0] for g in column]
         if xs and max(xs) - min(xs) > TOLERANCE:
@@ -325,3 +337,57 @@ def blog_problems(groups: list[dict], slide_cx: int) -> list[str]:
         if rows and min(abs(y - r) for r in rows) > TOLERANCE:
             out.append(f"a right-column blog entry ({_pt(y)}) is not on a left-column row")
     return out
+
+
+# --------------------------------------------------------------------------- subtitles ------------
+def align_subtitles(subtitles: list) -> None:
+    """The line under the title takes the same box on every slide: the one most slides give it."""
+    if subtitles:
+        x, y, cx, cy = _usual([sl.box(s) for s in subtitles])
+        _pin(subtitles, x=x, y=y, cx=cx, cy=cy)
+
+
+def subtitle_problems(subtitles: dict) -> list[str]:
+    """`subtitles`: role -> its subtitle shape, for every slide that has one."""
+    boxes = {role: sl.box(node) for role, node in subtitles.items()}
+    if not boxes:
+        return []
+    usual = _usual(list(boxes.values()))
+    return [f"{role}: the line under the title is at {_pt(b[0])}, {_pt(b[1])} ({_pt(b[2])} x {_pt(b[3])}); "
+            f"on the other slides at {_pt(usual[0])}, {_pt(usual[1])} ({_pt(usual[2])} x {_pt(usual[3])})"
+            for role, b in boxes.items() if any(abs(v - u) > TOLERANCE for v, u in zip(b, usual))]
+
+
+# --------------------------------------------------------------------------- sibling slides -------
+def _repeated(dom, kind: str, slide_cx: int) -> list:
+    """A slide's repeated boxes in reading order: its event cards, or its blog entries."""
+    if kind == "webinars":
+        return sl.webinar_slots(dom)
+    return [g["group"] for g in sl.blog_groups(dom, slide_cx)] if kind == "blogs" else []
+
+
+def places(dom, kind: str, slide_cx: int) -> list[tuple]:
+    """What a slide that is `placed_like` this one takes from it, box by box in reading order, once
+    this slide's own rules are applied: an event card's whole box; a blog entry's x and y only (its
+    size is set with its title)."""
+    if kind == "webinars":
+        align_cards(sl.webinar_slots(dom))
+        return [sl.box(card) for card in _repeated(dom, kind, slide_cx)]
+    align_blog_grid(sl.blog_groups(dom, slide_cx), slide_cx)
+    return [sl.box(entry)[:2] for entry in _repeated(dom, kind, slide_cx)]
+
+
+def place_like(nodes: list, like: list[tuple]) -> None:
+    """Each node takes what `places` recorded for its counterpart on the sibling slide."""
+    for node, box in zip(nodes, like):
+        sl.set_box(node, *box)
+
+
+def sibling_problems(dom, like_dom, kind: str, slide_cx: int) -> list[str]:
+    """Two sibling slides' cards, or blog entries, one by one at the same x and y. (A card's height is
+    its slide's own: a second row shortens the cards.)"""
+    what = "event card" if kind == "webinars" else "blog entry"
+    pairs = zip(_repeated(dom, kind, slide_cx), _repeated(like_dom, kind, slide_cx))
+    return [f"{what} {i} is at {_pt(a[0])}, {_pt(a[1])}; its sibling slide's is at {_pt(b[0])}, {_pt(b[1])}"
+            for i, (a, b) in enumerate(((sl.box(m), sl.box(n)) for m, n in pairs), 1)
+            if abs(a[0] - b[0]) > TOLERANCE or abs(a[1] - b[1]) > TOLERANCE]

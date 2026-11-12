@@ -30,9 +30,9 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from edit_event_slides import detect_language  # noqa: E402
 from lib import state  # noqa: E402
 from lib.common import DATA_DIR, MONTH_NAMES, load_config, log, read_json, today  # noqa: E402
+from lib.event_media import detect_language  # noqa: E402
 from lib.regions import event_region  # noqa: E402
 
 CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
@@ -117,7 +117,6 @@ def public_text(*entries: dict) -> str:
         for items in (entry.get("sections") or {}).values():
             chunks += [f"{it.get('lead', '')} {it.get('text', '')}" for it in items]
         chunks += [f"{it.get('title', '')} {it.get('text', '')}" for it in entry.get("items") or []]
-        chunks.append(entry.get("changelog_excerpt") or "")
     return " ".join(chunks)
 
 

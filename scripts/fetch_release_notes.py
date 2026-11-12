@@ -34,9 +34,12 @@ SECTION_ITEM_CHARS = 420
 
 
 def parse_notes_page(html_text: str, slug: str) -> dict[str, dict]:
-    """version -> {"anchor", "released", "sections"} for every ``<slug>-X-Y-Z`` heading on the page."""
+    """version -> {"anchor", "released", "sections"} for every ``<slug>-X-Y-Z`` heading on the page.
+
+    The 2.x page names the kind of release in the heading ("Vault 2.2.1 - Patch release", id
+    ``vault-2-2-1-patch-release``); the LTS pages still use the bare ``vault-1-21-11``."""
     doc = htmldoc.parse(html_text)
-    version_id = re.compile(re.escape(slug) + r"-\d+-\d+-\d+")
+    version_id = re.compile(re.escape(slug) + r"-(\d+-\d+-\d+)(?:-[a-z]+-release)?")
     out: dict[str, dict] = {}
     for head in htmldoc.headings_with_id(doc, version_id.pattern):
         anchor = head.get("id")
@@ -49,7 +52,7 @@ def parse_notes_page(html_text: str, slug: str) -> dict[str, dict]:
                 break
         groups = htmldoc.sections(body)
         groups.pop("", None)  # the "Released:" line and any preamble
-        out[anchor[len(slug) + 1:].replace("-", ".")] = {
+        out[version_id.fullmatch(anchor).group(1).replace("-", ".")] = {
             "anchor": anchor,
             "released": released,
             "sections": {name: [{**item, "text": item["text"][:SECTION_ITEM_CHARS]}
@@ -57,6 +60,23 @@ def parse_notes_page(html_text: str, slug: str) -> dict[str, dict]:
                          for name, items in groups.items()},
         }
     return out
+
+
+def redate(entries: list[dict], released: dict[str, str]) -> int:
+    """Date each release as its notes do (`released`: version -> date); returns how many moved.
+
+    The releases API stamps a release in UTC, the notes with the day at HashiCorp, so an evening
+    release is a day apart in the two. The patches shipped with it (the LTS lines, which have no
+    notes of their own) take the date the notes give their batch: one release day stays one entry."""
+    batch = {e["date"]: released[e["version"]] for e in entries          # API day -> the notes' day
+             if e["version"] in released and released[e["version"]] != e["date"]}
+    moved = 0
+    for entry in entries:
+        day = released.get(entry["version"]) or batch.get(entry["date"])
+        if day and day != entry["date"]:
+            entry.update(date=day, date_source="release-notes", month=day[:7], month_label=month_label(day))
+            moved += 1
+    return moved
 
 
 def main() -> int:
@@ -88,7 +108,8 @@ def main() -> int:
 
         log(f"fetching release notes: {slug}")
         current = page(notes_cfg["current"])
-        linked = redated = 0
+        linked = 0
+        released: dict[str, str] = {}   # version -> the "Released:" date its notes print
         for entry in prod.get("releases", []):
             ver = entry["version"]
             found = current if current and ver in current[1] else None
@@ -104,10 +125,9 @@ def main() -> int:
             entry["url"] = f"{final_url}#{note['anchor']}"
             entry["sections"] = note["sections"]
             linked += 1
-            if note["released"] and note["released"] != entry["date"]:
-                entry.update(date=note["released"], date_source="release-notes",
-                             month=note["released"][:7], month_label=month_label(note["released"]))
-                redated += 1
+            if note["released"]:
+                released[ver] = note["released"]
+        redated = redate(prod.get("releases", []), released)
         prod["releases"].sort(key=lambda e: (e["date"], e["version"]), reverse=True)
         log(f"  {slug}: {linked} version(s) linked to a release-notes anchor, {redated} re-dated")
 

@@ -517,5 +517,35 @@ class GatewayKey(unittest.TestCase):
         self.assertEqual(out.count("NO ANSWER from the gateway"), 2)   # not "refused": it never said
 
 
+class BuildScript(unittest.TestCase):
+    """build.sh, which both pipelines run. Every python call goes to a stand-in that records it."""
+
+    def build(self, **env: str) -> tuple[int, list[str]]:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        shutil.copy(helpers.REPO / "build.sh", root / "build.sh")
+        python = root / "python"
+        python.write_text('#!/bin/sh\necho "$*" >> "$CALLS"\n', encoding="utf-8")
+        python.chmod(0o755)
+        calls = root / "calls"
+        proc = subprocess.run(["bash", str(root / "build.sh")], capture_output=True, text=True, timeout=60,
+                              env={**os.environ, "PYTHON": str(python), "CALLS": str(calls), "SKIP_FETCH": "0",
+                                   "ENRICH": "0", "STRICT": "0", **env})
+        return proc.returncode, calls.read_text(encoding="utf-8").splitlines()
+
+    def test_every_fetcher_runs_before_the_plan_and_an_offline_rebuild_runs_none(self):
+        rc, calls = self.build()
+        self.assertEqual(rc, 0)
+        steps = ["scripts/plan_deck.py", "scripts/build_deck.py", "scripts/verify_build.py"]
+        self.assertEqual([c for c in calls if c in steps], steps)
+        fetchers = {c for c in calls[:calls.index(steps[0])] if c.startswith("scripts/fetch_")}
+        self.assertEqual(fetchers, {f"scripts/fetch_{n}.py" for n in (
+            "releases", "changelogs", "tfe_releases", "release_notes", "hcp_changelogs", "blogs", "events")})
+        rc, calls = self.build(SKIP_FETCH="1")
+        self.assertEqual(rc, 0)
+        self.assertEqual([c for c in calls if c in steps or "fetch_" in c], steps)
+
+
 if __name__ == "__main__":
     unittest.main()

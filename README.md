@@ -93,8 +93,6 @@ flowchart LR
 
 1. **Fetch** (`scripts/fetch_*.py`) — plain HTTP and one headless browser. Each release slide needs
    three months of history, so the fetchers page back through it rather than keep it from an old deck.
-   Alongside, an advisory check reports whether the vendored pptx skill, whose scripts unpack and
-   pack the deck, is behind its upstream (`.github/skills/skill-updater`); it never fails the build.
 2. **Plan** (`scripts/plan_deck.py`) — turns the data into exactly what every slide will say. One
    JSON file; a pure function of the data, the stored wording and the config.
 3. **Enrich** (`scripts/enrich.py`, optional) — for an item nobody has worded yet, a small model
@@ -105,7 +103,7 @@ flowchart LR
    **measures the text** so a column or card is filled to what fits instead of running out of its box.
 5. **Verify** (`scripts/verify_build.py`) — reads the finished deck back and checks it (below).
 
-Steps 1, 2, 4 and 5 involve no model: the same data gives the same deck, byte for byte on the slides.
+Steps 1, 2, 4 and 5 involve no model: the same data gives the same deck, byte for byte.
 
 ### Slides are found by role, not by number
 
@@ -156,9 +154,12 @@ These mirror how the reference deck is maintained by hand.
 - **Layout** (`scripts/lib/layout.py`): the template inherits the hand-made deck's small drifts, so
   every build re-aligns what repeats — event cards on one line, each flag in the same corner, product
   icons on one top line 13.5 pt apart, a card's description as far below its title as the title is below
-  its date, month headers level, the blog grid square, a gap between two highlights of the same
+  its date, month headers level, the blog grid square with every entry one height, the line under the
+  title in one place on every slide, a gap between two highlights of the same
   release, an event's points level with the middle of its picture — crops any picture that runs past
-  the slide's edge, and keeps a link's underline off the spaces beside it. An HCP slide's bullets are
+  the slide's edge, and keeps a link's underline off the spaces beside it. The Terraform blog and
+  webinar slides take their entries' and cards' places from the Vault ones (`placed_like` in
+  `config/deck.yaml`), so nothing jumps when one follows the other. An HCP slide's bullets are
   those of its product's release slide (`bullets_from`), and the blog slides' topic buttons keep their
   labels on one line, one size, the label a link to the button's page like the pill around it (white,
   its underline drawn without a fill: PowerPoint underlines every link).
@@ -176,7 +177,7 @@ These mirror how the reference deck is maintained by hand.
 | `blogs` | a post is missing, mislinked, out of order or shown twice |
 | `events` | a card differs from the plan, lacks a description, or its event is already in the past |
 | `fit` | any column, card, title or topic button is predicted to overflow its box (measured again from the deck) |
-| `layout` | anything extends past the slide, or a card, flag, icon, month header or blog entry is off its line, a second row of cards is off its place, a card's description runs into its title, or two highlights run together |
+| `layout` | anything extends past the slide, or a card, flag, icon, month header or blog entry is off its line, a second row of cards is off its place, a card's description runs into its title, two highlights run together, blog entries differ in height, a subtitle is off the other slides' line, or a slide placed like another (`placed_like`) is not where that one is |
 | `links` | a link is dangling, not http(s), points at an internal host (w3, GitHub Enterprise, Box, Slack …), or underlines a space beside its word |
 | `disclosure` | the deck names a CVE that the fetched public release notes do not |
 | `formatting` | a slide uses a colour or typeface the template does not, or the deck embeds a font under another font's name |
@@ -243,18 +244,8 @@ tests/                   offline suite: parsers, planner, text fitting, guards, 
 
 `data/` and `output/` are generated and git-ignored.
 
-## Legacy: updating a full customer deck in place
-
-`run.sh` and the `edit_*_slides.py` / `verify_deck.py` scripts are the earlier approach: copy a full
-customer deck and patch its automated slides by number, with GitHub Copilot CLI agents fixing what the
-scripts could not. They are still here but are **not maintained for the current deck layout** (the
-October 2026 deck moved those slides) and are not what the pipelines run. Use the weekly build and copy
-its slides into the customer deck instead.
-
 ## Licensing notes
 
-- The vendored `pptx` skill under `.github/skills/pptx/` is **proprietary to Anthropic** — see its
-  `LICENSE.txt` before redistribution.
 - `assets/fonts/` holds Inter (SIL Open Font License) for text measurement only; see its `CREDITS.md`.
 
 [releases API]: https://api.releases.hashicorp.com/v1/releases/terraform

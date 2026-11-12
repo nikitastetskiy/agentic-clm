@@ -43,8 +43,9 @@ from pathlib import Path
 from xml.dom import minidom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import edit_event_slides as ev  # noqa: E402  — flag / hero-photo / brand-logo helpers
 from lib import compose, deck, layout, slides as sl, textfit  # noqa: E402
+from lib import event_media as ev  # noqa: E402  — flag / hero-photo / brand-logo helpers
+from lib import package  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
 from lib.city_photos import build_city_photo_cache, resolve_city_photo  # noqa: E402
 from lib.common import DATA_DIR, REPO_ROOT, load_config, log  # noqa: E402
@@ -57,7 +58,7 @@ BOTTOM_MARGIN = 419100           # EMU (33 pt): how close to the slide bottom th
 VAULT_ICON_SIZE = (238264, 322485)   # EMU, as placed on the reference deck's cards
 TERRAFORM_PURPLE = "7B42BC"
 BLOG_TITLE_LINES = 2             # a blog title longer than this is cut with an ellipsis
-BLOG_LINE = 139700               # EMU (11 pt) a blog box grows per extra title line
+BLOG_LINE = 139700               # EMU (11 pt) a blog box is taller per title line
 BUTTON_INSET = 45720             # EMU (3.6 pt): a topic button's side insets, as its top and bottom ones
 VAULT_ICON = REPO_ROOT / "assets" / "product-icons" / "vault.png"
 MONTH_YEAR_RE = re.compile(r"^(January|February|March|April|May|June|July|August|September|October|"
@@ -79,6 +80,7 @@ class Context:
         self.city_photos = build_city_photo_cache(None)
         self.bullet_like: dict = {}  # role -> highlight paragraph whose bullet that role's columns take
         self.entry_like = None       # (heading, highlight) every slide's entries are spaced and sized like
+        self.placed_like: dict = {}  # role -> the places its cards / blog entries take from a sibling slide
 
 
 def load(slide: Path):
@@ -86,21 +88,10 @@ def load(slide: Path):
 
 
 def save(slide: Path, dom, rels_dom) -> None:
-    ev._clean_invisibles(dom)
-    px.prune_orphan_hyperlinks(dom, rels_dom)
-    ev._prune_orphan_image_rels(dom, rels_dom)
+    px.strip_invisibles(dom)
+    px.prune_orphan_rels(dom, rels_dom)
     slide.write_text(dom.toxml(), encoding="utf-8")
     deck.rels_path(slide).write_text(rels_dom.toxml(), encoding="utf-8")
-
-
-def fresh_ids(node, dom) -> None:
-    """Give a cloned shape (and everything inside it) shape ids no other shape on the slide uses."""
-    used = [int(c.getAttribute("id")) for c in dom.getElementsByTagName("p:cNvPr")
-            if c.getAttribute("id").isdigit()]
-    nxt = max(used, default=1) + 1
-    for cnv in node.getElementsByTagName("p:cNvPr"):
-        cnv.setAttribute("id", str(nxt))
-        nxt += 1
 
 
 def inner_width_pt(sp) -> float:
@@ -260,7 +251,11 @@ def render_blogs(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dic
     if not groups:
         raise BuildError(f"{plan['role']}: no blog entry boxes found in the template slide")
     layout.align_blog_grid(groups, ctx.slide_cx)
-    one_line_cy = min(sl.box(g["box"])[3] for g in groups)
+    layout.place_like([g["group"] for g in groups], ctx.placed_like.get(plan["role"], []))
+    # Every box is as tall as the longest title allowed: boxes that followed their own title's
+    # lines left uneven gaps between the rows. (They are "resize shape to fit text", which PowerPoint
+    # only recomputes when the text is edited by hand, so the height is stored here.)
+    box_cy = min(sl.box(g["box"])[3] for g in groups) + (BLOG_TITLE_LINES - 1) * BLOG_LINE
     written = []
     for i, grp in enumerate(groups):
         if i >= len(plan["entries"]):
@@ -284,15 +279,12 @@ def render_blogs(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dic
         title, lines = blog_title(entry["title"], compose.style_of(paras[1]), inner_width_pt(box_sp))
         title_line = compose.paragraph(paras[1], compose.markup_segments(title))
         compose.replace_paragraphs(box_sp, [date_line, title_line])
-        # The box is "resize shape to fit text", which PowerPoint only recomputes when the text is
-        # edited by hand — so the stored height has to match the line count now.
-        new_cy = one_line_cy + (lines - 1) * BLOG_LINE
-        sl.set_box(box_sp, cy=new_cy)
+        sl.set_box(box_sp, cy=box_cy)
         for xf in grp["group"].getElementsByTagName("a:xfrm"):
             if xf.parentNode.parentNode is grp["group"]:
                 for child in xf.childNodes:
                     if child.nodeName in ("a:ext", "a:chExt"):
-                        child.setAttribute("cy", str(new_cy))
+                        child.setAttribute("cy", str(box_cy))
         written.append({"date_display": entry["date_display"], "title": sl.strip_markup(title),
                         "url": entry["url"], "title_lines": lines})
     button_scale = fit_buttons(dom)
@@ -339,29 +331,6 @@ def find_terraform_icon(dom):
     return None
 
 
-def vault_icon(dom, rels_dom, root: Path):
-    """A fresh picture of the Vault mark (assets/product-icons/vault.png)."""
-    media = root / "ppt" / "media"
-    media.mkdir(parents=True, exist_ok=True)
-    name = "image_icon_vault.png"
-    if not (media / name).exists():
-        shutil.copy(VAULT_ICON, media / name)
-    rid = px.add_image_rel(rels_dom, f"../media/{name}")
-    pic = minidom.parseString(
-        '<p:pic xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
-        'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
-        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        '<p:nvPicPr><p:cNvPr id="0" name="Vault icon" descr="Vault"/><p:cNvPicPr>'
-        '<a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>'
-        f'<p:blipFill><a:blip r:embed="{rid}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>'
-        '<p:spPr><a:xfrm><a:off x="0" y="0"/>'
-        f'<a:ext cx="{VAULT_ICON_SIZE[0]}" cy="{VAULT_ICON_SIZE[1]}"/></a:xfrm>'
-        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>').documentElement
-    for attr in ("xmlns:p", "xmlns:a", "xmlns:r"):
-        pic.removeAttribute(attr)   # the slide root already declares these prefixes
-    return dom.importNode(pic, True)
-
-
 def place_card_icons(ctx: Context, dom, rels_dom, slot_sp, products: list[str]) -> list[str]:
     """One icon per product on the card, placed by layout.place_icons (bottom-left, one top line)."""
     nodes, placed = [], []
@@ -369,10 +338,11 @@ def place_card_icons(ctx: Context, dom, rels_dom, slot_sp, products: list[str]) 
         if product == "terraform" and ctx.terraform_icon is not None:
             node = dom.importNode(ctx.terraform_icon, True)
         elif product == "vault" and VAULT_ICON.exists():
-            node = vault_icon(dom, rels_dom, ctx.root)
+            node = px.new_picture(dom, rels_dom, ctx.root, VAULT_ICON, "image_icon_vault.png", "Vault icon",
+                                  (0, 0, *VAULT_ICON_SIZE), descr="Vault")
         else:
             continue
-        fresh_ids(node, dom)
+        px.fresh_ids(node, dom)
         sl.sp_tree(dom).appendChild(node)
         nodes.append(node)
         placed.append(product)
@@ -392,7 +362,7 @@ def add_second_row(ctx: Context, dom, slots: list, on_card: list, events: int) -
         copies = [src] + [n for n in on_card[slots.index(src)] if sl.is_flag(n)]
         copies = [n.cloneNode(True) for n in copies]
         for node in copies:
-            fresh_ids(node, dom)
+            px.fresh_ids(node, dom)
             sl.sp_tree(dom).appendChild(node)
         cards.append(copies[0])
         on_card.append(copies[1:])
@@ -406,6 +376,7 @@ def render_webinars(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], 
     if not slots:
         raise BuildError(f"{plan['role']}: no event cards found in the template slide")
     on_card = [sl.slot_decorations(dom, slot) for slot in slots]   # before any card moves
+    layout.place_like(slots, ctx.placed_like.get(plan["role"], []))
     layout.align_cards(slots)
     add_second_row(ctx, dom, slots, on_card, len(plan["slots"]))
     events = plan["slots"][:len(slots)]
@@ -451,11 +422,11 @@ def render_webinars(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], 
         compose.set_space_after(desc, 0.0)
         compose.replace_paragraphs(slot, [head, title, desc])
 
-        flag = None
+        flag_changed = False
         for node in decorations:
             if sl.is_flag(node):         # the card's own flag follows the event's language
-                flag = ev.set_slot_flag(node, rels_dom, ctx.root, deck.slide_number(slide), i,
-                                        event.get("language", "en")) or flag
+                flag_changed = ev.set_slot_flag(node, rels_dom, ctx.root, deck.slide_number(slide), i,
+                                                event.get("language", "en"))
                 layout.place_flag(node, slot)
             else:
                 px.remove_node(node)     # template icons; the event's own are placed below
@@ -463,7 +434,7 @@ def render_webinars(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], 
         written.append({"date_label": event["date_label"], "kind": event["kind"], "title": event["title"],
                         "url": event["url"], "description": description, "description_lines": max_lines,
                         "icons": icons, "language": event.get("language", "en"),
-                        "flag_changed": bool(flag)})
+                        "flag_changed": flag_changed})
     save(slide, dom, rels_dom)
     return [slide], {"cards": len(slots), "events": written,
                      "not_shown": [f"{e['date']} {e['title']}" for e in plan["slots"][len(slots):]]
@@ -546,13 +517,13 @@ def write_featured(ctx: Context, slide: Path, event: dict) -> dict:
         photo = resolve_city_photo(event.get("location", ""), ctx.city_photos)
         hero = ev.find_hero_pic(dom)
         if photo and hero is not None:
-            ev.swap_event_image(dom, rels_dom, ctx.root, deck.slide_number(slide), Path(photo))
-            ev.remove_nonhero_pics(dom, rels_dom, hero)
+            ev.swap_event_image(hero, rels_dom, ctx.root, deck.slide_number(slide), Path(photo))
+            ev.remove_nonhero_pics(dom, hero)
             ev.place_brand_logo(dom, rels_dom, ctx.root, hero, deck.slide_number(slide))
             visuals = "city-photo"
         else:
             if hero is not None:
-                ev.remove_nonhero_pics(dom, rels_dom, hero)
+                ev.remove_nonhero_pics(dom, hero)
                 px.remove_node(hero)
             visuals = "none"
     icons = ev.match_product_icons(dom, rels_dom, ctx.root, event)
@@ -566,10 +537,7 @@ def write_featured(ctx: Context, slide: Path, event: dict) -> dict:
 def render_featured(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dict]:
     used = [slide]
     for _ in plan["events"][1:]:
-        copy = deck.duplicate_after(ctx.root, slide, used[-1])   # copies of the pristine template slide
-        if copy is None:
-            raise BuildError("could not duplicate the featured-event template slide")
-        used.append(copy)
+        used.append(deck.duplicate_after(ctx.root, slide, used[-1]))   # copies of the pristine template slide
     return used, {"events": [write_featured(ctx, s, e) for s, e in zip(used, plan["events"])]}
 
 
@@ -630,22 +598,28 @@ def main() -> int:
               "built_at": datetime.now(timezone.utc).isoformat(), "build": plan["build"],
               "slides": [], "omitted": plan["omitted"]}
     try:
-        px.unpack(template, tmp)
+        package.unpack(template, tmp)
         roles = deck.slides_by_role(tmp)
         ctx = Context(tmp)
         for slides in roles.values():   # icon prototypes come from the pristine template
             if ctx.terraform_icon is None:
                 ctx.terraform_icon = find_terraform_icon(minidom.parse(str(slides[0])))
-        def prototypes(source: str, key: str):   # and so do the entries one slide borrows from another
+        def pristine(source: str, key: str):     # and so does whatever one slide borrows from another
             if source not in roles:
                 raise BuildError(f"{key} names '{source}', which the template lacks")
-            return column_prototypes([c["body"] for c in sl.columns(minidom.parse(str(roles[source][0])))])
+            return minidom.parse(str(roles[source][0]))
+
+        def prototypes(source: str, key: str):
+            return column_prototypes([c["body"] for c in sl.columns(pristine(source, key))])
         if cfg["deck"].get("entries_from"):
             ctx.entry_like = prototypes(cfg["deck"]["entries_from"], "deck.entries_from")
         for rule in cfg["slides"]:
             source = (rule.get("style") or {}).get("bullets_from")
             if source:
                 ctx.bullet_like[rule["role"]] = prototypes(source, f"{rule['role']}: bullets_from")[1]
+            if rule.get("placed_like"):
+                sibling = pristine(rule["placed_like"], f"{rule['role']}: placed_like")
+                ctx.placed_like[rule["role"]] = layout.places(sibling, rule["kind"], ctx.slide_cx)
         order: list[Path] = []
         for slide_plan in plan["slides"]:
             role = slide_plan["role"]
@@ -657,19 +631,23 @@ def main() -> int:
             report["slides"].append({"role": role, "kind": slide_plan["kind"],
                                      "positions": list(range(len(order) - len(used) + 1, len(order) + 1)),
                                      **detail})
-        for slide in order:
-            dom, rels_dom = load(slide)
+        loaded = {slide: load(slide) for slide in order}        # the rules that span the whole deck
+        subtitles = [sl.subtitle(dom) for dom, _rels in loaded.values()]
+        layout.align_subtitles([s for s in subtitles if s is not None])
+        for slide, (dom, rels_dom) in loaded.items():
             cropped = layout.keep_inside(dom, ctx.slide_cx, ctx.slide_cy)
-            if compose.unlink_spaces(dom) or cropped:
-                save(slide, dom, rels_dom)
-                report.setdefault("layout", []).extend(f"{deck.get_role(slide)}: {c}" for c in cropped)
+            compose.unlink_spaces(dom)
+            save(slide, dom, rels_dom)
+            report.setdefault("layout", []).extend(f"{deck.get_role(slide)}: {c}" for c in cropped)
         deck.set_slide_order(tmp, order)
         deck.clean(tmp)
-        deck.stamp_properties(tmp, f"{cfg['deck']['title']} – {plan['build']['date']}")
+        # Dated by the plan, not the clock: the same plan gives the same file, byte for byte.
+        deck.stamp_properties(tmp, f"{cfg['deck']['title']} – {plan['build']['date']}",
+                              when=datetime.fromisoformat(plan["build"]["date"]).replace(tzinfo=timezone.utc))
         out.parent.mkdir(parents=True, exist_ok=True)
-        packed = px.pack(tmp, out, original=template)
-        if packed.returncode != 0:
-            log(f"ERROR: packing/validation failed:\n{packed.stdout[-2000:]}\n{packed.stderr[-800:]}")
+        problems = package.pack(tmp, out, original=template)
+        if problems:
+            log("ERROR: the deck's package is broken, nothing written:\n  " + "\n  ".join(problems[:20]))
             return 2
     except BuildError as exc:
         log(f"ERROR: {exc}")

@@ -25,7 +25,7 @@ thumbnails*.jpg
 .DS_Store
 
 # PowerPoint decks & lock files — keep internal decks OUT of git.
-# Bring-your-own: drop your .pptx in the repo root locally, or set SOURCE_PPTX=/path/to/deck.pptx
+# A reference deck (for `make template DECK=…`) can sit in the repo root locally.
 *.pptx
 ~$*.pptx
 # …except the slim weekly-build template (only the automated slides, cut by scripts/make_template.py):

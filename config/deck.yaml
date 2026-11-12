@@ -21,6 +21,7 @@ deck:
 # anywhere in the deck only if that finds nothing.
 #   within_first: N   only the first N slides are considered
 #   optional: true    cutting a template does not fail when the reference deck has no such slide
+#   placed_like: ROLE the slide's cards / blog entries sit exactly where that slide's do
 slides:
   - role: cover
     kind: cover
@@ -56,11 +57,14 @@ slides:
     kind: blogs
     detect: 'terraform recent blogs'
     source: {type: blogs, product: terraform}
+    placed_like: vault-blogs                   # its entries sit where the Vault slide's do (the reference
+                                               # deck's two grids were 6 pt apart)
 
   - role: terraform-webinars
     kind: webinars
     detect: 'terraform upcoming webinars'
     source: {type: webinars, product: terraform}
+    placed_like: vault-webinars                # its cards sit where the Vault slide's do (9 pt apart there)
     slots: 6                                   # the soonest N events: a row of 3 cards, a second row under
                                                # it from the left for more; later ones are in the summary
     fill: 3                                    # sessions of no deck product fill up to N cards, one row

@@ -71,6 +71,15 @@ def top_level(dom, *tags: str) -> list:
     return [n for n in sp_tree(dom).childNodes if n.nodeName in tags]
 
 
+def subtitle(dom):
+    """The line under a slide's title ("From Blogs", "All global events here"): its subtitle
+    placeholder, or None on a slide that has none (the cover, a featured event)."""
+    for sp in top_level(dom, "p:sp"):
+        if box(sp) and any(ph.getAttribute("type") == "subTitle" for ph in sp.getElementsByTagName("p:ph")):
+            return sp
+    return None
+
+
 def centre_inside(inner, outer) -> bool:
     cx, cy = inner[0] + inner[2] // 2, inner[1] + inner[3] // 2
     return outer[0] <= cx <= outer[0] + outer[2] and outer[1] <= cy <= outer[1] + outer[3]

@@ -92,14 +92,10 @@ class WeeklyBuild(unittest.TestCase):
         self.assertEqual(columns["terraform-enterprise-releases"], ["July", "August", "September"])
         self.assertEqual(columns["vault-enterprise-releases"], ["August", "September", "October"])
 
-    def test_the_same_inputs_build_the_same_slides(self):
+    def test_the_same_inputs_build_the_same_file(self):
         again = self.tmp / "again.pptx"
         self.assertEqual(helpers.run("build_deck.py", "--out", str(again), env=self.env).returncode, 0)
-        with zipfile.ZipFile(self.deck) as a, zipfile.ZipFile(again) as b:
-            names = sorted(n for n in a.namelist() if n.startswith("ppt/slides/"))
-            self.assertEqual(names, sorted(n for n in b.namelist() if n.startswith("ppt/slides/")))
-            for name in names:
-                self.assertEqual(a.read(name), b.read(name), name)
+        self.assertEqual(self.deck.read_bytes(), again.read_bytes())
 
     def test_a_week_without_events_still_builds_and_says_so(self):
         work = Path(tempfile.mkdtemp(prefix="build-noevents-"))
@@ -369,6 +365,46 @@ class WeeklyBuild(unittest.TestCase):
     def test_gate_catches_a_blog_entry_off_the_grid(self):
         deck = self.damaged("blog-grid", "vault-blogs", lambda x: nudge(x, 'name="Group 5"', dx=-33020))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
+
+    def test_gate_catches_a_blog_entry_of_another_height(self):
+        deck = self.damaged("blog-height", "vault-blogs", lambda x: nudge(x, 'name="Group 5"', dcy=139700))
+        self.assertEqual(self.failed(self.verify(deck)), {"layout"})
+
+    def test_gate_catches_a_subtitle_off_the_other_slides_line(self):
+        deck = self.damaged("subtitle", "vault-webinars", lambda x: nudge(x, 'name="Subtitle 2"', dy=38100))
+        self.assertEqual(self.failed(self.verify(deck)), {"layout"})
+
+    def slide_cx(self) -> int:
+        with zipfile.ZipFile(self.deck) as z:
+            return int(re.search(r'<p:sldSz cx="(\d+)"', z.read("ppt/presentation.xml").decode()).group(1))
+
+    def test_a_slide_placed_like_another_sits_where_it_does(self):
+        from lib import slides as sl
+        from lib.layout import card_rows
+        cx = self.slide_cx()
+
+        def cards(role):     # x, y and width of the first row (a second row shortens every card)
+            dom = minidom.parseString(helpers.slide_text(self.deck, role))
+            return [sl.box(c)[:3] for c in card_rows(sl.webinar_slots(dom))[0]]
+
+        def entries(role):
+            dom = minidom.parseString(helpers.slide_text(self.deck, role))
+            return [sl.box(g["group"])[:2] for g in sl.blog_groups(dom, cx)]
+        self.assertEqual(cards("terraform-webinars"), cards("vault-webinars"))
+        self.assertEqual(entries("terraform-blogs"), entries("vault-blogs"))
+
+    def test_gate_catches_a_slide_off_its_siblings_places(self):
+        from lib import slides as sl
+        cx = self.slide_cx()
+
+        def lower(xml):      # every entry 2 pt lower: still a square grid, no longer the Vault slide's
+            dom = minidom.parseString(xml)
+            for g in sl.blog_groups(dom, cx):
+                sl.set_box(g["group"], y=sl.box(g["group"])[1] + 25400)
+            return dom.toxml()
+        verdict = self.verify(self.damaged("sibling", "terraform-blogs", lower))
+        self.assertEqual(self.failed(verdict), {"layout"})
+        self.assertIn("vault-blogs", " ".join(verdict["checks"]["layout"]["notes"]))
 
 
 class BlogTitles(unittest.TestCase):

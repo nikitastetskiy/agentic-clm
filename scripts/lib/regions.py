@@ -75,9 +75,9 @@ _ALIASES = {"dc": "AMERICAS", "d c": "AMERICAS"}
 # ---- scope resolution (which macro-regions a given run keeps) ----------------------------------
 # The active scope is dynamic: the EVENT_SCOPE env var overrides config/sources.yaml
 # events.scope_regions, so a run can be retargeted without editing config, e.g.
-#     EVENT_SCOPE="EMEA,MENA"  ./run.sh   # Europe + Middle East + Africa (the default)
-#     EVENT_SCOPE="GLOBAL"     ./run.sh   # everywhere (no region filter)
-#     EVENT_SCOPE="USA"        ./run.sh   # United States / Americas only
+#     EVENT_SCOPE="EMEA,MENA"  make build  # Europe + Middle East + Africa (the default)
+#     EVENT_SCOPE="GLOBAL"     make build  # everywhere (no region filter)
+#     EVENT_SCOPE="USA"        make build  # United States / Americas only
 SCOPE_ENV_VAR = "EVENT_SCOPE"
 # Canonical macro-regions the pipeline understands.
 CANONICAL_REGIONS = ("EMEA", "MENA", "APAC", "AMERICAS")
@@ -184,11 +184,6 @@ def _match(text: str) -> str | None:
         if re.search(rf"\b{re.escape(key)}\b", n):
             return reg
     return None
-
-
-def region_for(location: str) -> str | None:
-    """Region for an explicit location string, or None if unknown."""
-    return _match(location)
 
 
 def place_in(text: str) -> str:

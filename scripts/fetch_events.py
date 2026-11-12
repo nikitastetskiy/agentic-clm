@@ -238,10 +238,16 @@ def unscheduled_events(promos: list[dict], events: dict, scope: list[str], sessi
     return out
 
 
-def pick_abstract(blocks: list[str]) -> str:
+def pick_abstract(blocks: list[str], title: str = "") -> str:
     """The event abstract from a page's text blocks: the first substantial block of prose that is
-    not boilerplate, plus the blocks that follow it while they still read as the same abstract."""
+    not boilerplate, plus the blocks that follow it while they still read as the same abstract.
+
+    Where the page prints the event's `title`, the abstract is looked for below it: what stands above
+    (the site's banner promoting another webinar, the navigation) is not this event's."""
     prose = [" ".join(b.split()) for b in blocks]
+    heading, folded = " ".join(title.split()).casefold(), [b.casefold() for b in prose]
+    if heading and heading in folded:
+        prose = prose[folded.index(heading) + 1:]
     prose = [b for b in prose if len(b) >= ABSTRACT_MIN_BLOCK and not BOILERPLATE_RE.search(b)
              and not b.startswith("**")]
     out = ""
@@ -252,7 +258,7 @@ def pick_abstract(blocks: list[str]) -> str:
     return out
 
 
-def fetch_abstract(ctx, url: str) -> tuple[str, str]:
+def fetch_abstract(ctx, url: str, title: str = "") -> tuple[str, str]:
     """(abstract, status) for an event's own page. Status is ``ok``, ``blocked`` (CAPTCHA — never
     worked around), ``empty`` or ``error``."""
     page = ctx.new_page()
@@ -268,7 +274,7 @@ def fetch_abstract(ctx, url: str) -> tuple[str, str]:
         if any(t in page.title() for t in browser.CHECKPOINT_TITLES):
             return "", "blocked"
         text = page.evaluate("() => document.body ? document.body.innerText : ''")
-        abstract = pick_abstract(text.split("\n"))
+        abstract = pick_abstract(text.split("\n"), title)
         return (abstract, "ok") if abstract else ("", "empty")
     except Exception as exc:  # noqa: BLE001
         log(f"   abstract fetch failed for {url}: {str(exc).splitlines()[0][:120]}")
@@ -291,7 +297,7 @@ def attach_abstracts(ctx, events: dict, wanted=lambda url: True) -> None:
     """Open each kept event's page once (those `wanted` accepts) and record its abstract on every copy
     of the event."""
     for url, copies in event_pages(events, wanted).items():
-        abstract, status = fetch_abstract(ctx, url)
+        abstract, status = fetch_abstract(ctx, url, copies[0]["title"])
         log(f"   abstract [{status}] {copies[0]['title'][:60]}")
         for ev in copies:
             ev["abstract"], ev["abstract_status"] = abstract, status

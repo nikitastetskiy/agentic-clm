@@ -10,7 +10,9 @@ auto-pptx builds a weekly HashiCorp product-updates PowerPoint deck from public 
   `scripts/build_deck.py` → `output/*.pptx`. `scripts/verify_build.py` is the gate.
 - `scripts/lib/` — `slides.py` finds slide structures, `compose.py` writes paragraphs from template
   prototypes, `textfit.py` predicts text layout, `htmldoc.py` reads docs pages, `deck.py` handles slide
-  order and roles.
+  order and roles, `package.py` unpacks, checks and packs the deck and sweeps unused parts (our own
+  code: no third-party tooling is copied into this repository), `pptx_edit.py` edits a slide's runs,
+  relationships and pictures, `event_media.py` places flags, product icons and event photos.
 - `config/deck.yaml` — the deck's slides by ROLE. `config/sources.yaml` — the public sources.
 - `templates/cadence-template.pptx` — cut from a reference deck by `scripts/make_template.py`.
 - `state/` — blog history and stored wording; updated by builds, tracked in git. On GitHub the
@@ -24,8 +26,6 @@ auto-pptx builds a weekly HashiCorp product-updates PowerPoint deck from public 
   code it writes run as another user, without the pipeline's secrets; the gateway key stays with a relay.
 - `ci/` — the weekly and self-heal pipelines; `.github/workflows/` runs them on GitHub Actions,
   `.pipeline-config*.yaml` on IBM SPS. Both only call `ci/run.sh`.
-- `run.sh`, `scripts/edit_*_slides.py`, `scripts/verify_deck.py`, `.github/agents/` — the LEGACY
-  in-place updater. Not used by the weekly build; leave it alone unless asked.
 
 ## Commands
 
@@ -47,7 +47,8 @@ python scripts/fetch_<x>.py        # one fetcher against its live source
 - **Placement goes through `lib/layout.py`.** Never position a card, flag, icon, header or picture
   with ad-hoc offsets: the builder applies its rules and the gate's `layout` check enforces the same
   ones (repeated boxes on one line, icons 13.5 pt apart on one top line, nothing past the slide's
-  edges, highlights of one entry apart). The template inherits the hand-made deck's small drifts;
+  edges, highlights of one entry apart, a Terraform slide's cards and blog entries where its Vault
+  sibling's are: `placed_like` in `config/deck.yaml`). The template inherits the hand-made deck's small drifts;
   the rules exist to remove them, so do not copy a position from the template as "correct".
 - **Public sources only.** Every line of the deck traces to a public HashiCorp or IBM page read by a
   fetcher. A CVE id may appear only if the public release notes for that release name it.

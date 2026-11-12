@@ -33,7 +33,7 @@ from pathlib import Path
 from xml.dom import minidom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import deck, fonts, slides as sl, state  # noqa: E402
+from lib import deck, fonts, package, slides as sl, state  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
 from lib.common import MONTH_NAMES, REPO_ROOT, load_config, log, today  # noqa: E402
 
@@ -104,7 +104,6 @@ def prune_layouts(unpacked: Path, kept: list[Path]) -> int:
                 lid.parentNode.removeChild(lid)
         rels_file.write_text(rels.toxml(), encoding="utf-8")
         master.write_text(dom.toxml(), encoding="utf-8")
-    drop_missing_overrides(unpacked)
     return removed
 
 
@@ -120,16 +119,6 @@ def drop_part(unpacked: Path, part: str, owner_rels: Path) -> None:
             if rel.getAttribute("Target").rsplit("/", 1)[-1] == part.rsplit("/", 1)[-1]:
                 rel.parentNode.removeChild(rel)
         owner_rels.write_text(dom.toxml(), encoding="utf-8")
-
-
-def drop_missing_overrides(unpacked: Path) -> None:
-    """Remove [Content_Types] overrides whose part no longer exists."""
-    ct = unpacked / "[Content_Types].xml"
-    dom = minidom.parse(str(ct))
-    for ov in list(dom.getElementsByTagName("Override")):
-        if not (unpacked / ov.getAttribute("PartName").lstrip("/")).exists():
-            ov.parentNode.removeChild(ov)
-    ct.write_text(dom.toxml(), encoding="utf-8")
 
 
 MEDIA_MIN_BYTES = 400_000   # smaller pictures are left alone
@@ -296,7 +285,7 @@ def main() -> int:
 
     tmp = Path(tempfile.mkdtemp(prefix="template-"))
     try:
-        px.unpack(reference, tmp)
+        package.unpack(reference, tmp)
         ordered = deck.ordered_slides(tmp)
         roles = assign_roles(ordered, rules)
         missing = [r["role"] for r in rules if r["role"] not in roles]
@@ -328,7 +317,6 @@ def main() -> int:
         for part in ("ppt/revisionInfo.xml", *PEOPLE_PARTS):
             drop_part(tmp, part, tmp / "ppt" / "_rels" / "presentation.xml.rels")
         deck.clean(tmp)
-        drop_missing_overrides(tmp)
         broken_fonts = fonts.drop_mismatched(tmp)
         if broken_fonts:
             log(f"  dropped embedded fonts whose data is another font: {', '.join(broken_fonts)}")
@@ -336,9 +324,9 @@ def main() -> int:
         deck.stamp_properties(tmp, f"{cfg['deck']['title']} (template)")
 
         out.parent.mkdir(parents=True, exist_ok=True)
-        packed = px.pack(tmp, out, original=reference)
-        if packed.returncode != 0:
-            log(f"pack failed:\n{packed.stdout[-1500:]}\n{packed.stderr[-800:]}")
+        problems = package.pack(tmp, out, original=reference)
+        if problems:
+            log("pack failed: the template's package is broken:\n  " + "\n  ".join(problems[:20]))
             return 2
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

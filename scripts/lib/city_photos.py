@@ -1,10 +1,9 @@
 """Shared resolver for featured-event hero **city photos**.
 
-The featured-event slides (18-22) use the event city's photo as the hero image — NOT a webpage
+The featured-event slides use the event city's photo as the hero image — NOT a webpage
 leadspace/series screenshot (those duplicated the slide's own title/date/description text, carried a
 stray divider line and cropped badly). This module maps an event location (events.json "location")
-to a normalized PNG that is ready to embed, so the editor (`edit_event_slides.py`) and the verifier
-(`verify_deck.py`) resolve the *same* photo and stay in lockstep.
+to a normalized PNG that is ready to embed.
 
 Sources (config/city-photos.yaml):
   * bundled : a city photo already shipped in the SOURCE deck's media (extracted from the deck zip).

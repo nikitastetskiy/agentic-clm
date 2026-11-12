@@ -18,7 +18,9 @@ uses, and checks it against three independent things — the plan, the fetched d
   layout       nothing extends past the slide's edges; event cards, their flags and product icons sit
                on their lines, a second row of cards from the left under the first, a card's description
                as far below its title as the title is below its date; month headers are level; the
-               blog grid is square; two highlights of one entry never run together (lib/layout.py)
+               blog grid is square and its entries one height; two highlights of one entry never run
+               together; the line under the title is in one place on every slide; a slide placed like
+               another has its cards / blog entries where that one has them (lib/layout.py)
   links        every hyperlink resolves to a relationship, is http(s), and does not point at an
                internal host (w3, GitHub Enterprise, Box, Slack …) — this deck goes to customers;
                no link underlines a space beside its word
@@ -44,7 +46,7 @@ from urllib.parse import urlparse
 from xml.dom import minidom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import compose, deck, fonts, layout, slides as sl, textfit  # noqa: E402
+from lib import compose, deck, fonts, layout, package, slides as sl, textfit  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
 from lib.common import DATA_DIR, MONTH_NAMES, REPO_ROOT, load_config, log, read_json  # noqa: E402
 from lib.textfit import EMU_PT  # noqa: E402
@@ -79,13 +81,18 @@ def slide_text(dom) -> str:
     return " ".join(t.firstChild.data for t in dom.getElementsByTagName("a:t") if t.firstChild)
 
 
+def segments(p) -> list[tuple[str, bool]]:
+    """A paragraph's runs as (text, bold): what lib/textfit.py measures."""
+    return [(px.run_text(r), sl.is_bold(r)) for r in px.para_runs(p)]
+
+
 def body_height_pt(sp, paragraphs=None) -> float:
     """Predicted height of a text box's paragraphs, from the paragraphs' own formatting."""
     left, _t, right, _b = compose.insets(sp)
     width = (sl.box(sp)[2] - left - right) / EMU_PT
     total = 0.0
     for p in (paragraphs if paragraphs is not None else px.paragraphs(sp)):
-        segs = [(px.run_text(r), sl.is_bold(r)) for r in px.para_runs(p)]
+        segs = segments(p)
         if not any(t.strip() for t, _ in segs):
             continue
         total += textfit.para_height(segs, compose.style_of(p, default_size=6.5), width)
@@ -176,16 +183,18 @@ def check_blogs(checks: dict, role: str, dom, rid_target: dict, plan: dict, slid
     dates = [e["date"] for e in planned]
     if dates != sorted(dates, reverse=True):
         c.fail(f"{role}: posts are not newest-first")
-    one_line = min(sl.box(g["box"])[3] for g in groups)
     for g in groups:
-        paras = px.paragraphs(g["box"])
-        left, _t, right, _b = compose.insets(g["box"])
-        width = (sl.box(g["box"])[2] - left - right) / EMU_PT
-        segs = [(px.run_text(r), sl.is_bold(r)) for r in px.para_runs(paras[1])]
-        lines = textfit.line_count(segs, compose.style_of(paras[1]).size_pt, width)
-        holds = 1 + round((sl.box(g["box"])[3] - one_line) / 139700)
+        date_line, title_line = px.paragraphs(g["box"])[:2]
+        left, top, right, bottom = compose.insets(g["box"])
+        _x, _y, cx, cy = sl.box(g["box"])
+        width = (cx - left - right) / EMU_PT
+        title = compose.style_of(title_line)
+        lines = textfit.line_count(segments(title_line), title.size_pt, width)
+        # the lines the box holds below its date line, whatever the slide's other boxes look like
+        date_height = textfit.para_height(segments(date_line), compose.style_of(date_line), width)
+        holds = int(((cy - top - bottom) / EMU_PT - date_height) // title.line_height())
         if lines > holds:
-            fit.fail(f"{role}: title '{norm(sl.para_text(paras[1]))[:50]}' needs {lines} lines, "
+            fit.fail(f"{role}: title '{norm(sl.para_text(title_line))[:50]}' needs {lines} lines, "
                      f"its box holds {holds}")
     for button in sl.link_buttons(dom):
         need, room = compose.one_line_pt(button)
@@ -258,12 +267,18 @@ def check_cover(checks: dict, dom, plan: dict) -> None:
 
 
 # --------------------------------------------------------------------------- whole-deck checks ----
-def check_layout(c: Check, slides: list[Path], kinds: dict, slide_cx: int, slide_cy: int) -> None:
+def check_layout(c: Check, slides: list[Path], rules: dict, slide_cx: int, slide_cy: int) -> None:
+    """`rules`: role -> its entry in config/deck.yaml (its kind, and what it is placed like)."""
+    doms: dict = {}
+    subtitles: dict = {}
     for slide in slides:
         dom = minidom.parse(str(slide))
         role = deck.get_role(slide)
+        doms.setdefault(role, dom)
+        if sl.subtitle(dom) is not None:
+            subtitles[role or slide.name] = sl.subtitle(dom)
         problems = layout.bounds_problems(dom, slide_cx, slide_cy)
-        kind = kinds.get(role)
+        kind = rules.get(role, {}).get("kind")
         if kind == "columns":
             problems += layout.column_problems(sl.columns(dom),
                                                lambda p: compose.style_of(p, default_size=6.5))
@@ -273,6 +288,13 @@ def check_layout(c: Check, slides: list[Path], kinds: dict, slide_cx: int, slide
             problems += layout.card_problems(dom, lambda p: compose.style_of(p, default_size=6.5))
         for problem in problems:
             c.fail(f"{role or slide.name}: {problem}")
+    for problem in layout.subtitle_problems(subtitles):
+        c.fail(problem)
+    for role, rule in rules.items():       # a slide placed like another: both in the deck, same places
+        like = rule.get("placed_like")
+        if like and role in doms and like in doms:
+            for problem in layout.sibling_problems(doms[role], doms[like], rule["kind"], slide_cx):
+                c.fail(f"{role}: {problem} ({like})")
 
 
 def check_links(c: Check, slides: list[Path]) -> None:
@@ -363,7 +385,7 @@ def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="verify-"))
     try:
         try:
-            px.unpack(deck_path, tmp)
+            package.unpack(deck_path, tmp)
             ordered = deck.ordered_slides(tmp)
         except Exception as exc:  # noqa: BLE001
             checks["package"].fail(f"deck cannot be opened: {exc}")
@@ -400,8 +422,7 @@ def main() -> int:
                 elif kind == "cover":
                     check_cover(checks, dom, sp)
         if ordered:
-            check_layout(checks["layout"], ordered, {sp["role"]: sp["kind"] for sp in plan["slides"]},
-                         slide_cx, slide_cy)
+            check_layout(checks["layout"], ordered, rules, slide_cx, slide_cy)
             check_links(checks["links"], ordered)
             check_formatting(checks["formatting"], ordered, REPO_ROOT / cfg["deck"]["template"], tmp)
             check_disclosure(checks["disclosure"], ordered, data, tmp)

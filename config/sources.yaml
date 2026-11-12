@@ -12,9 +12,6 @@ releases:
     terraform:
       slug: terraform
       display: "Terraform"
-      # The in-place updater's view (latest / recent / month_window) is stable-only: a 1.17.0-alpha
-      # ships most weeks and is superseded the same day by the latest stable patch.
-      stable_only: true
       # The weekly deck's "Terraform Core/CLI – GitHub Releases" slide lists every STABLE release of the
       # month: an alpha / beta / rc ships most weeks, and their "Pre-release" lines crowded the slide.
       # `deck_prereleases: true` would list them too.
@@ -23,7 +20,6 @@ releases:
     vault:
       slug: vault
       display: "Vault"
-      stable_only: true
       # Vault publishes +ent / +ent.hsm / +ent.fips variants; normalize to base semver.
       normalize_base_semver: true
       # The releases API points Vault changelogs at the PRIVATE hashicorp/vault-enterprise repo.
@@ -35,8 +31,6 @@ releases:
       release_notes:
         current: "https://developer.hashicorp.com/vault/docs/updates/release-notes"
         versioned: "https://developer.hashicorp.com/vault/docs/v{line}.x/updates/release-notes"
-  # Number of recent stable versions surfaced as `recent` for the in-place updater.
-  recent_count: 4
 
 # Terraform Enterprise is NOT on the releases API. It is fetched DETERMINISTICALLY by
 # scripts/fetch_tfe_releases.py from the docs releases pages (one page per N.M.x series).
@@ -105,7 +99,7 @@ events:
   manual: "config/featured-events.yaml"
   webinars:
     # Product bucketing of webinars is BADGE-driven in scripts/fetch_events.py (each card's product
-    # icon/sr-only label). `keywords` only hint the legacy agent fallback.
+    # icon/sr-only label). `keywords` are only a fallback hint.
     terraform:
       display: "Terraform"
       keywords: ["terraform", "infrastructure", "iac"]

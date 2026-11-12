@@ -8,17 +8,18 @@ up by that stamp means a reordered or extended reference deck cannot silently re
 """
 from __future__ import annotations
 
-import importlib.util
 import re
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from xml.dom import minidom
 
+from lib import package
 from lib import pptx_edit as px
 
 ROLE_PREFIX = "auto-pptx:"
-CLEAN = px.REPO_ROOT / ".github/skills/pptx/scripts/clean.py"
-SLIDE_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide"
+SLIDE_REL = px.SLIDE_TYPE
+SLIDE_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml"
 SECTION_EXT_URI = "{521415D9-36F7-43E2-AB2F-B90AF26B5E84}"
 _ROLE_RE = re.compile(r'<p:cSld\b[^>]*\bname="' + re.escape(ROLE_PREFIX) + r'([^"]+)"')
 # Relationship types a template slide must not carry: speaker notes and review comments are written
@@ -80,18 +81,55 @@ def set_slide_order(unpacked: Path, slides: list[Path]) -> None:
     pres_path.write_text(pres.toxml(), encoding="utf-8")
 
 
-def duplicate_after(unpacked: Path, src: Path, anchor: Path) -> Path | None:
-    """Copy slide `src` and show the copy right after `anchor`. Returns the new slide file."""
-    new_n = px.duplicate_slide_after(unpacked, slide_number(src), slide_number(anchor))
-    return None if new_n is None else src.parent / f"slide{new_n}.xml"
+def duplicate_after(unpacked: Path, src: Path, anchor: Path) -> Path:
+    """Copy slide `src` (with its relationships) and show the copy right after `anchor`: a content
+    type, a presentation relationship and a place in the slide list. Returns the new slide file."""
+    copy = src.with_name(f"slide{max(slide_number(p) for p in src.parent.glob('slide*.xml')) + 1}.xml")
+    shutil.copy2(src, copy)
+    if rels_path(src).exists():
+        shutil.copy2(rels_path(src), rels_path(copy))
+
+    types_path = unpacked / package.CONTENT_TYPES
+    types = minidom.parse(str(types_path))
+    override = types.createElement("Override")
+    override.setAttribute("PartName", f"/ppt/slides/{copy.name}")
+    override.setAttribute("ContentType", SLIDE_CONTENT_TYPE)
+    types.documentElement.appendChild(override)
+    types_path.write_text(types.toxml(), encoding="utf-8")
+
+    anchor_rid = next(rid for rid, name in _pres_rels(unpacked).items() if name == anchor.name)
+    prels_path = unpacked / "ppt" / "_rels" / "presentation.xml.rels"
+    prels = minidom.parse(str(prels_path))
+    rid = px.add_relationship(prels, SLIDE_REL, f"slides/{copy.name}")
+    prels_path.write_text(prels.toxml(), encoding="utf-8")
+
+    pres_path = unpacked / "ppt" / "presentation.xml"
+    pres = minidom.parse(str(pres_path))
+    shown = pres.getElementsByTagName("p:sldId")
+    after = next(s for s in shown if s.getAttribute("r:id") == anchor_rid)
+    # A clone of the anchor's entry, not a new element: on an element minidom creates, "id" and "r:id"
+    # are one attribute (same local name, no namespace recorded) and the second replaces the first.
+    entry = after.cloneNode(False)
+    entry.setAttribute("id", str(max(int(s.getAttribute("id")) for s in shown) + 1))
+    entry.setAttribute("r:id", rid)
+    after.parentNode.insertBefore(entry, after.nextSibling)
+    pres_path.write_text(pres.toxml(), encoding="utf-8")
+    return copy
 
 
 def clean(unpacked: Path) -> list[str]:
-    """Delete everything no shown slide references (orphan slides, media, notes). Returns the list."""
-    spec = importlib.util.spec_from_file_location("pptx_clean", CLEAN)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.clean_unused_files(unpacked)
+    """Delete what the deck no longer uses: a slide that is not shown loses its presentation
+    relationship, and the sweep then takes it and everything only it used (pictures, notes …).
+    Returns the deleted parts' package paths."""
+    pres = minidom.parse(str(unpacked / "ppt" / "presentation.xml"))
+    shown = {s.getAttribute("r:id") for s in pres.getElementsByTagName("p:sldId")}
+    prels_path = unpacked / "ppt" / "_rels" / "presentation.xml.rels"
+    prels = minidom.parse(str(prels_path))
+    for rel in list(prels.getElementsByTagName("Relationship")):
+        if rel.getAttribute("Type") == SLIDE_REL and rel.getAttribute("Id") not in shown:
+            rel.parentNode.removeChild(rel)
+    prels_path.write_text(prels.toxml(), encoding="utf-8")
+    return package.sweep(unpacked)
 
 
 # --------------------------------------------------------------------------- roles ----------------

@@ -3,7 +3,7 @@
 PY ?= python3
 
 .PHONY: help build fetch plan deck verify summary test template enrich preflight publish-check \
-        build-image docker-run clean run-local skills-check skills-update
+        build-image docker-run clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-16s\033[0m %s\n",$$1,$$2}'
@@ -60,13 +60,3 @@ docker-run: ## Run one weekly build in Docker (uses .env)
 clean: ## Remove fetched data and scratch (keeps output decks and state/)
 	rm -rf .work data/*.json data/*.tmp data/*.log
 	@echo "cleaned fetched data + scratch (output/ decks and state/ kept)"
-
-# --- legacy: update a full customer deck in place (superseded by `make build`) --------------
-run-local: ## LEGACY: patch the automated slides of the .pptx in the repo root (needs Copilot CLI)
-	bash run.sh
-
-skills-check: ## Check whether the vendored pptx skill is up to date
-	$(PY) .github/skills/skill-updater/scripts/check_updates.py --check
-
-skills-update: ## Re-vendor out-of-date skills and bump the manifest
-	$(PY) .github/skills/skill-updater/scripts/check_updates.py --update

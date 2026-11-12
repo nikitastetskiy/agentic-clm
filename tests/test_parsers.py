@@ -2,7 +2,6 @@
 import json
 import tempfile
 import unittest
-import zipfile
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
@@ -29,7 +28,9 @@ class VaultReleaseNotes(unittest.TestCase):
 
     def test_release_date_and_anchor(self):
         self.assertEqual(self.notes["2.1.2"]["released"], "2026-10-07")
-        self.assertEqual(self.notes["2.1.2"]["anchor"], "vault-2-1-2")
+        # the 2.x page's ids name the kind of release; the LTS pages' ids are the bare version
+        self.assertEqual(self.notes["2.1.2"]["anchor"], "vault-2-1-2-patch-release")
+        self.assertEqual(self.notes["2.1.1"]["anchor"], "vault-2-1-1")
 
     def test_empty_sections_are_dropped(self):
         # "New features: None." and "Improvements: None." must not count as content
@@ -45,6 +46,14 @@ class VaultReleaseNotes(unittest.TestCase):
     def test_badge_is_not_part_of_a_section_name(self):
         self.assertEqual(list(self.notes["2.1.1"]["sections"]), ["New features"])
 
+    def test_patches_shipped_together_keep_one_date(self):
+        # 00:10 UTC on the 12th is the evening of the 11th in the notes; the LTS patch has no notes
+        entries = [{"version": "2.2.2", "date": "2026-11-12"}, {"version": "1.21.14", "date": "2026-11-12"},
+                   {"version": "2.2.1", "date": "2026-10-22"}]
+        moved = fetch_release_notes.redate(entries, {"2.2.2": "2026-11-11", "2.2.1": "2026-10-22"})
+        self.assertEqual([e["date"] for e in entries], ["2026-11-11", "2026-11-11", "2026-10-22"])
+        self.assertEqual((moved, entries[1]["month_label"]), (2, entries[0]["month_label"]))
+
 
 class TerraformEnterpriseSeries(unittest.TestCase):
     def setUp(self):
@@ -54,7 +63,7 @@ class TerraformEnterpriseSeries(unittest.TestCase):
         rows = fetch_tfe_releases.parse_series_page(self.page, "2.0")
         self.assertEqual([(r["version"], r["date"]) for r in rows],
                          [("2.0.8", "2026-09-23"), ("2.0.7", "2026-09-18"), ("2.0.2", "2026-05-15")])
-        self.assertEqual(rows[0]["release_notes_url"],
+        self.assertEqual(rows[0]["url"],
                          "https://developer.hashicorp.com/terraform/enterprise/releases/2.0.x#2-0-8")
 
     def test_sections_stop_at_the_next_release_whatever_its_heading_level(self):
@@ -65,58 +74,6 @@ class TerraformEnterpriseSeries(unittest.TestCase):
 
     def test_a_version_in_a_table_is_not_a_release(self):
         self.assertNotIn("14.4.0", fetch_tfe_releases.parse_series_sections(self.page))
-
-
-def slide_xml(*shapes, role=None) -> str:
-    """A slide with one shape per argument; a shape is a list of paragraphs, a paragraph a string or a
-    list of runs."""
-    name = f' name="auto-pptx:{role}"' if role else ""
-    body = "".join(
-        "<p:sp><p:txBody>" + "".join(
-            "<a:p>" + "".join(f"<a:r><a:t>{run}</a:t></a:r>" for run in ([p] if isinstance(p, str) else p))
-            + "</a:p>" for p in paras) + "</p:txBody></p:sp>" for paras in shapes)
-    return ('<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
-            'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
-            f"<p:cSld{name}><p:spTree>{body}</p:spTree></p:cSld></p:sld>")
-
-
-class TerraformEnterpriseFreshness(unittest.TestCase):
-    """The guard compares the live page with the TFE slide of the source deck (fetch_tfe_releases.py)."""
-    TFE_SLIDE = (["Terraform Enterprise Upgrades"],
-                 [["Terraform Enterprise ", "v2.0.8", " (2026-09-23)"], "Terraform Enterprise v2.0.7 (2026-09-18)"])
-
-    def setUp(self):
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        self.tmp = Path(tmp.name)
-
-    def deck(self, slides: dict[int, str]) -> Path:
-        path = self.tmp / "Reference deck.pptx"
-        with zipfile.ZipFile(path, "w") as zf:
-            for n, xml in slides.items():
-                zf.writestr(f"ppt/slides/slide{n}.xml", xml)
-        return path
-
-    def test_the_slide_is_found_by_its_role_not_its_number(self):
-        deck = self.deck({3: slide_xml(*self.TFE_SLIDE, role="terraform-enterprise-releases"),
-                          8: slide_xml(["Terraform Core Releases"], ["Terraform v1.15.0 (2026-10-01)"],
-                                       role="terraform-core-releases")})
-        self.assertEqual(fetch_tfe_releases.deck_latest_tfe_date(deck), "2026-09-23")
-
-    def test_a_reference_deck_without_stamps_is_read_by_the_slide_s_title(self):
-        deck = self.deck({2: slide_xml(["Agenda"], ["Terraform Enterprise Upgrades"]),   # names it, no entries
-                          8: slide_xml(["Terraform Core Releases"]),
-                          9: slide_xml(*self.TFE_SLIDE)})
-        self.assertEqual(fetch_tfe_releases.deck_latest_tfe_date(deck), "2026-09-23")
-
-    def test_without_a_root_deck_the_template_is_the_source(self):
-        template = self.tmp / "templates" / "cadence-template.pptx"
-        self.assertEqual(fetch_tfe_releases.source_deck(self.tmp), template)
-        deck = self.deck({9: slide_xml(*self.TFE_SLIDE)})
-        self.assertEqual(fetch_tfe_releases.source_deck(self.tmp), deck)
-        # The real template carries the entries, so the guard works in a pipeline checkout too.
-        real = fetch_tfe_releases.deck_latest_tfe_date(helpers.REPO / "templates" / "cadence-template.pptx")
-        self.assertRegex(real or "", r"^\d{4}-\d{2}-\d{2}$")
 
 
 class HcpChangelogs(unittest.TestCase):
@@ -257,6 +214,16 @@ class Events(unittest.TestCase):
         self.assertTrue(fetch_events.pick_abstract(blocks).startswith("Automation has grown"))
         self.assertNotIn("Privacy", fetch_events.pick_abstract(blocks))
         self.assertEqual(fetch_events.pick_abstract(["too short"]), "")
+
+    def test_abstract_starts_below_the_events_own_title(self):
+        # hashicorp.com's banner for ANOTHER webinar stands above the navigation of every page
+        title = "Hands-on workshop: Agentic Runtime Security on AWS"
+        blocks = ["Webinar", "Learn how to move from vulnerability insights to governed remediation across complex "
+                  "infrastructure environments", "Join the webinar", "Products", title, "January 19 | 07:00 PM",
+                  "AI agents introduce a new set of identity and access challenges. They can act independently, on "
+                  "behalf of users, and across multiple systems."]
+        self.assertTrue(fetch_events.pick_abstract(blocks, title).startswith("AI agents introduce"))
+        self.assertTrue(fetch_events.pick_abstract(blocks, "A title the page does not print").startswith("Learn how"))
 
     def test_a_hand_added_webinar_becomes_a_card_and_an_event_a_slide(self):
         import tempfile

@@ -13,7 +13,7 @@ from xml.dom import minidom
 
 import helpers
 
-from lib import compose, deck, slides as sl, textfit
+from lib import compose, deck, package, slides as sl, textfit
 from lib import pptx_edit as px
 from lib.textfit import ParaStyle
 
@@ -24,7 +24,7 @@ class AgainstPowerPoint(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = Path(tempfile.mkdtemp(prefix="fit-test-"))
-        px.unpack(TEMPLATE, cls.tmp)
+        package.unpack(TEMPLATE, cls.tmp)
         cls.roles = deck.slides_by_role(cls.tmp)
         pres = minidom.parse(str(cls.tmp / "ppt" / "presentation.xml"))
         cls.slide_cx = int(pres.getElementsByTagName("p:sldSz")[0].getAttribute("cx"))

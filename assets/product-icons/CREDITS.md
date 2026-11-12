@@ -1,7 +1,7 @@
 # Product logos — sources & usage
 
 HashiCorp product logos shown in the **top band of the featured / in-person event slides**. The
-deterministic editor (`scripts/edit_event_slides.py` → `match_product_icons`) keeps only the logo of a
+builder (`scripts/lib/event_media.py` → `match_product_icons`) keeps only the logo of a
 product the event actually covers (from `events.json` `products`) and drops the rest, so a Vault-only
 session no longer shows the Terraform icon (and vice-versa). Partner logos (e.g. AWS) and the
 HashiCorp/IBM brand lockup are never touched.

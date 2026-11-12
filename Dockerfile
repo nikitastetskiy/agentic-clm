@@ -15,11 +15,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/opt/venv/bin:$PATH
 
 # System deps. fonts-inter is the deck's typeface: with it the LibreOffice preview wraps text the way
-# PowerPoint does. poppler-utils provides pdftoppm for per-slide thumbnails.
+# PowerPoint does.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-venv python3-pip \
         git ca-certificates curl rsync \
-        poppler-utils fontconfig fonts-dejavu-core fonts-inter \
+        fontconfig fonts-dejavu-core fonts-inter \
     && if [ "$INSTALL_OFFICE" = "true" ]; then \
          apt-get install -y --no-install-recommends libreoffice-impress libreoffice-core ; \
        fi \
