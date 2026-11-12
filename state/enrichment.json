@@ -266,7 +266,7 @@
     },
     "hcp-vault/2026-07-07": {
       "bullets": [
-        "**Vault 2.0.3 is now available for HCP Vault** Dedicated clusters on AWS and Azure. Refer to the Vault 2.0.3 release notes to learn more about the new features, enhancements, and fixes included in Vault 2.0.3"
+        "**Vault 2.0.3 is now available for HCP Vault** Dedicated clusters on AWS and Azure. Refer to the Vault 2.0.3 release notes to learn more about the new features, enhancements, and fixes included in Vault 2.0.3."
       ],
       "source": "reference-deck"
     },
@@ -304,7 +304,7 @@
     },
     "terraform-enterprise/1.2.4": {
       "bullets": [
-        "Focuses on security hardening, addressing vulnerabilities and strengthening content boundary enforcement for VCS-based module ingestion, including remediation for CVE-2026-14468"
+        "Focuses on security hardening, addressing vulnerabilities and strengthening content boundary enforcement for VCS-based module ingestion, including remediation for CVE-2026-14468."
       ],
       "source": "reference-deck"
     },
@@ -462,7 +462,7 @@
       "bullets": [
         "**Breaking changes**",
         "Containers: Remove cap_ipc_lock capability on vault at build time Runtime operators are advised to disable swapping to guarantee data safety.",
-        "secrets/ssh: RSA key sizes are now limited to a maximum size of 8192 bits addressing CVE-2026-39829"
+        "secrets/ssh: RSA key sizes are now limited to a maximum size of 8192 bits addressing CVE-2026-39829."
       ],
       "source": "reference-deck"
     },
@@ -475,14 +475,14 @@
     },
     "vault/2.0.4": {
       "bullets": [
-        "Expands Vault’s machine identity capabilities with **native AI-agent support**, while delivering targeted reliability, operational and UX improvements and continuing to strengthen the platform’s security posture"
+        "Expands Vault’s machine identity capabilities with **native AI-agent support**, while delivering targeted reliability, operational and UX improvements and continuing to strengthen the platform’s security posture."
       ],
       "source": "reference-deck"
     },
     "vault/2.1.0": {
       "bullets": [
         "**Agentic IAM reaches General Availability**, extending Vault’s machine identity and security capabilities to AI agents and emerging agentic workloads.",
-        "**Expanded OAuth support**, policy flexibility, and platform improvements enhance the security, reliability, and operational experience of Vault"
+        "**Expanded OAuth support**, policy flexibility, and platform improvements enhance the security, reliability, and operational experience of Vault."
       ],
       "source": "reference-deck"
     },
