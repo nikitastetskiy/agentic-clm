@@ -4,8 +4,10 @@
 The plan (plan_deck.py) fills every slide from fixed rules. For a NEW release with features, or a
 changelog day with several changes, a rule can only quote the first note; a person would write one
 sentence that sums the release up. A release that only fixes things gets a short phrase after its
-category ("Bug fixes: …"), and a blog title its key phrase in bold. This step asks a small model for
-that wording and stores it in state/enrichment.json, so:
+category ("Bug fixes: …"), and a blog title its key phrase in bold. Where that wording may be too long
+for its place it also gets a short form: a changelog day one short sentence, for a month with little
+room, and a blog title too long for its two lines a shorter title made of its own words. This step asks
+a small model for that wording and stores it in state/enrichment.json, so:
 
   * each item is worded ONCE — later builds reuse the stored text instead of rewording the deck
     every week (and a person can correct it by editing the state file);
@@ -39,11 +41,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import agent, gateway, state  # noqa: E402
-from lib.common import DATA_DIR, REPO_ROOT, load_config, log, read_json, today  # noqa: E402
+from lib.common import DATA_DIR, REPO_ROOT, keeps_words, load_config, log, read_json, today  # noqa: E402
 
 DEFAULT_MODEL = "ica-gateway/claude-haiku-5-5"
 DEFAULT_FALLBACK_MODEL = "ica-gateway/gpt-6-luna"   # another vendor's, when the first gives no answer
-MAX_CHARS = {"release": 230, "changelog": 260, "event": 330, "fixes": 80}
+MAX_CHARS = {"release": 230, "changelog": 260, "event": 330, "fixes": 80, "short": 110, "title": 100}
+TITLE_FROM = 120   # a blog title longer than this may not fit its two lines
+SHORT = "#short"   # an item's short form is asked for under its key with this suffix
 EVENT_MIN_ABSTRACT = 300   # shorter abstracts fit a card as they are
 MIN_CHARS = 25
 BANNED = ("leverage", "seamless", "robust", "delve", "cutting-edge", "game-chang", "revolution",
@@ -83,6 +87,7 @@ def collect_needs(plan: dict, deck_cfg: dict, data: dict, enrich: dict) -> list[
             events[state.event_key(ev["url"])] = ev
     known = enrich.get("highlights") or {}
     known_events = enrich.get("events") or {}
+    shorts = enrich.get("shorts") or {}
     needs: dict[str, dict] = {}
     for slide in plan["slides"]:
         rule = rules.get(slide["role"], {})
@@ -91,19 +96,25 @@ def collect_needs(plan: dict, deck_cfg: dict, data: dict, enrich: dict) -> list[
             for col in slide["columns"]:
                 for entry in col["entries"]:
                     key, src = entry["key"], index.get(entry["key"])
-                    if key in known or key in needs or not src:
+                    if key in needs or not src:
                         continue
                     if "items" in src:  # a changelog day
+                        lines = [f"{i['title']}: {i['text']}" if i.get("title") else i["text"] for i in src["items"]]
+                        day = {"product": src["_display"], "date": src["date"], "max_bullets": 1,
+                               "source": {"items": lines}}
                         # One short change with a title of its own reads fine verbatim ("**Title:** text",
                         # as on HCP Vault); any other day is summarised, which gives it a phrase in bold too.
-                        if len(src["items"]) < 2 and all(i.get("title") and len(i["text"]) <= 260
-                                                         for i in src["items"]):
-                            continue
-                        lines = [f"{i['title']}: {i['text']}" if i.get("title") else i["text"] for i in src["items"]]
-                        needs[key] = {"id": key, "kind": "changelog", "product": src["_display"],
-                                      "date": src["date"], "max_bullets": 1, "max_chars": MAX_CHARS["changelog"],
-                                      "source": {"items": lines}}
-                    elif not src.get("is_prerelease"):
+                        verbatim = len(src["items"]) < 2 and all(i.get("title") and len(i["text"]) <= 260
+                                                                 for i in src["items"])
+                        if key not in known and not verbatim:
+                            needs[key] = {"id": key, "kind": "changelog", **day, "max_chars": MAX_CHARS["changelog"]}
+                        # Wording longer than a short form would be gets one too: a month with many entries
+                        # shows that instead of leaving an entry out.
+                        rich = sum(len(b.replace("**", "")) for b in (entry.get("options") or [[]])[0])
+                        if key not in shorts and rich > MAX_CHARS["short"]:
+                            needs[key + SHORT] = {"id": key + SHORT, "kind": "short", **day,
+                                                  "max_chars": MAX_CHARS["short"]}
+                    elif key not in known and not src.get("is_prerelease"):
                         notes = {name: [f"{i['lead']}: {i['text']}" if i.get("lead") else i["text"] for i in items]
                                  for name, items in (src.get("sections") or {}).items() if items}
                         names = {name.strip().lower() for name in notes}
@@ -121,6 +132,10 @@ def collect_needs(plan: dict, deck_cfg: dict, data: dict, enrich: dict) -> list[
         elif slide["kind"] == "blogs":
             for post in slide["entries"]:
                 key = state.norm_url(post["url"])
+                title = post["title"].replace("**", "")
+                if len(title) > TITLE_FROM and not post.get("title_short") and key + SHORT not in needs:
+                    needs[key + SHORT] = {"id": key + SHORT, "kind": "title", "max_bullets": 1,
+                                          "max_chars": MAX_CHARS["title"], "source": {"title": title}}
                 if "**" in post["title"] or key in needs:
                     continue   # already emphasised (stored wording that matches the exact title)
                 needs[key] = {"id": key, "kind": "blog", "max_bullets": 1, "source": {"title": post["title"]}}
@@ -147,9 +162,14 @@ def problems(need: dict, bullets) -> list[str]:
         if not isinstance(bullet, str):
             return ["a bullet is not text"]
         plain = bullet.replace("**", "")
-        if need["kind"] == "blog":   # the title itself, with its key phrase marked
+        if need["kind"] in ("blog", "title"):   # the title itself, with its key phrase marked
             spans = bullet.split("**")[1::2]
-            if " ".join(plain.split()) != " ".join(need["source"]["title"].split()):
+            if need["kind"] == "title":   # ... or a shorter one: the title with words left out
+                if not keeps_words(plain, need["source"]["title"]):
+                    out.append("a word was added, changed or moved: a shorter title only leaves words out")
+                if not MIN_CHARS <= len(plain) <= need["max_chars"]:
+                    out.append(f"{len(plain)} characters (allowed {MIN_CHARS}-{need['max_chars']})")
+            elif " ".join(plain.split()) != " ".join(need["source"]["title"].split()):
                 out.append("the title was changed")
             if len(spans) not in (1, 2) or bullet.count("**") % 2 or not all(s.strip() for s in spans) \
                     or " ".join(spans).strip() == plain.strip():
@@ -345,6 +365,8 @@ def main() -> int:
             enrich.setdefault("events", {})[need["id"]] = {"description": bullets[0], **stamp}
         elif need["kind"] == "blog":
             enrich.setdefault("blog_titles", {})[need["id"]] = {"title_markup": bullets[0], **stamp}
+        elif need["kind"] in ("short", "title"):
+            enrich.setdefault("shorts", {})[need["id"].removesuffix(SHORT)] = {"bullets": bullets, **stamp}
         else:
             if need["kind"] == "fixes":
                 bullets = [f"**{need['label']}:** {bullets[0]}"]

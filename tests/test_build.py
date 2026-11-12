@@ -375,6 +375,18 @@ class WeeklyBuild(unittest.TestCase):
         self.assertEqual(self.failed(verdict), {"layout"})
         self.assertIn("is cut at a hyphen", " ".join(verdict["checks"]["layout"]["notes"]))
 
+    def test_gate_takes_a_planned_shorter_title_only_if_it_keeps_the_title_s_words(self):
+        from lib import slides as sl
+        plan = json.loads(json.dumps(self.plan))
+        post = next(s for s in plan["slides"] if s["role"] == "vault-blogs")["entries"][0]
+        shown = post["title"]
+        path = self.tmp / "plan-short-title.json"
+        for full, verdict in ((f"{sl.strip_markup(shown)} and a great deal more that the box cannot hold", set()),
+                              ("Another title altogether, far too long for the box it has to go into", {"blogs"})):
+            post.update(title=full, title_short=shown)
+            path.write_text(json.dumps(plan), encoding="utf-8")
+            self.assertEqual(self.failed(self.verify(self.deck, plan=path)), verdict)
+
     def test_gate_catches_a_blog_entry_off_the_grid(self):
         deck = self.damaged("blog-grid", "vault-blogs", lambda x: nudge(x, 'name="Group 5"', dx=-33020))
         self.assertEqual(self.failed(self.verify(deck)), {"layout"})
@@ -482,6 +494,17 @@ class BlogTitles(unittest.TestCase):
                      if textfit.line_count([(title, False)], 8.0, w / 2) <= 2 < textfit.line_count([(title, True)], 8.0, w / 2))
         self.assertEqual(build_deck.blog_title(marked, style, width), (title, 2))
         self.assertEqual(build_deck.blog_title(marked, style, width * 2)[0], marked)
+
+    def test_a_title_too_long_for_its_box_gives_way_to_its_shorter_form(self):
+        import build_deck
+        from lib import textfit
+        style = textfit.ParaStyle(size_pt=8.0)
+        title = ("Building Self-Service into Terraform: Introducing Terraform Developer Portal for platform teams "
+                 "and application developers across every business unit of a large enterprise (Public Preview)")
+        short = "Building Self-Service into Terraform: **Terraform Developer Portal**"
+        self.assertEqual(build_deck.blog_title(title, style, 295, short), (short, 1))
+        self.assertTrue(build_deck.blog_title(title, style, 295)[0].endswith("…"))   # no shorter form: cut
+        self.assertEqual(build_deck.blog_title("A title that fits", style, 295, short)[0], "A title that fits")
 
 
 if __name__ == "__main__":

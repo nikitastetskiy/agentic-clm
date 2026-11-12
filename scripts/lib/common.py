@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -113,3 +114,12 @@ def write_output(filename: str, payload: dict) -> Path:
     os.replace(tmp, path)
     log(f"wrote {path.relative_to(REPO_ROOT) if path.is_relative_to(REPO_ROOT) else path}")
     return path
+
+
+def keeps_words(short: str, full: str) -> bool:
+    """Whether `short` is `full` with words left out: the same words in the same order, none added or
+    changed (case, emphasis marks and the punctuation around a word aside)."""
+    def words(text: str) -> list[str]:
+        return [w for w in (re.sub(r"^\W+|\W+$", "", w).lower() for w in text.replace("**", "").split()) if w]
+    rest = iter(words(full))
+    return all(word in rest for word in words(short))

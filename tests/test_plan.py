@@ -196,6 +196,18 @@ class Changelog(unittest.TestCase):
                              enrich={"highlights": {"hcp-terraform/2026-10-01": {"bullets": [stored]}}})[0]
         self.assertEqual(entry["options"][1], ["Tokens can expire."])
 
+    def test_a_stored_short_form_is_the_short_option_unless_it_is_no_shorter(self):
+        day = [{"title": "", "text": "SCIM provisioning is now available in the organization settings. It syncs."}]
+        stored = {"highlights": {"hcp-terraform/2026-10-01": {"bullets": [
+            "HCP Terraform adds **SCIM provisioning**, so users and teams follow the identity provider."]}}}
+        short = {"hcp-terraform/2026-10-01": {"bullets": ["HCP Terraform adds **SCIM provisioning**."]}}
+        entry = self.entries(day, enrich={**stored, "shorts": short})[0]
+        self.assertEqual(entry["options"][1], ["HCP Terraform adds **SCIM provisioning**."])
+        longer = {"hcp-terraform/2026-10-01": {"bullets": ["HCP Terraform adds **SCIM provisioning** for the users "
+                                                           "and the teams of an organization, from its settings."]}}
+        entry = self.entries(day, enrich={**stored, "shorts": longer})[0]   # the rule's short option instead
+        self.assertEqual(entry["options"][1], ["SCIM provisioning is now available in the organization settings."])
+
     def test_titled_changes_get_a_bold_lead_in(self):
         entry = self.entries([{"title": "Port 443 access", "text": "Clusters can listen on port 443."}])[0]
         self.assertEqual(entry["options"][0], ["**Port 443 access:** Clusters can listen on port 443."])
@@ -217,6 +229,12 @@ class Blogs(unittest.TestCase):
         self.assertEqual(first["title"], "Vault **agentic IAM** is GA")
         self.assertEqual(second["title"], "Another post")
         self.assertEqual(first["date_display"], "September 3")
+
+    def test_a_shorter_title_is_reused_only_while_it_is_the_title_with_words_left_out(self):
+        first, second = self.entries({"shorts": {"hashicorp.com/blog/a": {"bullets": ["Vault **agentic IAM**"]},
+                                                 "hashicorp.com/blog/b": {"bullets": ["Some **other** post"]}}})
+        self.assertEqual(first["title_short"], "Vault **agentic IAM**")
+        self.assertNotIn("title_short", second)
 
 
 class Events(unittest.TestCase):

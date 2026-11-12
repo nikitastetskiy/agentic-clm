@@ -48,7 +48,7 @@ from xml.dom import minidom
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import compose, deck, fonts, layout, package, slides as sl, textfit  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
-from lib.common import DATA_DIR, MONTH_NAMES, REPO_ROOT, load_config, log, read_json  # noqa: E402
+from lib.common import DATA_DIR, MONTH_NAMES, REPO_ROOT, keeps_words, load_config, log, read_json  # noqa: E402
 from lib.textfit import EMU_PT  # noqa: E402
 
 CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
@@ -175,7 +175,10 @@ def check_blogs(checks: dict, role: str, dom, rid_target: dict, plan: dict, slid
                    f"'{want['date_display']}' -> {want['url']}")
         full = norm(sl.strip_markup(want["title"]))
         title = norm(sl.strip_markup(got["title"]))
-        if title != full and not (title.endswith("…") and full.startswith(title[:-1].rstrip())):
+        # A title too long for its box may show its planned shorter form: the title with words left out.
+        short = norm(sl.strip_markup(want.get("title_short", "")))
+        shortened = bool(short) and title == short and keeps_words(short, full)
+        if title != full and not shortened and not (title.endswith("…") and full.startswith(title[:-1].rstrip())):
             c.fail(f"{role}: title '{title}' != planned '{full}'")
     urls = [e["url"] for e in shown]
     if len(set(urls)) != len(urls):

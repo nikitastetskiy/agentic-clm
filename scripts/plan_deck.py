@@ -31,7 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import state  # noqa: E402
-from lib.common import DATA_DIR, MONTH_NAMES, load_config, log, read_json, today  # noqa: E402
+from lib.common import DATA_DIR, MONTH_NAMES, keeps_words, load_config, log, read_json, today  # noqa: E402
 from lib.event_media import detect_language  # noqa: E402
 from lib.regions import event_region  # noqa: E402
 
@@ -155,9 +155,10 @@ class Planner:
         self.omitted: list[dict] = []
 
     # ----------------------------------------------------------------------- wording --------------
-    def curated(self, key: str, *sources: dict) -> list[str] | None:
-        """Stored wording for `key`, unless it fails the disclosure guard."""
-        hit = (self.enrich.get("highlights") or {}).get(key)
+    def curated(self, key: str, *sources: dict, table: str = "highlights") -> list[str] | None:
+        """Stored wording for `key` (its short form with ``table="shorts"``), unless it fails the
+        disclosure guard."""
+        hit = (self.enrich.get(table) or {}).get(key)
         bullets = [clean_markup(b) for b in (hit or {}).get("bullets", []) if b and b.strip()]
         if not bullets:
             return None
@@ -267,12 +268,19 @@ class Planner:
                 else:
                     more = f" (+{len(items) - 1} more updates)" if len(items) > 1 else ""
                     options.append([first_sentences(items[0]["text"], 300, 2) + more])
-                # The short option is the shorter of the source's opening sentence and the stored wording's:
-                # either can run past the other, and one longer than the rich wording would help no column.
-                first = items[0]
-                shorts = [first_sentences(stored[0], 150)] if stored else []
-                shorts.append(labelled(first.get("title"), first_sentences(first["text"], 150)))
-                options.append([min(shorts, key=lambda s: len(s.replace("**", "")))])
+                # The short option is the short form the wording step stored. Without one (or with one that
+                # is no shorter than the rich wording) it is the shorter of the source's opening sentence and
+                # the stored wording's: either can run past the other, and a short option longer than the rich
+                # wording would help no column.
+                def size(bullets: list[str]) -> int:
+                    return sum(len(b.replace("**", "")) for b in bullets)
+                short = self.curated(key, entry, table="shorts")
+                if not short or size(short) >= size(options[0]):
+                    first = items[0]
+                    shorts = [first_sentences(stored[0], 150)] if stored else []
+                    shorts.append(labelled(first.get("title"), first_sentences(first["text"], 150)))
+                    short = [min(shorts, key=lambda s: size([s]))]
+                options.append(short)
                 planned.append({"key": key, "date": entry["date"],
                                 "heading": [{"text": entry["date"], "url": entry["url"]}],
                                 "options": options})
@@ -287,6 +295,7 @@ class Planner:
             self.problems.append(f"{rule['role']}: no blog posts for {product}")
             return None
         emphasised = self.enrich.get("blog_titles") or {}
+        shorts = self.enrich.get("shorts") or {}
         entries = []
         for post in posts:
             d = date.fromisoformat(post["date"])
@@ -296,6 +305,11 @@ class Planner:
                 else post["title"]
             entries.append({"date": post["date"], "date_display": f"{MONTH_NAMES[d.month - 1]} {d.day}",
                             "title": title, "url": post["url"]})
+            # A stored shorter title, for a box the title does not fit: reused only while it is still the
+            # post's title with words left out.
+            short = " ".join(((shorts.get(state.norm_url(post["url"])) or {}).get("bullets") or [""])[0].split())
+            if short and keeps_words(short, post["title"]) and len(short.replace("**", "")) < len(post["title"]):
+                entries[-1]["title_short"] = short
         return {"entries": entries}
 
     # ----------------------------------------------------------------------- events ---------------

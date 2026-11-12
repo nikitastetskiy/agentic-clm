@@ -90,6 +90,33 @@ class EnrichmentAnswers(unittest.TestCase):
         self.assertTrue(enrich.problems(blog, ["**Vault 2.2** is generally available"]))   # the title changed
         self.assertTrue(enrich.problems(blog, ["**Vault 2.2 is GA**"]))                    # bold all through
 
+    def test_long_wording_gets_a_short_form_and_a_long_title_a_shorter_one(self):
+        day = {"date": "2026-10-02", "items": [{"title": "", "text": "SCIM provisioning is now available."}]}
+        title = ("Building Self-Service into Terraform: Introducing Terraform Developer Portal for platform teams "
+                 "and application developers (Public Preview)")
+        data = {"releases": {}, "changelogs": {"products": {"p": {"entries": [day]}}}, "events": {}}
+        cfg = {"slides": [{"role": "hcp", "kind": "columns"}, {"role": "blogs", "kind": "blogs"}]}
+        plan = {"slides": [
+            {"role": "hcp", "kind": "columns", "columns": [{"entries": [
+                {"key": "p/2026-10-02", "options": [["A sentence of the full wording. " * 5], ["Short."]]}]}]},
+            {"role": "blogs", "kind": "blogs", "entries": [
+                {"url": "https://www.hashicorp.com/en/blog/a", "title": f"**Building** {title[9:]}"}]}]}
+        worded = {"highlights": {"p/2026-10-02": {"bullets": ["x"]}}}
+        needs = {n["id"]: n for n in enrich.collect_needs(plan, cfg, data, worded)}
+        self.assertEqual(sorted(needs), ["hashicorp.com/blog/a#short", "p/2026-10-02#short"])
+        short, shorter = needs["p/2026-10-02#short"], needs["hashicorp.com/blog/a#short"]
+        self.assertEqual((short["kind"], short["source"]), ("short", {"items": ["SCIM provisioning is now available."]}))
+        self.assertEqual(enrich.problems(short, ["**SCIM provisioning** is now available."]), [])
+        self.assertTrue(enrich.problems(short, ["SCIM provisioning is now available. " * 4]))          # not short
+        good = "Building Self-Service into Terraform: **Terraform Developer Portal**"
+        self.assertEqual(enrich.problems(shorter, [good]), [])
+        self.assertTrue(enrich.problems(shorter, ["Self-Service in Terraform with **Developer Portal**"]))   # new words
+        self.assertTrue(enrich.problems(shorter, ["**Terraform Developer Portal**: Building Self-Service"]))  # moved
+        # once stored (and, for the title, planned), neither is asked for again
+        plan["slides"][1]["entries"][0]["title_short"] = good
+        stored = {**worded, "shorts": {"p/2026-10-02": {"bullets": ["**SCIM provisioning** is now available."]}}}
+        self.assertEqual(enrich.collect_needs(plan, cfg, data, stored), [])
+
 
 class BlogHistory(unittest.TestCase):
     def test_a_known_post_keeps_its_date_unless_the_listing_page_corrects_it(self):
@@ -313,6 +340,8 @@ class WordingDirect(unittest.TestCase):
         self.assertEqual((asked, report["status"], report["model"], report["via"]),
                          (["claude-haiku-5-5"], "ok", HAIKU, "the gateway, directly"))
         self.assertTrue(report["accepted"])
+        self.assertTrue(self.stored["shorts"])                               # short forms are kept apart
+        self.assertTrue(all(key + "#short" in {a["id"] for a in report["accepted"]} for key in self.stored["shorts"]))
         [(auth, body)] = WordingGateway.requests
         self.assertEqual(auth, "Bearer sk-test-0123456789abcdef")
         system, user = body["messages"]

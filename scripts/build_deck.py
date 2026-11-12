@@ -252,18 +252,17 @@ def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], d
 
 
 # --------------------------------------------------------------------------- blogs ----------------
-def blog_title(title: str, style: textfit.ParaStyle, width: float) -> tuple[str, int]:
+def blog_title(title: str, style: textfit.ParaStyle, width: float, short: str = "") -> tuple[str, int]:
     """(the title as it goes in its box, the lines it takes): at most BLOG_TITLE_LINES. Bold is wider, so
-    a title loses its emphasis before any of its words, and is cut with an ellipsis only if it is too
-    long even plain."""
-    plain = sl.strip_markup(title)
-    lines = textfit.line_count(sl.split_markup(title), style.size_pt, width)
-    plain_lines = textfit.line_count([(plain, False)], style.size_pt, width)
-    if lines <= BLOG_TITLE_LINES:
-        return title, lines
-    if plain_lines <= BLOG_TITLE_LINES:
-        return plain, plain_lines
-    return textfit.fit_text(plain, style, width, BLOG_TITLE_LINES, whole_sentences=False), BLOG_TITLE_LINES
+    a title loses its emphasis before any of its words. One too long even plain gives way to `short`, the
+    shorter title the wording step made of its own words; only without one is it cut with an ellipsis."""
+    for wording in filter(None, (title, short)):
+        for text in (wording, sl.strip_markup(wording)):
+            lines = textfit.line_count(sl.split_markup(text), style.size_pt, width)
+            if lines <= BLOG_TITLE_LINES:
+                return text, lines
+    return (textfit.fit_text(sl.strip_markup(title), style, width, BLOG_TITLE_LINES, whole_sentences=False),
+            BLOG_TITLE_LINES)
 
 
 def render_blogs(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dict]:
@@ -297,7 +296,8 @@ def render_blogs(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dic
         compose.add_run(date_line, date_run, f"{lead}{entry['date_display']} – ")
         compose.add_run(date_line, link_run, "See here", url=entry["url"], rels_dom=rels_dom)
 
-        title, lines = blog_title(entry["title"], compose.style_of(paras[1]), inner_width_pt(box_sp))
+        title, lines = blog_title(entry["title"], compose.style_of(paras[1]), inner_width_pt(box_sp),
+                                  entry.get("title_short", ""))
         title_line = compose.paragraph(paras[1], compose.markup_segments(title))
         compose.replace_paragraphs(box_sp, [date_line, title_line])
         sl.set_box(box_sp, cy=box_cy)
