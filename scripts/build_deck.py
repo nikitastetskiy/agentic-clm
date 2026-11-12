@@ -392,13 +392,12 @@ def add_second_row(ctx: Context, dom, slots: list, on_card: list, events: int) -
 
 
 def card_description(options: list[str], style: textfit.ParaStyle, width: float, lines: int) -> str:
-    """What a card says under its title: the first of `options` that fits in whole sentences. Only when
-    none does (each one's first sentence is too long for the card) is the first one cut at a word, with
-    an ellipsis: a card of a two-row slide is shorter, and a sentence written for a tall card ended
-    mid-phrase there while the event's own abstract opened with one that fits."""
+    """What a card says under its title: the first of `options` that fits in whole sentences. A card of a
+    two-row slide is shorter, and a sentence written for a tall card ended mid-phrase there while the
+    event's own abstract opened with one that fits. A description is never cut at a word: the plan's
+    last options are generic lines, the very last short enough for one line of any card."""
     whole = (textfit.fit_sentences(option, style, width, lines) for option in options)
-    cut = (textfit.fit_text(option, style, width, lines) for option in options)
-    return next(filter(None, whole), "") or next(filter(None, cut), "")
+    return next(filter(None, whole), "") or options[-1]
 
 
 def render_webinars(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dict]:

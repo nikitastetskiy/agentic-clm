@@ -40,8 +40,9 @@ DATED_ALPHA_RE = re.compile(r"^(\d+\.\d+\.\d+)-alpha\d{8}$")
 SENTENCE_RE = re.compile(r".+?(?:[.!?](?=\s|$)|$)")
 # Where a sentence can stop early and still say the same thing: before a clause that only adds to it
 # ("…, allowing X", "…, which Y"). Not before a condition ("…, when Z"), whose loss would change it.
-CLAUSE_RE = re.compile(r",\s+(?=(?:with|so|which|including|allowing|enabling|ensuring|preventing|making|giving|"
-                       r"letting|providing|reducing|improving|helping|removing|simplifying|avoiding|keeping)\b)")
+CLAUSE_RE = re.compile(r",\s+(?=(?:with|so|which|including|(?:\w+ly\s+)?(?:allowing|enabling|ensuring|preventing|"
+                       r"making|giving|letting|providing|reducing|improving|helping|removing|simplifying|avoiding|"
+                       r"keeping|preserving|resolving|eliminating))\b)")
 MIN_CLAUSE = 40   # what is left of a shortened sentence is at least this long
 REPEATED_LABEL_RE = re.compile(r"\*\*([^*]+):\*\*\s+\1\b", re.I)
 # Section headings of the various changelog / release-notes formats, by what they mean.
@@ -60,6 +61,7 @@ GENERIC_EVENT_LINE = {
     "WORKSHOP": "Join this hands-on session with HashiCorp experts for a guided, practical walkthrough.",
     "WEBINAR": "Join this HashiCorp session to see what is new and how to put it to work in your environment.",
 }
+SHORT_EVENT_LINE = "Join this HashiCorp session."   # fits one line of any card: a description is never cut
 
 
 # --------------------------------------------------------------------------- small helpers --------
@@ -75,9 +77,10 @@ def first_sentences(text: str, max_chars: int, max_sentences: int = 1) -> str:
     out = " ".join(sentences).strip() or text
     if len(out) > max_chars:
         ends = [m.start() for m in CLAUSE_RE.finditer(out) if MIN_CLAUSE <= m.start() < max_chars]
+        ends = [end for end in ends if out[:end].count("**") % 2 == 0]   # never inside a bold phrase
         if ends:
             out = out[:ends[-1]] + "."
-    return out
+    return out if out.count("**") % 2 == 0 else text
 
 
 def clean_markup(text: str) -> str:
@@ -264,8 +267,12 @@ class Planner:
                 else:
                     more = f" (+{len(items) - 1} more updates)" if len(items) > 1 else ""
                     options.append([first_sentences(items[0]["text"], 300, 2) + more])
+                # The short option is the shorter of the source's opening sentence and the stored wording's:
+                # either can run past the other, and one longer than the rich wording would help no column.
                 first = items[0]
-                options.append([labelled(first.get("title"), first_sentences(first["text"], 150))])
+                shorts = [first_sentences(stored[0], 150)] if stored else []
+                shorts.append(labelled(first.get("title"), first_sentences(first["text"], 150)))
+                options.append([min(shorts, key=lambda s: len(s.replace("**", "")))])
                 planned.append({"key": key, "date": entry["date"],
                                 "heading": [{"text": entry["date"], "url": entry["url"]}],
                                 "options": options})
@@ -297,7 +304,7 @@ class Planner:
         kind = (ev.get("type") or "WEBINAR").upper()
         stored = ((self.enrich.get("events") or {}).get(state.event_key(ev["url"])) or {}).get("description")
         options = [o for o in (stored, ev.get("description"), ev.get("abstract")) if o and o.strip()]
-        options.append(GENERIC_EVENT_LINE.get(kind, GENERIC_EVENT_LINE["WEBINAR"]))
+        options += [GENERIC_EVENT_LINE.get(kind, GENERIC_EVENT_LINE["WEBINAR"]), SHORT_EVENT_LINE]
         language = ev.get("language") or detect_language(ev["title"])
         if language == "en" and event_region(ev) == "AMERICAS":
             language = "us"

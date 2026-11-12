@@ -436,9 +436,8 @@ class CardDescriptions(unittest.TestCase):
         self.assertEqual(self.describe([self.LONG, "", self.ABSTRACT], 2),                  # a short one
                          "AI agents introduce a new set of identity and access challenges.")
 
-    def test_only_when_no_option_fits_is_one_cut(self):
-        cut = self.describe([self.LONG], 2)
-        self.assertTrue(cut.endswith("…") and self.LONG.startswith(cut[:-1]), cut)
+    def test_a_description_is_never_cut(self):
+        self.assertEqual(self.describe([self.LONG, "Join this HashiCorp session."], 2), "Join this HashiCorp session.")
 
 
 class HeadingDates(unittest.TestCase):

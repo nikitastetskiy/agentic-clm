@@ -185,6 +185,17 @@ class Changelog(unittest.TestCase):
         self.assertEqual(entry["options"][0], ["SCIM provisioning is now available. It syncs users. (+1 more updates)"])
         self.assertEqual(entry["options"][1], ["SCIM provisioning is now available."])
 
+    def test_the_short_option_is_the_shorter_of_the_source_and_the_stored_wording(self):
+        source = ("This release adds an opt-in protection for templated policy paths in clusters that run the newest "
+                  "version and have the policy engine switched on for every namespace of the organization.")
+        stored = "**Opt-in protection** is available for templated policy paths. Contact Support to enable it."
+        entry = self.entries([{"title": "", "text": source}],
+                             enrich={"highlights": {"hcp-terraform/2026-10-01": {"bullets": [stored]}}})[0]
+        self.assertEqual(entry["options"], [[stored], ["**Opt-in protection** is available for templated policy paths."]])
+        entry = self.entries([{"title": "", "text": "Tokens can expire."}],
+                             enrich={"highlights": {"hcp-terraform/2026-10-01": {"bullets": [stored]}}})[0]
+        self.assertEqual(entry["options"][1], ["Tokens can expire."])
+
     def test_titled_changes_get_a_bold_lead_in(self):
         entry = self.entries([{"title": "Port 443 access", "text": "Clusters can listen on port 443."}])[0]
         self.assertEqual(entry["options"][0], ["**Port 443 access:** Clusters can listen on port 443."])
@@ -253,7 +264,8 @@ class Events(unittest.TestCase):
                     enrich={"events": {"hashicorp.com/events/webinars/x": {"description": "**Curated.**"}}})
         first, second = p.build()["slides"][0]["slots"]
         self.assertEqual(first["description_options"][:2], ["Curated.", "The page abstract."])
-        self.assertEqual(second["description_options"], [plan_deck.GENERIC_EVENT_LINE["WORKSHOP"]])
+        self.assertEqual(second["description_options"],
+                         [plan_deck.GENERIC_EVENT_LINE["WORKSHOP"], plan_deck.SHORT_EVENT_LINE])
 
     def test_unavailable_events_degrade_the_build_instead_of_failing_it(self):
         plan = self.build({"status": "unavailable", "note": "render failed",
