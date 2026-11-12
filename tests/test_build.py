@@ -407,6 +407,27 @@ class WeeklyBuild(unittest.TestCase):
         self.assertIn("vault-blogs", " ".join(verdict["checks"]["layout"]["notes"]))
 
 
+class CardDescriptions(unittest.TestCase):
+    LONG = ("Join this hands-on workshop to work directly with HashiCorp Vault in an Amazon EKS environment and "
+            "learn how to secure agentic AI applications with identity-based access and just-in-time credentials.")
+    ABSTRACT = ("AI agents introduce a new set of identity and access challenges. They can act independently, on "
+                "behalf of users and across multiple systems, which makes standing privileges hard to audit.")
+
+    def describe(self, options, lines):
+        import build_deck
+        from lib.textfit import ParaStyle
+        return build_deck.card_description(options, ParaStyle(size_pt=6.5), 185, lines)
+
+    def test_an_option_that_ends_with_its_sentence_is_preferred_to_a_cut_one(self):
+        self.assertEqual(self.describe([self.LONG, "", self.ABSTRACT], 6), self.LONG)       # a tall card
+        self.assertEqual(self.describe([self.LONG, "", self.ABSTRACT], 2),                  # a short one
+                         "AI agents introduce a new set of identity and access challenges.")
+
+    def test_only_when_no_option_fits_is_one_cut(self):
+        cut = self.describe([self.LONG], 2)
+        self.assertTrue(cut.endswith("…") and self.LONG.startswith(cut[:-1]), cut)
+
+
 class BlogTitles(unittest.TestCase):
     def test_emphasis_never_costs_a_title_its_text(self):
         import build_deck

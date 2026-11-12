@@ -16,6 +16,7 @@ costs text hanging out of its box.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from functools import lru_cache
 
@@ -109,29 +110,37 @@ def para_height(segments: list[tuple[str, bool]], style: ParaStyle, width_pt: fl
     return style.before_pt + lines * style.line_height() + style.after_pt
 
 
+def _lines(text: str, style: ParaStyle, width_pt: float) -> int:
+    return line_count([(text, style.bold)], style.size_pt, width_pt - style.indent_pt)
+
+
+def fit_sentences(text: str, style: ParaStyle, width_pt: float, max_lines: int) -> str:
+    """The leading whole sentences of `text` that fit in `max_lines`: all of it when it fits, "" when
+    not even its first sentence does."""
+    kept = ""
+    for sentence in re.findall(r".+?(?:[.!?](?=\s|$)|$)", " ".join((text or "").split())):
+        candidate = f"{kept} {sentence.strip()}".strip()
+        if _lines(candidate, style, width_pt) > max_lines:
+            break
+        kept = candidate
+    return kept
+
+
 def fit_text(text: str, style: ParaStyle, width_pt: float, max_lines: int, *,
              whole_sentences: bool = True) -> str:
     """The longest prefix of `text` that fits in `max_lines`.
 
     With `whole_sentences` (prose) the cut falls between sentences; a title, or prose whose very first
     sentence is already too long, is cut at a word boundary and ends with an ellipsis."""
-    import re
-
     def lines(candidate: str) -> int:
-        return line_count([(candidate, style.bold)], style.size_pt, width_pt - style.indent_pt)
+        return _lines(candidate, style, width_pt)
 
     text = " ".join((text or "").split())
     if not text or lines(text) <= max_lines:
         return text
-    if whole_sentences:
-        kept = ""
-        for sentence in re.findall(r".+?(?:[.!?](?=\s|$)|$)", text):
-            candidate = f"{kept} {sentence.strip()}".strip()
-            if lines(candidate) > max_lines:
-                break
-            kept = candidate
-        if kept:
-            return kept
+    kept = fit_sentences(text, style, width_pt, max_lines) if whole_sentences else ""
+    if kept:
+        return kept
     words = text.split(" ")
     while len(words) > 1:
         words.pop()

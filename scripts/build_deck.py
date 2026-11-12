@@ -370,6 +370,16 @@ def add_second_row(ctx: Context, dom, slots: list, on_card: list, events: int) -
     slots.extend(cards)
 
 
+def card_description(options: list[str], style: textfit.ParaStyle, width: float, lines: int) -> str:
+    """What a card says under its title: the first of `options` that fits in whole sentences. Only when
+    none does (each one's first sentence is too long for the card) is the first one cut at a word, with
+    an ellipsis: a card of a two-row slide is shorter, and a sentence written for a tall card ended
+    mid-phrase there while the event's own abstract opened with one that fits."""
+    whole = (textfit.fit_sentences(option, style, width, lines) for option in options)
+    cut = (textfit.fit_text(option, style, width, lines) for option in options)
+    return next(filter(None, whole), "") or next(filter(None, cut), "")
+
+
 def render_webinars(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dict]:
     dom, rels_dom = load(slide)
     slots = sl.webinar_slots(dom)
@@ -412,11 +422,7 @@ def render_webinars(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], 
                  + textfit.para_height([(event["title"], True)], title_style, width))
         max_lines = int((room - fixed - desc_style.before_pt - desc_style.after_pt)
                         // desc_style.line_height())
-        description = ""
-        for option in event["description_options"]:
-            description = textfit.fit_text(option, desc_style, width, max(max_lines, 1))
-            if description:
-                break
+        description = card_description(event["description_options"], desc_style, width, max(max_lines, 1))
         desc = compose.paragraph(desc_proto, [{"text": description, "bold": False}])
         compose.set_space_before(desc, gap)
         compose.set_space_after(desc, 0.0)

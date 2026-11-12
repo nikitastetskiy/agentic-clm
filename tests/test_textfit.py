@@ -87,6 +87,14 @@ class Wrapping(unittest.TestCase):
         self.assertEqual(fitted, "Automation has grown from simple scripts to whole environments.")
         self.assertEqual(textfit.fit_text(text, ParaStyle(size_pt=6.5), 185, 20), text)
 
+    def test_whole_sentences_or_nothing(self):
+        first = "Automation has grown from simple scripts to whole environments."
+        text = first + " In this webinar learn how Terraform manages everything as code. A third sentence."
+        style = ParaStyle(size_pt=6.5)
+        self.assertEqual(textfit.fit_sentences(text, style, 185, 1), "")          # the first needs two lines
+        self.assertEqual(textfit.fit_sentences(text, style, 185, 2), first)
+        self.assertEqual(textfit.fit_sentences(text, style, 185, 9), text)
+
     def test_a_title_is_cut_at_a_word_with_an_ellipsis(self):
         title = "Simplify compliance with the native pre-written policy experience. In HCP Terraform and beyond"
         fitted = textfit.fit_text(title, ParaStyle(size_pt=8), 150, 1, whole_sentences=False)
