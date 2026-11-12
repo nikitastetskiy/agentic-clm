@@ -90,6 +90,27 @@ class EnrichmentAnswers(unittest.TestCase):
         self.assertTrue(enrich.problems(blog, ["**Vault 2.2** is generally available"]))   # the title changed
         self.assertTrue(enrich.problems(blog, ["**Vault 2.2 is GA**"]))                    # bold all through
 
+    def test_a_release_gets_a_short_form_for_long_wording_and_for_wording_asked_for_now(self):
+        rels = [{"version": v, "date": "2026-10-14",
+                 "sections": {"FEATURES": [{"text": "Imports work in child modules."}]}} for v in ("1.17.0", "1.17.1", "1.17.2")]
+        data = {"releases": {"products": {"terraform": {"releases": rels}}}, "changelogs": {}, "events": {}}
+        cfg = {"slides": [{"role": "tf", "kind": "columns"}]}
+        entries = [{"key": "terraform/1.17.0", "options": [["A sentence of the full wording. " * 5], ["Label"]]},
+                   {"key": "terraform/1.17.1", "options": [["Short wording."], ["Label"]]},
+                   {"key": "terraform/1.17.2", "options": [["Label"]]}]                       # not worded yet
+        plan = {"slides": [{"role": "tf", "kind": "columns", "columns": [{"entries": entries}]}]}
+        worded = {"highlights": {"terraform/1.17.0": {"bullets": ["x"]}, "terraform/1.17.1": {"bullets": ["x"]}}}
+        needs = {n["id"]: n for n in enrich.collect_needs(plan, cfg, data, worded)}
+        self.assertEqual(sorted(needs), ["terraform/1.17.0#short", "terraform/1.17.2", "terraform/1.17.2#short"])
+        short = needs["terraform/1.17.0#short"]
+        self.assertEqual((short["kind"], short["source"]),
+                         ("short", {"notes": {"FEATURES": ["Imports work in child modules."]}}))
+        self.assertEqual(enrich.problems(short, ["Terraform 1.17.0 brings **imports** to child modules."]), [])
+        self.assertTrue(enrich.problems(short, ["Terraform 1.18.0 brings **imports** to child modules."]))
+        stored = {"highlights": {**worded["highlights"], "terraform/1.17.2": {"bullets": ["x"]}},
+                  "shorts": {key: {"bullets": ["x"]} for key in ("terraform/1.17.0", "terraform/1.17.2")}}
+        self.assertEqual(enrich.collect_needs(plan, cfg, data, stored), [])
+
     def test_long_wording_gets_a_short_form_and_a_long_title_a_shorter_one(self):
         day = {"date": "2026-10-02", "items": [{"title": "", "text": "SCIM provisioning is now available."}]}
         title = ("Building Self-Service into Terraform: Introducing Terraform Developer Portal for platform teams "

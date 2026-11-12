@@ -48,7 +48,7 @@ from lib import event_media as ev  # noqa: E402  — flag / hero-photo / brand-l
 from lib import package  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
 from lib.city_photos import build_city_photo_cache, resolve_city_photo  # noqa: E402
-from lib.common import DATA_DIR, REPO_ROOT, load_config, log  # noqa: E402
+from lib.common import DATA_DIR, REPO_ROOT, load_config, log, shorter_titles  # noqa: E402
 from lib.textfit import EMU_PT  # noqa: E402
 
 OUTPUT_DIR = REPO_ROOT / "output"
@@ -57,7 +57,7 @@ FIT_MARGIN = 0.98                # use at most this share of a box's height
 BOTTOM_MARGIN = 419100           # EMU (33 pt): how close to the slide bottom the column boxes reach
 VAULT_ICON_SIZE = (238264, 322485)   # EMU, as placed on the reference deck's cards
 TERRAFORM_PURPLE = "7B42BC"
-BLOG_TITLE_LINES = 2             # a blog title longer than this is cut with an ellipsis
+BLOG_TITLE_LINES = 2             # a blog title longer than this shows a shorter form
 BLOG_LINE = 139700               # EMU (11 pt) a blog box is taller per title line
 BUTTON_INSET = 45720             # EMU (3.6 pt): a topic button's side insets, as its top and bottom ones
 VAULT_ICON = REPO_ROOT / "assets" / "product-icons" / "vault.png"
@@ -255,14 +255,14 @@ def render_columns(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], d
 def blog_title(title: str, style: textfit.ParaStyle, width: float, short: str = "") -> tuple[str, int]:
     """(the title as it goes in its box, the lines it takes): at most BLOG_TITLE_LINES. Bold is wider, so
     a title loses its emphasis before any of its words. One too long even plain gives way to `short`, the
-    shorter title the wording step made of its own words; only without one is it cut with an ellipsis."""
-    for wording in filter(None, (title, short)):
+    shorter title the wording step made of its own words, and without one to its longest leading part
+    that reads as a title (shorter_titles). It is never cut at a word with an ellipsis."""
+    for wording in filter(None, (title, short, *shorter_titles(title))):
         for text in (wording, sl.strip_markup(wording)):
             lines = textfit.line_count(sl.split_markup(text), style.size_pt, width)
             if lines <= BLOG_TITLE_LINES:
                 return text, lines
-    return (textfit.fit_text(sl.strip_markup(title), style, width, BLOG_TITLE_LINES, whole_sentences=False),
-            BLOG_TITLE_LINES)
+    raise BuildError(f"no part of the blog title '{title}' fits its box")
 
 
 def render_blogs(ctx: Context, slide: Path, plan: dict) -> tuple[list[Path], dict]:

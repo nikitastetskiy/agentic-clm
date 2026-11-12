@@ -160,27 +160,3 @@ def fit_sentences(text: str, style: ParaStyle, width_pt: float, max_lines: int) 
             break
         kept = candidate
     return kept
-
-
-def fit_text(text: str, style: ParaStyle, width_pt: float, max_lines: int, *,
-             whole_sentences: bool = True) -> str:
-    """The longest prefix of `text` that fits in `max_lines`.
-
-    With `whole_sentences` (prose) the cut falls between sentences; a title, or prose whose very first
-    sentence is already too long, is cut at a word boundary and ends with an ellipsis."""
-    def lines(candidate: str) -> int:
-        return _lines(candidate, style, width_pt)
-
-    text = " ".join((text or "").split())
-    if not text or lines(text) <= max_lines:
-        return text
-    kept = fit_sentences(text, style, width_pt, max_lines) if whole_sentences else ""
-    if kept:
-        return kept
-    words = text.split(" ")
-    while len(words) > 1:
-        words.pop()
-        candidate = " ".join(words).rstrip(",;:.") + "\u2026"
-        if lines(candidate) <= max_lines:
-            return candidate
-    return words[0]

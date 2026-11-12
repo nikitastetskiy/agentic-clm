@@ -38,8 +38,8 @@ Your whole job is one file in, one file out, both in the current directory:
 - `kind: "blog"` — `source.title` is a blog post's title. Return the title EXACTLY as given, every
   character unchanged, with its key phrase (one, at most two) wrapped in double asterisks.
 - `kind: "short"` — `source.items` holds the changes published on one day of a product changelog, as for
-  `changelog`. Write ONE short sentence that says the most important change: the deck shows it instead of
-  the full wording where a month has little room.
+  `changelog`, or `source.notes` a release's notes, as for `release`. Write ONE short sentence that says
+  the most important change: the deck shows it instead of the full wording where a month has little room.
 - `kind: "title"` — `source.title` is a blog post's title that is too long for its box. Return a SHORTER
   title made only of the title's own words, in their order: leave words out, and do not add, change or
   move any. Keep what the post is about, and wrap its key phrase (one, at most two) in double asterisks.

@@ -98,8 +98,9 @@ flowchart LR
 3. **Enrich** (`scripts/enrich.py`, optional) — for an item nobody has worded yet, a small model
    writes one line from the public release notes. It is stored in `state/enrichment.json` and reused
    from then on, so the deck is not reworded every week and a person can correct a line by editing
-   that file. Wording that may be too long for its place gets a short form as well: a changelog day
-   one short sentence, a blog title too long for its two lines a shorter title made of its own words.
+   that file. Wording that may be too long for its place gets a short form as well: a release or a
+   changelog day one short sentence, a blog title too long for its two lines a shorter title made of
+   its own words.
    Without a model the plan falls back to fixed rules.
 4. **Build** (`scripts/build_deck.py`) — clones the template's own paragraphs to write each slide, and
    **measures the text** so a column or card is filled to what fits instead of running out of its box.
@@ -139,12 +140,15 @@ These mirror how the reference deck is maintained by hand.
 - **Wording**: stored wording first (a person's, or the enrichment step's); otherwise what the release
   *adds*, as one sentence; a release that only fixes things gets its category label, followed by a
   short phrase of what it fixes once the enrichment step has written one (`Bug fixes: …`). Wording is
-  never cut at a word with an ellipsis: a changelog day that is too long for a full month shows its
-  short form (the enrichment step's, else its opening sentence without its closing clauses).
+  never cut at a word with an ellipsis: a release or a changelog day that is too long for a full month
+  shows its short form (the enrichment step's, else its opening sentence without its closing clauses),
+  and a release only then its category label.
 - **Blogs**: a post belongs to a product when its *title* names it; a title naming another product
   never does. The 8 newest are shown, each title with its key phrase in bold (marked once by the
   enrichment step, dropped rather than cut a word). A title too long for its two lines shows the shorter
-  form the enrichment step made of its own words, and is cut with an ellipsis only without one;
+  form the enrichment step made of its own words, and without one its longest leading part that reads
+  as a title (it stops before a subtitle, a bracket or a closing phrase such as "with …"), never one
+  cut with an ellipsis;
   `state/blogs.json` remembers posts the live sources no longer reach back to.
 - **Event cards** show webinars and workshops badged for the product, soonest first, each with its type,
   product icon(s) and language flag; up to six, three to a row, a second row filled from the left. A session badged for both products appears on both slides. The

@@ -80,13 +80,6 @@ class Wrapping(unittest.TestCase):
         self.assertEqual((tight.line_pct, tight.after_pt), (1.0, 3.0))
         self.assertEqual(textfit.spaced(ParaStyle(size_pt=8, line_pct=1.5), "template").line_pct, 1.5)
 
-    def test_prose_is_cut_between_sentences(self):
-        text = ("Automation has grown from simple scripts to whole environments. In this webinar learn how "
-                "Terraform manages everything as code. A third sentence that will not fit either.")
-        fitted = textfit.fit_text(text, ParaStyle(size_pt=6.5), 185, 2)
-        self.assertEqual(fitted, "Automation has grown from simple scripts to whole environments.")
-        self.assertEqual(textfit.fit_text(text, ParaStyle(size_pt=6.5), 185, 20), text)
-
     def test_whole_sentences_or_nothing(self):
         first = "Automation has grown from simple scripts to whole environments."
         text = first + " In this webinar learn how Terraform manages everything as code. A third sentence."
@@ -107,13 +100,6 @@ class Wrapping(unittest.TestCase):
         self.assertEqual(textfit.cut_points([(text, False)], 7, 90), [text.index("-minimal")])
         # the flag fits; "multi-architecture" opens a line, and an ordinary hyphenated word may wrap
         self.assertEqual(textfit.cut_points([(text, False)], 7, 100), [])
-
-    def test_a_title_is_cut_at_a_word_with_an_ellipsis(self):
-        title = "Simplify compliance with the native pre-written policy experience. In HCP Terraform and beyond"
-        fitted = textfit.fit_text(title, ParaStyle(size_pt=8), 150, 1, whole_sentences=False)
-        self.assertTrue(fitted.endswith("…"))
-        self.assertTrue(title.startswith(fitted[:-1]))
-        self.assertEqual(textfit.line_count([(fitted, False)], 8, 150), 1)
 
 
 if __name__ == "__main__":

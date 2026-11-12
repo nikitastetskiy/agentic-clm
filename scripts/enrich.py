@@ -5,8 +5,8 @@ The plan (plan_deck.py) fills every slide from fixed rules. For a NEW release wi
 changelog day with several changes, a rule can only quote the first note; a person would write one
 sentence that sums the release up. A release that only fixes things gets a short phrase after its
 category ("Bug fixes: …"), and a blog title its key phrase in bold. Where that wording may be too long
-for its place it also gets a short form: a changelog day one short sentence, for a month with little
-room, and a blog title too long for its two lines a shorter title made of its own words. This step asks
+for its place it also gets a short form: a release or a changelog day one short sentence, for a month
+with little room, and a blog title too long for its two lines a shorter title made of its own words. This step asks
 a small model for that wording and stores it in state/enrichment.json, so:
 
   * each item is worded ONCE — later builds reuse the stored text instead of rewording the deck
@@ -78,6 +78,11 @@ def source_index(data: dict) -> dict[str, dict]:
     return index
 
 
+def plain_size(entry: dict) -> int:
+    """How long an entry's rich wording is, emphasis marks aside."""
+    return sum(len(b.replace("**", "")) for b in (entry.get("options") or [[]])[0])
+
+
 def collect_needs(plan: dict, deck_cfg: dict, data: dict, enrich: dict) -> list[dict]:
     rules = {r["role"]: r for r in deck_cfg["slides"]}
     index = source_index(data)
@@ -110,25 +115,30 @@ def collect_needs(plan: dict, deck_cfg: dict, data: dict, enrich: dict) -> list[
                             needs[key] = {"id": key, "kind": "changelog", **day, "max_chars": MAX_CHARS["changelog"]}
                         # Wording longer than a short form would be gets one too: a month with many entries
                         # shows that instead of leaving an entry out.
-                        rich = sum(len(b.replace("**", "")) for b in (entry.get("options") or [[]])[0])
-                        if key not in shorts and rich > MAX_CHARS["short"]:
+                        if key not in shorts and plain_size(entry) > MAX_CHARS["short"]:
                             needs[key + SHORT] = {"id": key + SHORT, "kind": "short", **day,
                                                   "max_chars": MAX_CHARS["short"]}
-                    elif key not in known and not src.get("is_prerelease"):
+                    elif not src.get("is_prerelease"):
                         notes = {name: [f"{i['lead']}: {i['text']}" if i.get("lead") else i["text"] for i in items]
                                  for name, items in (src.get("sections") or {}).items() if items}
                         names = {name.strip().lower() for name in notes}
-                        if names & set(ADDS):
-                            needs[key] = {"id": key, "kind": "release", "product": src["_display"],
-                                          "version": src["version"], "date": src["date"],
+                        release = {"product": src["_display"], "version": src["version"], "date": src["date"],
+                                   "source": {"notes": notes}}
+                        if key not in known and names & set(ADDS):
+                            needs[key] = {"id": key, "kind": "release", **release,
                                           "max_bullets": int(style.get("bullets", 1)),
-                                          "max_chars": MAX_CHARS["release"], "source": {"notes": notes}}
-                        elif names & set(FIXES):
+                                          "max_chars": MAX_CHARS["release"]}
+                        elif key not in known and names & set(FIXES):
                             # Shown after the category the entry falls back to: "Bug fixes: <phrase>".
-                            needs[key] = {"id": key, "kind": "fixes", "product": src["_display"],
-                                          "version": src["version"], "date": src["date"],
+                            needs[key] = {"id": key, "kind": "fixes", **release,
                                           "label": entry["options"][-1][0], "max_bullets": 1,
-                                          "max_chars": MAX_CHARS["fixes"], "source": {"notes": notes}}
+                                          "max_chars": MAX_CHARS["fixes"]}
+                        # As for a changelog day: long wording, and wording asked for here that may come
+                        # out long, gets a short form for a month with many releases.
+                        asked = needs.get(key, {}).get("kind") == "release"
+                        if key not in shorts and notes and (plain_size(entry) > MAX_CHARS["short"] or asked):
+                            needs[key + SHORT] = {"id": key + SHORT, "kind": "short", **release, "max_bullets": 1,
+                                                  "max_chars": MAX_CHARS["short"]}
         elif slide["kind"] == "blogs":
             for post in slide["entries"]:
                 key = state.norm_url(post["url"])

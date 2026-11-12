@@ -11,8 +11,8 @@ Wording comes from, in order of preference:
      or that the enrichment step wrote once and cached;
   2. the public source itself, condensed by fixed rules (first sentence of the lead note, a category
      label such as "Bug fixes", an event page's abstract).
-Entries carry both as `options` — the rich wording first, a terse fallback second — and the builder
-uses the richest one that fits the box.
+Entries carry both as `options` — the rich wording first, then a short form of it, a release's category
+label last — and the builder uses the richest one that fits the box.
 
 Disclosure guard: a CVE id may only appear in the deck if the public release notes for that same
 release name it. Wording that cites any other CVE is dropped and reported, whoever wrote it.
@@ -134,6 +134,10 @@ def lead_sentence(sections: dict, max_chars: int = 210) -> str | None:
     return None
 
 
+def plain_size(bullets: list[str]) -> int:
+    return sum(len(b.replace("**", "")) for b in bullets)
+
+
 def public_text(*entries: dict) -> str:
     """Everything the public source says about the given release / changelog entries."""
     chunks = []
@@ -171,6 +175,15 @@ class Planner:
             return None
         return bullets
 
+    def short_option(self, key: str, rich: list[str], openings: list[str], *sources: dict) -> list[str]:
+        """What an entry shows where its month has no room for `rich`: the short form the wording step
+        stored, else the shortest of `openings` (opening sentences of its wording, without their closing
+        clauses). Never longer than `rich`: a short option that is would help no column."""
+        short = self.curated(key, *sources, table="shorts")
+        if short and plain_size(short) < plain_size(rich):
+            return short
+        return [min(openings, key=lambda s: plain_size([s]))]
+
     # ----------------------------------------------------------------------- columns --------------
     def month_columns(self, entries: list[dict]) -> list[tuple[str, list[dict]]]:
         """The newest N months that have entries, oldest first: [(YYYY-MM, entries newest first)]."""
@@ -192,16 +205,22 @@ class Planner:
                 "options": options}
 
     def notes_options(self, key: str, rel: dict, style: dict) -> list[list[str]]:
-        """[rich, terse]: stored wording (else what the release adds, as a sentence), then a category
-        label. A slide whose style says ``wording: label`` only ever gets the label."""
+        """[rich, short, terse]: stored wording (else what the release adds, as a sentence), its short
+        form, then a category label. A slide whose style says ``wording: label`` only ever gets the label."""
         sections = rel.get("sections") or {}
         if style.get("wording") == "label":
             return [[section_label(sections)]]
         stored = self.curated(key, rel)
         lead = lead_sentence(sections)
         rich = stored or ([lead] if lead else None)
-        terse = [section_label(sections)]
-        return [rich, terse] if rich else [terse]
+        return self.worded(key, rich, [section_label(sections)], rel)
+
+    def worded(self, key: str, rich: list[str] | None, terse: list[str], *sources: dict) -> list[list[str]]:
+        """A release entry's options. Wording that is short already is its own short form, so that a
+        month with little room keeps it while a longer neighbour gives way to its short form."""
+        if not rich:
+            return [terse]
+        return [rich, self.short_option(key, rich, [first_sentences(rich[0], 150)], *sources), terse]
 
     def vault_day_entry(self, product: str, group: list[dict], style: dict) -> dict:
         """One entry for every Vault version released on the same day: the newest line first, then
@@ -216,9 +235,8 @@ class Planner:
         heading.append({"text": f" ({group[0]['date']})"})
         if lead is None:
             key = f"{product}/{group[0]['version']}"
-            stored = self.curated(key, *group)
-            label = [style.get("lts_label", "Bug fixes and improvements")]
-            options = [stored, label] if stored else [label]
+            options = self.worded(key, self.curated(key, *group),
+                                  [style.get("lts_label", "Bug fixes and improvements")], *group)
         else:
             key = f"{product}/{lead['version']}"
             options = self.notes_options(key, lead, style)
@@ -268,19 +286,11 @@ class Planner:
                 else:
                     more = f" (+{len(items) - 1} more updates)" if len(items) > 1 else ""
                     options.append([first_sentences(items[0]["text"], 300, 2) + more])
-                # The short option is the short form the wording step stored. Without one (or with one that
-                # is no shorter than the rich wording) it is the shorter of the source's opening sentence and
-                # the stored wording's: either can run past the other, and a short option longer than the rich
-                # wording would help no column.
-                def size(bullets: list[str]) -> int:
-                    return sum(len(b.replace("**", "")) for b in bullets)
-                short = self.curated(key, entry, table="shorts")
-                if not short or size(short) >= size(options[0]):
-                    first = items[0]
-                    shorts = [first_sentences(stored[0], 150)] if stored else []
-                    shorts.append(labelled(first.get("title"), first_sentences(first["text"], 150)))
-                    short = [min(shorts, key=lambda s: size([s]))]
-                options.append(short)
+                # The short option's openings: the stored wording's opening sentence and the source's.
+                # Either can run past the other.
+                openings = [first_sentences(stored[0], 150)] if stored else []
+                openings.append(labelled(items[0].get("title"), first_sentences(items[0]["text"], 150)))
+                options.append(self.short_option(key, options[0], openings, entry))
                 planned.append({"key": key, "date": entry["date"],
                                 "heading": [{"text": entry["date"], "url": entry["url"]}],
                                 "options": options})

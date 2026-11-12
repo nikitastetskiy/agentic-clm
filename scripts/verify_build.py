@@ -48,7 +48,8 @@ from xml.dom import minidom
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import compose, deck, fonts, layout, package, slides as sl, textfit  # noqa: E402
 from lib import pptx_edit as px  # noqa: E402
-from lib.common import DATA_DIR, MONTH_NAMES, REPO_ROOT, keeps_words, load_config, log, read_json  # noqa: E402
+from lib.common import (DATA_DIR, MONTH_NAMES, REPO_ROOT, keeps_words, load_config, log, read_json,  # noqa: E402
+                        shorter_titles)
 from lib.textfit import EMU_PT  # noqa: E402
 
 CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
@@ -175,10 +176,11 @@ def check_blogs(checks: dict, role: str, dom, rid_target: dict, plan: dict, slid
                    f"'{want['date_display']}' -> {want['url']}")
         full = norm(sl.strip_markup(want["title"]))
         title = norm(sl.strip_markup(got["title"]))
-        # A title too long for its box may show its planned shorter form: the title with words left out.
+        # A title too long for its box may show its planned shorter form, the title with words left out,
+        # or one of its leading parts that read as a title. Never one cut at a word.
         short = norm(sl.strip_markup(want.get("title_short", "")))
         shortened = bool(short) and title == short and keeps_words(short, full)
-        if title != full and not shortened and not (title.endswith("…") and full.startswith(title[:-1].rstrip())):
+        if title != full and not shortened and title not in shorter_titles(full):
             c.fail(f"{role}: title '{title}' != planned '{full}'")
     urls = [e["url"] for e in shown]
     if len(set(urls)) != len(urls):
@@ -221,8 +223,7 @@ def check_webinars(checks: dict, role: str, dom, rid_target: dict, plan: dict, b
             c.fail(f"{label}: card shows {got['date_label']} | {got['kind']} | {got['title']} -> {got['url']}")
         if not got["description"].strip():
             c.fail(f"{label}: card has no description")
-        elif not any(norm(opt).startswith(norm(got["description"]).rstrip("…").rstrip())
-                     for opt in want["description_options"]):
+        elif not any(norm(opt).startswith(norm(got["description"])) for opt in want["description_options"]):
             c.fail(f"{label}: description is not taken from the planned options")
         if want["date"] < build_date:
             c.fail(f"{label}: event date {want['date']} is before the build date")

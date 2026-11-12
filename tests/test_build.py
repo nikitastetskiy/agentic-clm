@@ -379,11 +379,13 @@ class WeeklyBuild(unittest.TestCase):
         from lib import slides as sl
         plan = json.loads(json.dumps(self.plan))
         post = next(s for s in plan["slides"] if s["role"] == "vault-blogs")["entries"][0]
-        shown = post["title"]
+        shown = sl.strip_markup(post["title"])
         path = self.tmp / "plan-short-title.json"
-        for full, verdict in ((f"{sl.strip_markup(shown)} and a great deal more that the box cannot hold", set()),
-                              ("Another title altogether, far too long for the box it has to go into", {"blogs"})):
-            post.update(title=full, title_short=shown)
+        for full, short, verdict in (
+                (f"Announcing {shown}", shown, set()),                                    # words left out
+                (f"{shown}: and a great deal more that the box cannot hold", "", set()),   # a leading part
+                ("Another title altogether, far too long for the box it has to go into", shown, {"blogs"})):
+            post.update(title=full, title_short=short)
             path.write_text(json.dumps(plan), encoding="utf-8")
             self.assertEqual(self.failed(self.verify(self.deck, plan=path)), verdict)
 
@@ -503,8 +505,20 @@ class BlogTitles(unittest.TestCase):
                  "and application developers across every business unit of a large enterprise (Public Preview)")
         short = "Building Self-Service into Terraform: **Terraform Developer Portal**"
         self.assertEqual(build_deck.blog_title(title, style, 295, short), (short, 1))
-        self.assertTrue(build_deck.blog_title(title, style, 295)[0].endswith("…"))   # no shorter form: cut
+        # no shorter form: the title up to where it can stop, here before "across …"; never an ellipsis
+        self.assertEqual(build_deck.blog_title(title, style, 295), (title[:title.index(" across")], 2))
         self.assertEqual(build_deck.blog_title("A title that fits", style, 295, short)[0], "A title that fits")
+
+    def test_a_title_s_leading_parts_end_where_it_can_stop_then_on_a_word_a_title_can_end_on(self):
+        from lib.common import shorter_titles
+        title = "Is your **Vault** ready? Secrets sync at scale: the lessons of a year with platform teams (Part 2)"
+        plain = title.replace("**", "")
+        parts = shorter_titles(title)
+        # before a bracket, before "with …", before a subtitle, before "at …", after a question
+        self.assertEqual(parts[:5], [plain[:plain.index(cut)] for cut in (" (Part", " with", ":", " at scale", " Secrets")])
+        self.assertIn("Is your Vault ready? Secrets sync at scale: the lessons", parts)    # then whole words
+        for cut in ("teams (Part", "lessons of", "lessons of a", "Is your"):   # a bracket open, a connector
+            self.assertNotIn(plain[:plain.index(cut) + len(cut)], parts)
 
 
 if __name__ == "__main__":

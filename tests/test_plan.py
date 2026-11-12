@@ -115,8 +115,23 @@ class ReleaseColumns(unittest.TestCase):
                                release("1.16.1", "2026-08-28", sections=FIXES)], rule=rule)
         patch, minor = slide["columns"][0]["entries"]
         self.assertEqual(minor["options"], [["Imports now work inside child modules."],
+                                            ["Imports now work inside child modules."],   # short already
                                             ["New features, enhancements and bug fixes"]])
         self.assertEqual(patch["options"], [["Bug fixes"]])
+
+    def test_a_release_s_short_form_sits_between_its_wording_and_its_label(self):
+        long = ("Adds **import blocks** inside child modules, allowing teams to bring existing resources under "
+                "management without first moving every one of them to the root module.")
+        enrich = {"highlights": {"terraform/1.16.0": {"bullets": [long, "A second line."]}}}
+        plan = lambda: self.plan([release("1.16.0", "2026-08-26", sections=MINOR)],   # noqa: E731
+                                 rule={**TF_RULE, "style": {}}, enrich=enrich)[1]["columns"][0]["entries"][0]["options"]
+        label = ["New features, enhancements and bug fixes"]
+        # without a stored short form: the wording's opening sentence, without its closing clause
+        self.assertEqual(plan(), [[long, "A second line."], ["Adds **import blocks** inside child modules."], label])
+        enrich["shorts"] = {"terraform/1.16.0": {"bullets": ["Adds **import blocks** in child modules."]}}
+        self.assertEqual(plan()[1], ["Adds **import blocks** in child modules."])
+        enrich["shorts"]["terraform/1.16.0"]["bullets"] = [long + " And a good deal more than that."]   # no shorter: not used
+        self.assertEqual(plan()[1], ["Adds **import blocks** inside child modules."])
 
     def test_stored_wording_wins(self):
         enrich = {"highlights": {"terraform/1.16.0": {"bullets": ["A **curated** line.."], "source": "x"}}}

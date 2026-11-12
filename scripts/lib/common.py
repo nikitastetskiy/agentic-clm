@@ -123,3 +123,30 @@ def keeps_words(short: str, full: str) -> bool:
         return [w for w in (re.sub(r"^\W+|\W+$", "", w).lower() for w in text.replace("**", "").split()) if w]
     rest = iter(words(full))
     return all(word in rest for word in words(short))
+
+
+# Where a title can stop and what stands before still reads as the title: after a question, before a
+# subtitle (a colon, a dash), before a bracket or a phrase that only adds to it ("… with X", "… for Y").
+# Not at a comma, which as often sits inside a list, nor before "and", "of", "to" or "by", which finish
+# what stands before them.
+TITLE_STOP_RE = re.compile(r"([?!])\s|[:|]\s|\s[-–—]\s|,?\s(?=\(|(?:with|for|in|on|at|from|into|across|through|"
+                           r"using|via|without|while)\s)", re.I)
+# Words a title does not end on.
+TITLE_CONNECTORS = frozenset("a an the and or but of to for with in on at by from as into via vs than that which "
+                             "when where if how why what your our their its is are new".split())
+
+
+def shorter_titles(title: str) -> list[str]:
+    """The leading parts of `title` that still read as a title, best first: up to each place it can stop,
+    the longest first, then up to each whole word a title can end on. What a title too long for its box
+    shows when the wording step made no shorter one of it: its words are never cut with an ellipsis."""
+    text = " ".join(title.replace("**", "").split())
+    stops = [text[:m.start()] + (m.group(1) or "") for m in TITLE_STOP_RE.finditer(text)]
+    words = text.split(" ")
+    ends = [" ".join(words[:n]).rstrip(",;: ") for n in range(len(words) - 1, 0, -1)]
+
+    def ends_well(part: str) -> bool:
+        last = re.sub(r"^\W+|\W+$", "", part.split(" ")[-1]).lower()
+        return bool(last) and last not in TITLE_CONNECTORS and part.count("(") == part.count(")")
+    return list(dict.fromkeys([p for p in reversed(stops) if len(p.split()) >= 3 and ends_well(p)]
+                              + [p for p in ends if p and ends_well(p)]))
